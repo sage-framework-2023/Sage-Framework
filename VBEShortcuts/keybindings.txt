@@ -1,0 +1,23 @@
+# Atalhos do VBE - recarregado automaticamente ao salvar.
+#
+#   <tecla>[, <tecla>...] = <ação>        # comentário
+#
+# Tecla:  [Ctrl+][Shift+][Alt+][Win+]<nome>
+#         nome = A-Z, 0-9, F1-F24, Up, Down, Left, Right, Home, End, PgUp, PgDn,
+#                Enter, Esc, Space, Tab, Backspace, Del, Ins, ou um nome de
+#                System.Windows.Forms.Keys (ex.: OemSemicolon, Oemcomma).
+#         Vários acordes em sequência formam um atalho de dois tempos (Ctrl+K, Ctrl+C).
+#
+# Ação:   comment        comenta o bloco como o VS Code: "' " no menor recuo, sem
+#                        comentar linhas vazias (funciona com o código pausado;
+#                        o Ctrl+Z do VBE não desfaz)
+#         uncomment      remove o comentário do bloco (idem)
+#         vbe:<id>       executa o controle do VBE com esse Id (CommandBars.FindControl)
+#         macro:<nome>   executa Application.Run "<nome>" (ex.: macro:'Sage.xlam'!Modulo.Proc)
+#
+# Ids úteis: 192 Comentar bloco | 2552 Remover comentário do bloco
+#            2554 Janela Verificação imediata | 2555 Variáveis locais | 2556 Inspeção de variáveis
+
+Ctrl+K, Ctrl+C = comment      # Comentar bloco
+Ctrl+K, Ctrl+U = uncomment    # Remover comentário do bloco
+Ctrl+J         = vbe:2554     # Abrir a janela Verificação imediata (substitui "Listar propriedades/métodos")

@@ -1,0 +1,82 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Text;
+using System.Text.RegularExpressions;
+
+namespace SageVBE
+{
+    // %APPDATA%\Sage\settings.json, no formato do VS Code (só valores texto por enquanto):
+    //   { "workbench.colorTheme": "Dark Modern" }
+    static class Settings
+    {
+        public static readonly string Folder = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Sage");
+        public static readonly string FilePath = Path.Combine(Folder, "settings.json");
+
+        public const string ColorThemeKey = "workbench.colorTheme";
+
+        static readonly object sync = new object();
+        static readonly SortedDictionary<string, string> values = new SortedDictionary<string, string>();
+
+        public static string ColorTheme
+        {
+            get { return Get(ColorThemeKey, Theme.DefaultName); }
+            set { Set(ColorThemeKey, value); }
+        }
+
+        public static string Get(string key, string fallback)
+        {
+            lock (sync)
+            {
+                string v;
+                return values.TryGetValue(key, out v) ? v : fallback;
+            }
+        }
+
+        public static void Set(string key, string value)
+        {
+            lock (sync)
+            {
+                values[key] = value;
+                Save();
+            }
+        }
+
+        public static void Load()
+        {
+            lock (sync)
+            {
+                values.Clear();
+                if (!File.Exists(FilePath)) return;
+                string json = File.ReadAllText(FilePath, Encoding.UTF8);
+                foreach (Match m in Regex.Matches(json, "\"((?:[^\"\\\\]|\\\\.)*)\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\""))
+                    values[Unescape(m.Groups[1].Value)] = Unescape(m.Groups[2].Value);
+            }
+        }
+
+        static void Save()
+        {
+            StringBuilder sb = new StringBuilder("{\r\n");
+            int i = 0;
+            foreach (KeyValuePair<string, string> kv in values)
+            {
+                sb.Append("    \"").Append(Escape(kv.Key)).Append("\": \"").Append(Escape(kv.Value)).Append('"');
+                sb.Append(++i < values.Count ? ",\r\n" : "\r\n");
+            }
+            sb.Append("}\r\n");
+            Directory.CreateDirectory(Folder);
+            File.WriteAllText(FilePath, sb.ToString(), new UTF8Encoding(false));
+        }
+
+        static string Escape(string s)
+        {
+            return s.Replace("\\", "\\\\").Replace("\"", "\\\"");
+        }
+
+        static string Unescape(string s)
+        {
+            return Regex.Replace(s, "\\\\(.)", "$1");
+        }
+    }
+}
