@@ -5,7 +5,7 @@ Add-in .NET do editor do VBA (VBE), carregado dentro do Excel. Ele roda independ
 - **Menu Sage**, entre "Janela" e "Ajuda", com a opção **Configurações...**.
 - **Configurações** no estilo do VS Code. Por enquanto, só *Aparência: Tema de Cores*.
 - **Temas para o VBE inteiro**: menus, barras de ferramentas, menus de contexto, Projeto, Propriedades, Verificação imediata, código, bordas e barras de título.
-  - Temas disponíveis: *Padrão do VBE*, *Dark Modern*, *Dark+* e *Light Modern*.
+  - Temas disponíveis: *Padrão do VBE*, *Dark Modern*, *Dark+*, *Sage* (escuro em tons de sálvia) e *Light Modern*.
 
 ## Instalar
 

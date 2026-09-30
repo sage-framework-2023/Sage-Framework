@@ -76,6 +76,11 @@ namespace SageVBE
                 border: "#3C3C3C", selection: "#264F78", selectionText: "#FFFFFF",
                 input: "#3C3C3C", accent: "#007ACC", hover: "#2A2D2E",
                 palette: DarkPalette(), backPalette: DarkBackPalette("#1E1E1E")),
+            Create("Sage", true,
+                editor: "#2B352D", sidebar: "#243027", text: "#DCE5D8", muted: "#9AA894",
+                border: "#3B4A3E", selection: "#4E6E56", selectionText: "#FFFFFF",
+                input: "#34403A", accent: "#8DAA85", hover: "#33403A",
+                palette: SagePalette(), backPalette: DarkBackPalette("#2B352D")),
             Create("Light Modern", false,
                 editor: "#FFFFFF", sidebar: "#F8F8F8", text: "#3B3B3B", muted: "#717171",
                 border: "#E5E5E5", selection: "#ADD6FF", selectionText: "#000000",
@@ -211,6 +216,30 @@ namespace SageVBE
                 Ref("#4F1F4F"), // Magenta
                 Ref("#4B4B18"), // Amarelo      -> ponto de execução
                 Ref(editor),    // Branco       -> fundo do editor
+            };
+        }
+
+        // Cor do texto no tema Sage: verdes-sálvia e tons terrosos suaves
+        static int[] SagePalette()
+        {
+            return new int[]
+            {
+                Ref("#D3DDD0"), // Preto        -> texto claro
+                Ref("#A3C9A8"), // Azul-marinho -> palavras-chave (sálvia clara)
+                Ref("#7B8C76"), // Verde        -> comentários (sálvia apagada)
+                Ref("#7FB8A4"), // Azul-petróleo
+                Ref("#D18A7A"), // Marrom
+                Ref("#B79BC2"), // Roxo
+                Ref("#D6C98E"), // Oliva
+                Ref("#C0C8BD"), // Prata
+                Ref("#98A393"), // Cinza
+                Ref("#8FB4C9"), // Azul
+                Ref("#B8D4A0"), // Verde-limão
+                Ref("#9ED0C8"), // Ciano
+                Ref("#E27D6F"), // Vermelho     -> erro de sintaxe
+                Ref("#C79AC7"), // Magenta
+                Ref("#E0D48F"), // Amarelo
+                Ref("#FFFFFF"), // Branco       -> texto do ponto de interrupção
             };
         }
 

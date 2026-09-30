@@ -1,5 +1,0 @@
-Id,Command,Keybinding,When,Source,Default Keybinding
-0,Sage: Add Line Comment,Ctrl+K Ctrl+C,EditorTextFocus,Sage,Ctrl+K Ctrl+C
-1,Sage: Create Terminal,Ctrl+Alt+J,-,Sage,Ctrl+Alt+J
-2,Sage: Open/Close Terminal,Ctrl+J,-,Sage,Ctrl+J
-3,Sage: Remove Line Comment,Ctrl+K Ctrl+U,EditorTextFocus,Sage,Ctrl+K Ctrl+U
