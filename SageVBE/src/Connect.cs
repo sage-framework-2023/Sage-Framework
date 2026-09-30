@@ -69,6 +69,8 @@ namespace SageVBE
             ThemeEngine.Apply(Theme.Find(Settings.ColorTheme));
 
             menu = new SageMenu((object)vbe, new Action(OpenSettings));
+            try { Syntax.Scan(vbe); }
+            catch (Exception ex) { Log.Error(ex); }
             Log.Info("Iniciado. Tema: " + Settings.ColorTheme);
         }
 

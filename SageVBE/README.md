@@ -6,6 +6,12 @@ Add-in .NET do editor do VBA (VBE), carregado dentro do Excel. Ele roda independ
 - **Configurações** no estilo do VS Code. Por enquanto, só *Aparência: Tema de Cores*.
 - **Temas para o VBE inteiro**: menus, barras de ferramentas, menus de contexto, Projeto, Propriedades, Verificação imediata, código, bordas e barras de título.
   - Temas disponíveis: *Padrão do VBE*, *Dark Modern*, *Dark+*, *Sage* (escuro em tons de sálvia) e *Light Modern*.
+- **Realce de sintaxe** no estilo do VS Code, além das cores que o VBE já tem:
+  - nomes de Sub/Function/Property/Enum e chamadas de procedimentos em amarelo;
+  - variáveis e propriedades em ciano;
+  - strings em laranja e números em verde;
+  - tipos (`As Long`, `As Sage.ListS`) em verde-água;
+  - controle de fluxo (`If`, `For`, `Select Case`, `Exit`...) em roxo.
 
 ## Instalar
 
@@ -35,6 +41,7 @@ Tudo roda na thread de interface do Excel e só age **enquanto uma janela do VBE
 | Menus e barras (desenhados pelo `VBEUI.DLL`) | Cores fixas do Office têm a luminosidade invertida (`SetTextColor`, `CreateSolidBrush`, `CreatePen`, `SetDC*Color`, `GetStockObject`) |
 | Bordas 3D e botões "X" das janelas encaixadas | `DrawEdge`/`DrawFrameControl` substituídos por versões lisas |
 | Abas das Propriedades e botões de modo de exibição | Desenho próprio em `Painters.cs` |
+| Realce de sintaxe | `ExtTextOutA`/`TextOutA` do `VBE7.DLL`: cada trecho de texto normal ou de palavra-chave é dividido em tokens (`Syntax.cs`) e redesenhado em pedaços. O VBE usa `TA_UPDATECP`, então os pedaços saem em sequência. Os nomes de procedimentos vêm dos módulos não protegidos e das declarações que aparecem na tela |
 | Barras de rolagem, caixas e barra de título | Tema escuro do Windows (`DarkMode_Explorer`, `DarkMode_CFD`) e DWM |
 
 ## Limitações

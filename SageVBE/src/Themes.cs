@@ -19,6 +19,9 @@ namespace SageVBE
         // outra para a cor de fundo. null = paleta original.
         public int[] Palette, BackPalette;
 
+        // Cores de sintaxe extras (nomes de procedimentos, variáveis, strings...). null = só as do VBE.
+        public SyntaxColors Syntax;
+
         // Cores da tela de Configurações
         public Color Background, Sidebar, Foreground, Muted, Border, Input, Accent, Hover;
 
@@ -66,27 +69,33 @@ namespace SageVBE
         public static readonly Theme[] All = new Theme[]
         {
             CreateDefault(),
-            Create("Dark Modern", true,
+            WithSyntax(Create("Dark Modern", true,
                 editor: "#1F1F1F", sidebar: "#181818", text: "#CCCCCC", muted: "#9D9D9D",
                 border: "#2B2B2B", selection: "#264F78", selectionText: "#FFFFFF",
                 input: "#313131", accent: "#0078D4", hover: "#2A2D2E",
-                palette: DarkPalette(), backPalette: DarkBackPalette("#1F1F1F")),
-            Create("Dark+", true,
+                palette: DarkPalette(), backPalette: DarkBackPalette("#1F1F1F")), SyntaxColors.Create("#DCDCAA", "#9CDCFE", "#CE9178", "#B5CEA8", "#4EC9B0", "#C586C0")),
+            WithSyntax(Create("Dark+", true,
                 editor: "#1E1E1E", sidebar: "#252526", text: "#D4D4D4", muted: "#9D9D9D",
                 border: "#3C3C3C", selection: "#264F78", selectionText: "#FFFFFF",
                 input: "#3C3C3C", accent: "#007ACC", hover: "#2A2D2E",
-                palette: DarkPalette(), backPalette: DarkBackPalette("#1E1E1E")),
-            Create("Sage", true,
+                palette: DarkPalette(), backPalette: DarkBackPalette("#1E1E1E")), SyntaxColors.Create("#DCDCAA", "#9CDCFE", "#CE9178", "#B5CEA8", "#4EC9B0", "#C586C0")),
+            WithSyntax(Create("Sage", true,
                 editor: "#2B352D", sidebar: "#243027", text: "#DCE5D8", muted: "#9AA894",
                 border: "#3B4A3E", selection: "#4E6E56", selectionText: "#FFFFFF",
                 input: "#34403A", accent: "#8DAA85", hover: "#33403A",
-                palette: SagePalette(), backPalette: DarkBackPalette("#2B352D")),
-            Create("Light Modern", false,
+                palette: SagePalette(), backPalette: DarkBackPalette("#2B352D")), SyntaxColors.Create("#E3D38E", "#A7D8D3", "#E0A27A", "#C3D9A4", "#8FCFB4", "#C8A2C8")),
+            WithSyntax(Create("Light Modern", false,
                 editor: "#FFFFFF", sidebar: "#F8F8F8", text: "#3B3B3B", muted: "#717171",
                 border: "#E5E5E5", selection: "#ADD6FF", selectionText: "#000000",
                 input: "#FFFFFF", accent: "#005FB8", hover: "#F2F2F2",
-                palette: LightPalette(), backPalette: LightPalette()),
+                palette: LightPalette(), backPalette: LightPalette()), SyntaxColors.Create("#795E26", "#001080", "#A31515", "#098658", "#267F99", "#AF00DB")),
         };
+
+        static Theme WithSyntax(Theme t, SyntaxColors syntax)
+        {
+            t.Syntax = syntax;
+            return t;
+        }
 
         public static Theme Find(string name)
         {

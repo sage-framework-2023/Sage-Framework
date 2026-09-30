@@ -96,6 +96,7 @@ namespace SageVBE
             gdi32Hooks = new Dictionary<string, IntPtr>();
             gdi32Hooks["SetTextColor"] = Marshal.GetFunctionPointerForDelegate(hookText);
             gdi32Hooks["SetBkColor"] = Marshal.GetFunctionPointerForDelegate(hookBk);
+            Syntax.Hooks(gdi32, gdi32Hooks);
 
             origSolidBrush = (Native.CreateSolidBrushProc)Original(gdi32, "CreateSolidBrush", typeof(Native.CreateSolidBrushProc));
             origPen = (Native.CreatePenProc)Original(gdi32, "CreatePen", typeof(Native.CreatePenProc));
@@ -414,6 +415,7 @@ namespace SageVBE
 
         static int HookSetTextColor(IntPtr hdc, int color)
         {
+            Syntax.NoteTextColor(color);
             Theme t = current;
             return origText(hdc, t == null ? color : MapColor(hdc, color, t.Palette));
         }
@@ -436,6 +438,13 @@ namespace SageVBE
                 if (i >= 0) return palette[i];
             }
             return color;
+        }
+
+        // Tema para o realce de sintaxe: pintura normal ou desenho direto numa janela do VBE
+        public static Theme SyntaxTheme(IntPtr hdc)
+        {
+            Theme t = current;
+            return t != null && (depth > 0 || IsVbeSurface(hdc)) ? t : null;
         }
 
         static readonly Dictionary<IntPtr, bool> vbeSurfaces = new Dictionary<IntPtr, bool>();
