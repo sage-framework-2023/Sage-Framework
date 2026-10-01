@@ -76,6 +76,10 @@ namespace SageVBE
         readonly Panel content = new Panel();
         readonly Label sectionTitle = new Label();
         readonly SettingItem themeItem;
+        readonly Label editorTitle = new Label();
+        readonly SettingItem lineItem;
+        // Resultado da pesquisa (Control.Visible é falso enquanto a janela não aparece)
+        bool showAppearance = true, showEditor = true;
         readonly Label noResults = new Label();
         Theme theme;
 
@@ -111,6 +115,7 @@ namespace SageVBE
             // Índice à esquerda
             AddNavItem("Comumente Usado");
             AddNavItem("Aparência");
+            AddNavItem("Editor");
             Controls.Add(nav);
 
             // Conteúdo
@@ -127,6 +132,23 @@ namespace SageVBE
                 names.ToArray(), theme.Name, "tema cores aparência theme color workbench dark light escuro claro");
             themeItem.ValueChanged += OnThemeChanged;
             content.Controls.Add(themeItem);
+
+            editorTitle.Text = "Editor";
+            editorTitle.Font = sectionFont;
+            editorTitle.AutoSize = true;
+            content.Controls.Add(editorTitle);
+
+            lineItem = new SettingItem("Editor: ", "Números de Linha",
+                "Mostra o número de cada linha à esquerda do código, com a linha atual em destaque. " +
+                "Funciona com os temas do Sage (não com o Padrão do VBE).",
+                new string[] { "Ativado", "Desativado" }, Settings.LineNumbers ? "Ativado" : "Desativado",
+                "linha linhas números numeração line numbers editor margem");
+            lineItem.ValueChanged += delegate(string value)
+            {
+                Settings.LineNumbers = value == "Ativado";
+                applyTheme(theme); // redesenha o VBE
+            };
+            content.Controls.Add(lineItem);
 
             noResults.Text = "Nenhuma configuração encontrada";
             noResults.AutoSize = true;
@@ -164,7 +186,8 @@ namespace SageVBE
                 l.Font = on ? titleFont : uiFont;
                 l.ForeColor = on ? theme.Foreground : theme.Muted;
             }
-            themeItem.Focus();
+            if (selected.Text == "Editor") { content.ScrollControlIntoView(lineItem); lineItem.Focus(); }
+            else { content.ScrollControlIntoView(sectionTitle); themeItem.Focus(); }
         }
 
         void DoLayout()
@@ -182,18 +205,31 @@ namespace SageVBE
                 navItems[i].SetBounds(0, i * 26, nav.Width, 26);
 
             content.SetBounds(nav.Right + 16, top, w - nav.Right - 16 - margin, h - top);
-            sectionTitle.Location = new Point(12, 0);
-            themeItem.SetBounds(0, sectionTitle.Bottom + 12, Math.Min(content.ClientSize.Width, 820), themeItem.PreferredHeight);
+            int itemWidth = Math.Min(content.ClientSize.Width, 820);
+            int y = 0;
+            if (showAppearance)
+            {
+                sectionTitle.Location = new Point(12, y);
+                themeItem.SetBounds(0, sectionTitle.Bottom + 12, itemWidth, themeItem.PreferredHeight);
+                y = themeItem.Bottom + 24;
+            }
+            if (showEditor)
+            {
+                editorTitle.Location = new Point(12, y);
+                lineItem.SetBounds(0, editorTitle.Bottom + 12, itemWidth, lineItem.PreferredHeight);
+            }
             noResults.Location = new Point(12, 4);
         }
 
         void Filter()
         {
             string q = search.Text.Trim();
-            bool visible = themeItem.Matches(q);
-            themeItem.Visible = visible;
-            sectionTitle.Visible = visible;
-            noResults.Visible = !visible;
+            showAppearance = themeItem.Matches(q);
+            showEditor = lineItem.Matches(q);
+            themeItem.Visible = sectionTitle.Visible = showAppearance;
+            lineItem.Visible = editorTitle.Visible = showEditor;
+            noResults.Visible = !showAppearance && !showEditor;
+            DoLayout();
         }
 
         void OnThemeChanged(string name)
@@ -220,6 +256,8 @@ namespace SageVBE
             nav.BackColor = theme.Background;
             content.BackColor = theme.Background;
             sectionTitle.ForeColor = theme.Foreground;
+            editorTitle.ForeColor = theme.Foreground;
+            lineItem.SetTheme(theme);
             noResults.ForeColor = theme.Muted;
             foreach (Label l in navItems) l.BackColor = theme.Background;
             themeItem.SetTheme(theme);

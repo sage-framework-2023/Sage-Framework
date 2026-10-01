@@ -444,7 +444,7 @@ namespace SageInstaller
             menu.Items.Add("Reparar", null, delegate { owner.Run(this, false, "Reparando"); });
             menu.Items.Add("Desinstalar", null, delegate
             {
-                if (MessageBox.Show(owner, "Desinstalar o Sage Framework (menu, temas e atalhos)?", InstallerForm.Title,
+                if (MessageBox.Show(owner, "Desinstalar o Sage Framework?", InstallerForm.Title,
                         MessageBoxButtons.OKCancel, MessageBoxIcon.Question) == DialogResult.OK)
                     owner.Run(this, true, "Desinstalando");
             });

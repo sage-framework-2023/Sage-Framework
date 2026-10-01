@@ -12,6 +12,7 @@ Add-in .NET do editor do VBA (VBE), carregado dentro do Excel. Ele roda independ
   - strings em laranja e números em verde;
   - tipos (`As Long`, `As Sage.ListS`) em verde-água;
   - controle de fluxo (`If`, `For`, `Select Case`, `Exit`...) em roxo.
+- **Números de linha** à esquerda do código, com a linha atual em destaque (*Editor: Números de Linha* nas Configurações).
 
 ## Instalar
 
@@ -41,6 +42,7 @@ Tudo roda na thread de interface do Excel e só age **enquanto uma janela do VBE
 | Menus e barras (desenhados pelo `VBEUI.DLL`) | Cores fixas do Office têm a luminosidade invertida (`SetTextColor`, `CreateSolidBrush`, `CreatePen`, `SetDC*Color`, `GetStockObject`) |
 | Bordas 3D e botões "X" das janelas encaixadas | `DrawEdge`/`DrawFrameControl` substituídos por versões lisas |
 | Abas das Propriedades e botões de modo de exibição | Desenho próprio em `Painters.cs` |
+| Números de linha | Faixa reservada na área não-cliente da janela de código (`WM_NCCALCSIZE`), onde os números são desenhados (`WM_NCPAINT`). O VBE continua cuidando de clique, cursor e rolagem no espaço restante. A altura das linhas vem do desenho do código; a primeira linha visível e a linha atual vêm do `CodePane`, associado à janela pelo título |
 | Realce de sintaxe | `ExtTextOutA`/`TextOutA` do `VBE7.DLL`: cada trecho de texto normal ou de palavra-chave é dividido em tokens (`Syntax.cs`) e redesenhado em pedaços. O VBE usa `TA_UPDATECP`, então os pedaços saem em sequência. Os nomes de procedimentos vêm dos módulos não protegidos e das declarações que aparecem na tela |
 | Barras de rolagem, caixas e barra de título | Tema escuro do Windows (`DarkMode_Explorer`, `DarkMode_CFD`) e DWM |
 

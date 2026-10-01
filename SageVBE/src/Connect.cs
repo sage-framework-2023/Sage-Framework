@@ -30,6 +30,7 @@ namespace SageVBE
         dynamic vbe;
         Control ui; // criado na thread do Excel, para voltar a ela com BeginInvoke
         SageMenu menu;
+        Timer lineTimer; // números de linha: acompanha a linha atual e a rolagem
         bool started;
 
         public void OnConnection(object application, int connectMode, object addInInst, ref Array custom)
@@ -65,12 +66,22 @@ namespace SageVBE
             started = true;
 
             Settings.Load();
+            LineNumbers.Vbe = vbe;
             ThemeEngine.Initialize(new IntPtr((long)vbe.MainWindow.HWnd));
             ThemeEngine.Apply(Theme.Find(Settings.ColorTheme));
 
             menu = new SageMenu((object)vbe, new Action(OpenSettings));
             try { Syntax.Scan(vbe); }
             catch (Exception ex) { Log.Error(ex); }
+
+            lineTimer = new Timer();
+            lineTimer.Interval = 150;
+            lineTimer.Tick += delegate
+            {
+                try { LineNumbers.Poll(); }
+                catch (Exception) { } // VBE ocupado (ex.: executando código)
+            };
+            lineTimer.Start();
             Log.Info("Iniciado. Tema: " + Settings.ColorTheme);
         }
 
@@ -80,6 +91,8 @@ namespace SageVBE
             {
                 SettingsForm.CloseWindow();
                 if (menu != null) { menu.Dispose(); menu = null; }
+                if (lineTimer != null) { lineTimer.Dispose(); lineTimer = null; }
+                LineNumbers.Vbe = null;
                 ThemeEngine.Shutdown();
                 if (ui != null) { ui.Dispose(); ui = null; }
                 started = false;

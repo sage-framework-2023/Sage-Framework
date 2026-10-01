@@ -15,6 +15,7 @@ namespace SageVBE
         public static readonly string FilePath = Path.Combine(Folder, "settings.json");
 
         public const string ColorThemeKey = "workbench.colorTheme";
+        public const string LineNumbersKey = "editor.lineNumbers";
 
         static readonly object sync = new object();
         static readonly SortedDictionary<string, string> values = new SortedDictionary<string, string>();
@@ -23,6 +24,13 @@ namespace SageVBE
         {
             get { return Get(ColorThemeKey, Theme.DefaultName); }
             set { Set(ColorThemeKey, value); }
+        }
+
+        // "on" (padrão) ou "off", como no VS Code
+        public static bool LineNumbers
+        {
+            get { return !string.Equals(Get(LineNumbersKey, "on"), "off", StringComparison.OrdinalIgnoreCase); }
+            set { Set(LineNumbersKey, value ? "on" : "off"); }
         }
 
         public static string Get(string key, string fallback)

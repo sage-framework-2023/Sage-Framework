@@ -92,15 +92,9 @@ namespace SageVBE
             try
             {
                 Theme t = ThemeEngine.SyntaxTheme(hdc);
-                if (t == null || t.Syntax == null) return false;
+                if (t == null) return false;
                 IntPtr hwnd = Native.WindowFromDC(hdc);
                 if (!IsCodePane(hwnd)) return false;
-
-                Kind kind;
-                int requested = requestedColor;
-                if (requested == 0x800000) kind = Kind.Keyword;                          // Azul-marinho padrão
-                else if (requested == 0 || requested == t.WindowText) kind = Kind.Normal; // Automático / preto
-                else { ResetLine(hwnd, y, x); return false; }                            // comentário, seleção...
 
                 // Com TA_UPDATECP o VBE passa x = y = 0; a posição real é a corrente do DC
                 int px = x, py = y;
@@ -109,6 +103,15 @@ namespace SageVBE
                     Point cp;
                     if (GetCurrentPositionEx(hdc, out cp)) { px = cp.X; py = cp.Y; }
                 }
+                LineNumbers.Observe(hwnd, px, py);
+                if (t.Syntax == null) return false;
+
+                Kind kind;
+                int requested = requestedColor;
+                if (requested == 0x800000) kind = Kind.Keyword;                          // Azul-marinho padrão
+                else if (requested == 0 || requested == t.WindowText) kind = Kind.Normal; // Automático / preto
+                else { ResetLine(hwnd, py, px); return false; }                          // comentário, seleção...
+
                 if (hwnd != lineWindow || py != lineY || px < lineX) ResetLine(hwnd, py, px);
                 lineX = px;
 

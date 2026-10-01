@@ -34,6 +34,7 @@ namespace SageVBE
         // Subclassing
         static readonly Native.SubclassProc subclassProc = SubclassProc;
         static readonly Dictionary<IntPtr, string> subclassed = new Dictionary<IntPtr, string>();
+        const int WM_NCCALCSIZE = 0x0083, WM_VSCROLL = 0x0115, WM_MOUSEWHEEL = 0x020A, WM_KEYDOWN = 0x0100, WM_LBUTTONDOWN = 0x0201;
         static readonly UIntPtr SubclassId = (UIntPtr)0x5A6E;
 
         // Hook CBT para janelas criadas depois
@@ -136,6 +137,7 @@ namespace SageVBE
             foreach (IntPtr hwnd in new List<IntPtr>(subclassed.Keys))
                 StyleWindow(hwnd);
 
+            LineNumbers.RefreshFrames(new List<IntPtr>(subclassed.Keys));
             if (previous != null || current != null)
                 Refresh();
         }
@@ -144,6 +146,7 @@ namespace SageVBE
         {
             if (!initialized) return;
             current = null;
+            LineNumbers.RefreshFrames(new List<IntPtr>(subclassed.Keys));
             foreach (IntPtr hwnd in new List<IntPtr>(subclassed.Keys))
             {
                 StyleWindow(hwnd);
@@ -257,14 +260,43 @@ namespace SageVBE
                         {
                             IntPtr result = Native.DefSubclassProc(hwnd, msg, wParam, lParam);
                             Painters.PaintBorder(hwnd, t);
+                            if (cls == "VbaWindow") LineNumbers.Paint(hwnd, t);
                             return result;
                         }
+
+                        case WM_NCCALCSIZE:
+                            if (cls == "VbaWindow" && LineNumbers.IsCodePane(hwnd))
+                            {
+                                IntPtr result = Native.DefSubclassProc(hwnd, msg, wParam, lParam);
+                                LineNumbers.AdjustClient(hwnd, lParam);
+                                return result;
+                            }
+                            break;
+
+                        // Rolagem, edição e cliques: atualiza os números sem esperar a verificação periódica
+                        case WM_VSCROLL:
+                        case WM_MOUSEWHEEL:
+                        case WM_KEYDOWN:
+                        case WM_LBUTTONDOWN:
+                            if (cls == "VbaWindow")
+                            {
+                                IntPtr result = Native.DefSubclassProc(hwnd, msg, wParam, lParam);
+                                LineNumbers.Paint(hwnd, t);
+                                return result;
+                            }
+                            break;
 
                         case Native.WM_PAINT:
                             if (cls == "SysTabControl32")
                             {
                                 Painters.PaintTabs(hwnd, t);
                                 return IntPtr.Zero;
+                            }
+                            if (cls == "VbaWindow")
+                            {
+                                IntPtr result = Native.DefSubclassProc(hwnd, msg, wParam, lParam);
+                                LineNumbers.Paint(hwnd, t);
+                                return result;
                             }
                             if (cls == "ObtbarWndClass")
                             {
@@ -520,9 +552,10 @@ namespace SageVBE
             int r = color & 0xFF, g = (color >> 8) & 0xFF, b = (color >> 16) & 0xFF;
             if (Math.Max(r, Math.Max(g, b)) - Math.Min(r, Math.Min(g, b)) >= 30) return OfficeColor(color);
             double light = (r + g + b) / 765.0;
-            // Quase branco é o texto de item pressionado/selecionado: fica com a cor normal
-            if (light > 0.85) return t.WindowText;
-            return Lerp(t.WindowText, Theme.Ref("#5A5A5A"), light);
+            // O Office escreve itens habilitados em preto ou cinza-escuro, desabilitados
+            // em cinza-claro e o item pressionado/selecionado em quase branco.
+            if (light <= 0.55 || light > 0.85) return t.WindowText;
+            return Lerp(t.WindowText, t.Face, 0.55); // desabilitado
         }
 
         static int OfficeColor(int color)
