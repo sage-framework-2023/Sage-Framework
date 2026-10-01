@@ -1,5 +1,5 @@
 // Sage Framework Installer, no estilo do Visual Studio Installer.
-// Compilado em memória por Instalador.ps1 (C# 5). O Sage Framework é instalado
+// Compilado em memória por SageInstaller.ps1 (C# 5). O Sage Framework é instalado
 // inteiro: cada componente usa o install.ps1 da própria pasta, que continua sendo
 // a fonte da verdade.
 
@@ -39,15 +39,15 @@ namespace SageInstaller
         public virtual DateTime InstalledAt { get { return DateTime.MinValue; } }
     }
 
-    sealed class SageVbe : Component
+    sealed class SageEditor : Component
     {
         static readonly string Dll = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Sage\VBE\SageVBE.dll");
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Sage\Editor\SageEditor.dll");
 
-        public SageVbe(string root)
+        public SageEditor(string root)
         {
             Name = "Menu e temas do VBE";
-            Folder = Path.Combine(root, "SageVBE");
+            Folder = Path.Combine(root, "SageEditor");
             NeedsExcelClosed = true;
         }
 
@@ -55,7 +55,7 @@ namespace SageInstaller
         {
             get
             {
-                using (RegistryKey k = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\VBA\VBE\6.0\Addins64\Sage.VBE"))
+                using (RegistryKey k = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\VBA\VBE\6.0\Addins64\Sage.Editor"))
                     return k != null && File.Exists(Dll);
             }
         }
@@ -76,15 +76,15 @@ namespace SageInstaller
         }
     }
 
-    sealed class VbeShortcuts : Component
+    sealed class SageShortcuts : Component
     {
         static readonly string Link = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.Startup), "VBEShortcuts.lnk");
+            Environment.GetFolderPath(Environment.SpecialFolder.Startup), "SageShortcuts.lnk");
 
-        public VbeShortcuts(string root)
+        public SageShortcuts(string root)
         {
             Name = "Atalhos de teclado do VBE";
-            Folder = Path.Combine(root, "VBEShortcuts");
+            Folder = Path.Combine(root, "SageShortcuts");
         }
 
         public override bool Installed { get { return File.Exists(Link); } }
@@ -95,7 +95,7 @@ namespace SageInstaller
             get
             {
                 EventWaitHandle ev;
-                if (!EventWaitHandle.TryOpenExisting(@"Local\VBEShortcuts.Stop", out ev)) return false;
+                if (!EventWaitHandle.TryOpenExisting(@"Local\SageShortcuts.Stop", out ev)) return false;
                 ev.Dispose();
                 return true;
             }
@@ -104,7 +104,7 @@ namespace SageInstaller
         public void Start()
         {
             ProcessStartInfo psi = new ProcessStartInfo("powershell.exe",
-                "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"" + Path.Combine(Folder, "VBEShortcuts.ps1") + "\"");
+                "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"" + Path.Combine(Folder, "SageShortcuts.ps1") + "\"");
             psi.WindowStyle = ProcessWindowStyle.Hidden;
             psi.CreateNoWindow = true;
             Process.Start(psi);
@@ -113,24 +113,24 @@ namespace SageInstaller
 
     sealed class Framework
     {
-        public readonly SageVbe Addin;
-        public readonly VbeShortcuts Shortcuts;
+        public readonly SageEditor Addin;
+        public readonly SageShortcuts Shortcuts;
         public readonly List<Component> Components = new List<Component>();
         public readonly string Root;
 
         public Framework(string root)
         {
             Root = root;
-            Addin = new SageVbe(root);
-            Shortcuts = new VbeShortcuts(root);
+            Addin = new SageEditor(root);
+            Shortcuts = new SageShortcuts(root);
             Components.Add(Addin);
             Components.Add(Shortcuts);
         }
 
         public const string Name = "Sage Framework";
         public const string Description =
-            "Menu Sage e temas de cores para todo o editor do VBA, tela de Configurações no estilo do VS Code " +
-            "e atalhos de teclado (Ctrl+K, Ctrl+C para comentar, Ctrl+J para a Verificação imediata).";
+            "Menu Sage e temas de cores para todo o editor do VBA, abas das janelas abertas, tela de Configurações " +
+            "no estilo do VS Code e atalhos de teclado (Ctrl+K, Ctrl+C para comentar, Ctrl+J para a Verificação imediata).";
 
         public bool AnyInstalled { get { foreach (Component c in Components) if (c.Installed) return true; return false; } }
         public bool AllInstalled { get { foreach (Component c in Components) if (!c.Installed) return false; return true; } }
@@ -152,7 +152,7 @@ namespace SageInstaller
                 DateTime at = DateTime.MinValue;
                 foreach (Component c in Components) if (c.InstalledAt > at) at = c.InstalledAt;
                 return "Instalado em " + at.ToString("dd/MM/yyyy HH:mm") +
-                    " · atalhos " + (VbeShortcuts.Running ? "em execução" : "parados");
+                    " · atalhos " + (SageShortcuts.Running ? "em execução" : "parados");
             }
         }
     }
@@ -186,7 +186,7 @@ namespace SageInstaller
             framework = new Framework(root);
             showInstalled = framework.AnyInstalled;
 
-            string iconFile = Path.Combine(Path.Combine(root, "Instalador"), "sage.ico");
+            string iconFile = Path.Combine(Path.Combine(root, "SageInstaller"), "sage.ico");
             if (File.Exists(iconFile)) AppIcon = new Icon(iconFile);
 
             Text = Title;
@@ -459,7 +459,7 @@ namespace SageInstaller
                 return;
             }
 
-            if (!VbeShortcuts.Running)
+            if (!SageShortcuts.Running)
                 buttons.Controls.Add(MakeButton("Iniciar atalhos", false, delegate
                 {
                     try { framework.Shortcuts.Start(); } catch (Exception ex) { MessageBox.Show(owner, ex.Message, InstallerForm.Title); }

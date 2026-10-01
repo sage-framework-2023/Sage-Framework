@@ -4,7 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 
-namespace SageVBE
+namespace SageEditor
 {
     // Aplica o tema a todas as janelas do VBE (não só ao editor de código).
     //
@@ -35,6 +35,7 @@ namespace SageVBE
         static readonly Native.SubclassProc subclassProc = SubclassProc;
         static readonly Dictionary<IntPtr, string> subclassed = new Dictionary<IntPtr, string>();
         const int WM_NCCALCSIZE = 0x0083, WM_VSCROLL = 0x0115, WM_MOUSEWHEEL = 0x020A, WM_KEYDOWN = 0x0100, WM_LBUTTONDOWN = 0x0201;
+        const int WM_NCACTIVATE = 0x0086, WM_TIMER = 0x0113, WM_MOUSEMOVE = 0x0200, WM_LBUTTONUP = 0x0202, WM_MOUSELEAVE = 0x02A3;
         static readonly UIntPtr SubclassId = (UIntPtr)0x5A6E;
 
         // Hook CBT para janelas criadas depois
@@ -231,6 +232,29 @@ namespace SageVBE
                 {
                     string cls;
                     subclassed.TryGetValue(hwnd, out cls);
+
+                    // Caixa de ferramentas: recolorida depois de cada desenho do FM20
+                    // (inclusive os feitos fora do WM_PAINT, ao passar o mouse e clicar)
+                    if (t.IsDark && cls != null && cls.StartsWith("F3 ") && IsToolbox(hwnd))
+                    {
+                        switch (msg)
+                        {
+                            case Native.WM_PAINT:
+                            case Native.WM_NCPAINT:
+                            case WM_NCACTIVATE:
+                            case WM_MOUSEMOVE:
+                            case WM_MOUSELEAVE:
+                            case WM_LBUTTONDOWN:
+                            case WM_LBUTTONUP:
+                            case WM_TIMER:
+                            {
+                                IntPtr result = Native.DefSubclassProc(hwnd, msg, wParam, lParam);
+                                Painters.InvertGrays(hwnd, t); // com as bordas (área não-cliente)
+                                return result;
+                            }
+                        }
+                    }
+
                     switch (msg)
                     {
                         case Native.WM_ERASEBKGND:
@@ -352,6 +376,7 @@ namespace SageVBE
             switch (cls)
             {
                 case "MDIClient":
+                case "DesignerWindow": // fundo em volta do UserForm no designer
                     color = t.Window;
                     return true;
                 case "VBSlider":
@@ -391,7 +416,8 @@ namespace SageVBE
                 Native.SendMessage(hwnd, Native.TVM_SETLINECOLOR, IntPtr.Zero, (IntPtr)(t == null ? -1 : t.FrameBorder));
             }
 
-            if (Native.GetParent(hwnd) == IntPtr.Zero || hwnd == vbeWindow)
+            // Barra de título escura do DWM. A Caixa de ferramentas tem dono (GetParent devolve o dono).
+            if (Native.GetParent(hwnd) == IntPtr.Zero || hwnd == vbeWindow || cls.StartsWith("F3 MinFrame"))
             {
                 int on = dark ? 1 : 0;
                 Native.DwmSetWindowAttribute(hwnd, Native.DWMWA_USE_IMMERSIVE_DARK_MODE, ref on, 4);
@@ -496,6 +522,51 @@ namespace SageVBE
                 }
             }
             return vbe;
+        }
+
+        // --- Microsoft Forms (FM20.DLL): Caixa de ferramentas ---
+        //
+        // O FM20 não lê as cores pelo GetSysColor importado (o desvio na tabela de
+        // importação não o alcança), então a Caixa de ferramentas é recolorida depois de
+        // desenhada (Painters.InvertGrays). Os UserForms, no designer ou rodando, ficam
+        // com as cores que o usuário escolheu.
+
+        static readonly Dictionary<IntPtr, bool> toolboxWindows = new Dictionary<IntPtr, bool>();
+
+        static bool IsToolbox(IntPtr hwnd)
+        {
+            bool toolbox;
+            if (!toolboxWindows.TryGetValue(hwnd, out toolbox))
+            {
+                toolbox = Native.ClassName(Native.GetAncestor(hwnd, Native.GA_ROOT)).StartsWith("F3 MinFrame");
+                if (toolboxWindows.Count > 200) toolboxWindows.Clear();
+                toolboxWindows[hwnd] = toolbox;
+            }
+            return toolbox;
+        }
+
+        // Chamado pela verificação periódica. A Caixa de ferramentas é criada sem dono
+        // (só depois passa a pertencer ao VBE), então o hook CBT não a pega.
+        public static void PollForms()
+        {
+            if (!initialized || current == null || Native.GetModuleHandle("fm20.dll") == IntPtr.Zero) return;
+
+            List<IntPtr> boxes = new List<IntPtr>();
+            Native.EnumThreadWindows(Native.GetCurrentThreadId(), delegate(IntPtr h, IntPtr l)
+            {
+                if (!subclassed.ContainsKey(h) && Native.ClassName(h).StartsWith("F3 MinFrame") && BelongsToVbe(h))
+                    boxes.Add(h);
+                return true;
+            }, IntPtr.Zero);
+
+            foreach (IntPtr box in boxes)
+            {
+                Subclass(box);
+                Native.EnumChildWindows(box, delegate(IntPtr c, IntPtr l) { Subclass(c); return true; }, IntPtr.Zero);
+                StyleWindow(box);
+                Native.RedrawWindow(box, IntPtr.Zero, IntPtr.Zero,
+                    Native.RDW_INVALIDATE | Native.RDW_ERASE | Native.RDW_FRAME | Native.RDW_ALLCHILDREN);
+            }
         }
 
         // --- Office (barras de menu e de ferramentas) ---
@@ -728,7 +799,7 @@ namespace SageVBE
 
     static class Log
     {
-        static readonly string path = Path.Combine(Settings.Folder, "SageVBE.log");
+        static readonly string path = Path.Combine(Settings.Folder, "SageEditor.log");
 
         public static void Info(string message) { Write("INFO  " + message); }
         public static void Error(Exception ex) { Write("ERRO  " + ex); }

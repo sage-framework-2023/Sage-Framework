@@ -4,7 +4,7 @@ using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
-namespace SageVBE
+namespace SageEditor
 {
     // Números de linha à esquerda da janela de código: [números][margem][código].
     // A faixa é reservada na área não-cliente da janela (WM_NCCALCSIZE), então o VBE

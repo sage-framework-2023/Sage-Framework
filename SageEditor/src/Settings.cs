@@ -4,7 +4,7 @@ using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace SageVBE
+namespace SageEditor
 {
     // %APPDATA%\Sage\settings.json, no formato do VS Code (só valores texto por enquanto):
     //   { "workbench.colorTheme": "Dark Modern" }
@@ -16,6 +16,8 @@ namespace SageVBE
 
         public const string ColorThemeKey = "workbench.colorTheme";
         public const string LineNumbersKey = "editor.lineNumbers";
+        public const string EditorTabsKey = "workbench.editor.showTabs";
+        public const string LocaleKey = "locale"; // opcional: força o idioma ("pt-BR", "en"); senão, o do Office
 
         static readonly object sync = new object();
         static readonly SortedDictionary<string, string> values = new SortedDictionary<string, string>();
@@ -31,6 +33,13 @@ namespace SageVBE
         {
             get { return !string.Equals(Get(LineNumbersKey, "on"), "off", StringComparison.OrdinalIgnoreCase); }
             set { Set(LineNumbersKey, value ? "on" : "off"); }
+        }
+
+        // "multiple" (padrão) ou "none", como no VS Code
+        public static bool EditorTabs
+        {
+            get { return !string.Equals(Get(EditorTabsKey, "multiple"), "none", StringComparison.OrdinalIgnoreCase); }
+            set { Set(EditorTabsKey, value ? "multiple" : "none"); }
         }
 
         public static string Get(string key, string fallback)

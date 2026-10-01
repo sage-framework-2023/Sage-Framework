@@ -1,10 +1,12 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
-namespace SageVBE
+namespace SageEditor
 {
     // Desenhos próprios para o que o user32 pinta com cores internas (sem passar
     // pelo GetSysColor desviado): bordas 3D, abas das Propriedades e os botões de
@@ -282,6 +284,86 @@ namespace SageVBE
                 }
             }
             finally { Native.ReleaseDC(hwnd, dc); }
+        }
+
+        // Tema escuro sobre o que já foi desenhado: cinzas têm a luminosidade invertida
+        // (branco vira o fundo do tema, preto vira o texto); cores (ícones, seleção azul)
+        // ficam. Usado na Caixa de ferramentas, desenhada pelo FM20 sem passar pelo
+        // GetSysColor desviado. Como ela é redesenhada aos pedaços (hover, clique), o
+        // mesmo pixel pode passar aqui mais de uma vez: cores que esta conversão já
+        // produziu não são convertidas de novo (o texto claro voltaria a ficar escuro).
+        static readonly Dictionary<int, int> grayMap = new Dictionary<int, int>();
+        static readonly HashSet<int> grayProduced = new HashSet<int>();
+        static Theme grayTheme;
+
+        public static void InvertGrays(IntPtr hwnd, Theme t)
+        {
+            Native.RECT r;
+            Native.GetWindowRect(hwnd, out r);
+            int w = r.Right - r.Left, h = r.Bottom - r.Top;
+            if (w <= 0 || h <= 0 || w * h > 1000000) return;
+
+            if (grayTheme != t)
+            {
+                grayMap.Clear();
+                grayProduced.Clear();
+                grayTheme = t;
+            }
+
+            IntPtr dc = Native.GetWindowDC(hwnd);
+            try
+            {
+                using (Bitmap bmp = new Bitmap(w, h, PixelFormat.Format32bppRgb))
+                {
+                    using (Graphics g = Graphics.FromImage(bmp))
+                    {
+                        IntPtr mem = g.GetHdc();
+                        Native.BitBlt(mem, 0, 0, w, h, dc, 0, 0, Native.SRCCOPY);
+                        g.ReleaseHdc(mem);
+                    }
+                    BitmapData data = bmp.LockBits(new Rectangle(0, 0, w, h), ImageLockMode.ReadWrite, PixelFormat.Format32bppRgb);
+                    int[] px = new int[w * h];
+                    Marshal.Copy(data.Scan0, px, 0, px.Length);
+                    bool changed = false;
+                    for (int i = 0; i < px.Length; i++)
+                    {
+                        int c = px[i] & 0xFFFFFF;
+                        if (grayProduced.Contains(c)) continue;
+                        int mapped;
+                        if (!grayMap.TryGetValue(c, out mapped))
+                        {
+                            mapped = InvertGray(c, t);
+                            grayMap[c] = mapped;
+                            if (mapped != c) grayProduced.Add(mapped);
+                        }
+                        if (mapped != c) { px[i] = unchecked((int)0xFF000000) | mapped; changed = true; }
+                    }
+                    if (!changed) { bmp.UnlockBits(data); return; }
+                    Marshal.Copy(px, 0, data.Scan0, px.Length);
+                    bmp.UnlockBits(data);
+                    // Pixel a pixel, sem escala de DPI (que misturaria cores vizinhas)
+                    using (Graphics g = Graphics.FromHdc(dc))
+                    {
+                        g.InterpolationMode = InterpolationMode.NearestNeighbor;
+                        g.PixelOffsetMode = PixelOffsetMode.Half;
+                        g.DrawImage(bmp, new Rectangle(0, 0, w, h), 0, 0, w, h, GraphicsUnit.Pixel);
+                    }
+                }
+            }
+            finally { Native.ReleaseDC(hwnd, dc); }
+        }
+
+        // 0xRRGGBB -> 0xRRGGBB. Cinza claro vai para o fundo (Face), escuro para o texto.
+        static int InvertGray(int rgb, Theme t)
+        {
+            int r = (rgb >> 16) & 0xFF, g = (rgb >> 8) & 0xFF, b = rgb & 0xFF;
+            if (Math.Max(r, Math.Max(g, b)) - Math.Min(r, Math.Min(g, b)) >= 24) return rgb; // colorido
+            double k = 1 - (r + g + b) / 765.0;
+            Color face = FromRef(t.Face), text = FromRef(t.WindowText);
+            int nr = (int)(face.R + (text.R - face.R) * k);
+            int ng = (int)(face.G + (text.G - face.G) * k);
+            int nb = (int)(face.B + (text.B - face.B) * k);
+            return (nr << 16) | (ng << 8) | nb;
         }
 
         // COLORREF (0x00BBGGRR) -> pixel 0xFFRRGGBB

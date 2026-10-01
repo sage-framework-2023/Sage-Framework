@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 
-namespace SageVBE
+namespace SageEditor
 {
     // Tema de cores. Default (Colors == null) deixa o VBE como ele é.
     sealed class Theme
@@ -40,6 +40,9 @@ namespace SageVBE
         }
 
         public bool IsDefault { get { return SysColors == null; } }
+
+        // Nome mostrado na tela; Name é o que fica no settings.json (não muda com o idioma)
+        public string DisplayName { get { return IsDefault && Strings.DefaultTheme != null ? Strings.DefaultTheme : Name; } }
 
         public IntPtr Brush(int colorRef)
         {
@@ -100,7 +103,8 @@ namespace SageVBE
         public static Theme Find(string name)
         {
             foreach (Theme t in All)
-                if (string.Equals(t.Name, name, StringComparison.OrdinalIgnoreCase)) return t;
+                if (string.Equals(t.Name, name, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(t.DisplayName, name, StringComparison.OrdinalIgnoreCase)) return t;
             return All[0];
         }
 

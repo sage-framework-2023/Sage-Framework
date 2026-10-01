@@ -2,7 +2,7 @@ using System;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.ComTypes;
 
-namespace SageVBE
+namespace SageEditor
 {
     // Menu "Sage" na barra de menus do VBE, entre "Janela" e "Ajuda".
     sealed class SageMenu : IDisposable
@@ -34,7 +34,7 @@ namespace SageVBE
             popup.Tag = Tag;
 
             dynamic settings = popup.Controls.Add(msoControlButton, Type.Missing, Type.Missing, Type.Missing, true);
-            settings.Caption = "&Configurações...";
+            settings.Caption = Strings.MenuSettings;
             settings.Tag = "Sage.Settings";
             settings.Style = 3; // msoButtonIconAndCaption
             settings.FaceId = 548;

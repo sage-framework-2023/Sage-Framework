@@ -6,12 +6,19 @@
 param([switch]$Uninstall)
 
 $ErrorActionPreference = 'Stop'
-$ProgId = 'Sage.VBE'
+$ProgId = 'Sage.Editor'
 $Clsid = '{3C1D5E7A-9B2F-4A6C-8E41-7F0A2B9D6C53}'
-$Target = Join-Path $env:LOCALAPPDATA 'Sage\VBE'
-$Dll = Join-Path $Target 'SageVBE.dll'
+$Target = Join-Path $env:LOCALAPPDATA 'Sage\Editor'
+$Dll = Join-Path $Target 'SageEditor.dll'
 $AddinKey = "HKCU:\Software\Microsoft\VBA\VBE\6.0\Addins64\$ProgId"
 $ClassKey = "HKCU:\Software\Classes\CLSID\$Clsid"
+
+# Versão antiga, quando o add-in se chamava SageVBE (ProgId Sage.VBE)
+foreach ($key in 'HKCU:\Software\Microsoft\VBA\VBE\6.0\Addins64\Sage.VBE', 'HKCU:\Software\Classes\Sage.VBE') {
+    if (Test-Path $key) { Remove-Item $key -Recurse }
+}
+$legacyTarget = Join-Path $env:LOCALAPPDATA 'Sage\VBE'
+if (Test-Path $legacyTarget) { Remove-Item $legacyTarget -Recurse -ErrorAction SilentlyContinue }
 
 if ($Uninstall) {
     foreach ($key in $AddinKey, $ClassKey, "HKCU:\Software\Classes\$ProgId") {
@@ -30,7 +37,7 @@ if (Get-Process EXCEL -ErrorAction SilentlyContinue) {
 if ($LASTEXITCODE -ne 0) { throw 'A compilação falhou.' }
 
 New-Item $Target -ItemType Directory -Force | Out-Null
-try { Copy-Item (Join-Path $PSScriptRoot 'bin\SageVBE.dll') $Dll -Force }
+try { Copy-Item (Join-Path $PSScriptRoot 'bin\SageEditor.dll') $Dll -Force }
 catch { throw "Não foi possível copiar o DLL (o Excel está usando?). Feche o Excel e rode de novo." }
 
 # Classe COM (.NET via mscoree)
@@ -42,8 +49,8 @@ $inproc = "$ClassKey\InprocServer32"
 New-Item $inproc -Force | Out-Null
 Set-Item $inproc 'mscoree.dll'
 Set-ItemProperty $inproc ThreadingModel 'Both'
-Set-ItemProperty $inproc Class 'SageVBE.Connect'
-Set-ItemProperty $inproc Assembly 'SageVBE, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null'
+Set-ItemProperty $inproc Class 'SageEditor.Connect'
+Set-ItemProperty $inproc Assembly 'SageEditor, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null'
 Set-ItemProperty $inproc RuntimeVersion 'v4.0.30319'
 Set-ItemProperty $inproc CodeBase ('file:///' + ($Dll -replace '\\', '/'))
 

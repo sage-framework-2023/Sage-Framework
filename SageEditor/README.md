@@ -1,10 +1,10 @@
-# SageVBE
+# SageEditor
 
 Add-in .NET do editor do VBA (VBE), carregado dentro do Excel. Ele roda independente do VBA, então continua funcionando com o código pausado na depuração ou resetado.
 
 - **Menu Sage**, entre "Janela" e "Ajuda", com a opção **Configurações...**.
 - **Configurações** no estilo do VS Code. Por enquanto, só *Aparência: Tema de Cores*.
-- **Temas para o VBE inteiro**: menus, barras de ferramentas, menus de contexto, Projeto, Propriedades, Verificação imediata, código, bordas e barras de título.
+- **Temas para o VBE inteiro**: menus, barras de ferramentas, menus de contexto, Projeto, Propriedades, Verificação imediata, código, bordas e barras de título, a Caixa de ferramentas e o fundo do designer de UserForms (o formulário em si mantém as cores dele).
   - Temas disponíveis: *Padrão do VBE*, *Dark Modern*, *Dark+*, *Sage* (escuro em tons de sálvia) e *Light Modern*.
 - **Realce de sintaxe** no estilo do VS Code, além das cores que o VBE já tem:
   - nomes de Sub/Function/Property/Enum e chamadas de procedimentos em amarelo;
@@ -13,6 +13,12 @@ Add-in .NET do editor do VBA (VBE), carregado dentro do Excel. Ele roda independ
   - tipos (`As Long`, `As Sage.ListS`) em verde-água;
   - controle de fluxo (`If`, `For`, `Select Case`, `Exit`...) em roxo.
 - **Números de linha** à esquerda do código, com a linha atual em destaque (*Editor: Números de Linha* nas Configurações).
+- **Abas** das janelas abertas (módulos, classes e formulários) no topo da área de código, como no VS Code (*Editor: Mostrar Abas* nas Configurações). Funciona com qualquer tema, inclusive o *Padrão do VBE*:
+  - clique ativa a janela; arrastar muda a aba de lugar; o `×` ou o botão do meio fecha;
+  - o botão direito abre *Fechar*, *Fechar Outras*, *Fechar à Direita* e *Fechar Todas*;
+  - formulários mostram o tipo ao lado do nome (`frmPrincipal  UserForm`); módulos com o mesmo nome em projetos diferentes mostram o projeto.
+
+- **Idioma** da interface do Sage igual ao do Office/Excel: português ou inglês (os demais idiomas usam inglês). Os textos ficam em `src\Strings.cs`; para outro idioma, basta um método com a tradução.
 
 ## Instalar
 
@@ -23,13 +29,13 @@ Add-in .NET do editor do VBA (VBE), carregado dentro do Excel. Ele roda independ
    powershell -ExecutionPolicy Bypass -File install.ps1
    ```
 
-   O script compila `src\*.cs` com o `csc` do .NET Framework 4, que já vem no Windows, e copia o DLL para `%LOCALAPPDATA%\Sage\VBE`. O registro fica só no usuário atual (HKCU) e não precisa de administrador.
+   O script compila `src\*.cs` com o `csc` do .NET Framework 4, que já vem no Windows, e copia o DLL para `%LOCALAPPDATA%\Sage\Editor`. O registro fica só no usuário atual (HKCU) e não precisa de administrador.
 3. Abra o editor do VBA (Alt+F11) e use **Sage > Configurações**.
 
 Para remover: `install.ps1 -Uninstall`.
 
-- **Configurações:** `%APPDATA%\Sage\settings.json`, no formato do VS Code, por exemplo `"workbench.colorTheme": "Dark Modern"`.
-- **Log:** `%APPDATA%\Sage\SageVBE.log`.
+- **Configurações:** `%APPDATA%\Sage\settings.json`, no formato do VS Code, por exemplo `"workbench.colorTheme": "Dark Modern"`, `"editor.lineNumbers": "off"` ou `"workbench.editor.showTabs": "none"`. Para forçar um idioma diferente do Office: `"locale": "en"` (ou `"pt-BR"`).
+- **Log:** `%APPDATA%\Sage\SageEditor.log`.
 
 ## Como o tema funciona
 
@@ -43,8 +49,11 @@ Tudo roda na thread de interface do Excel e só age **enquanto uma janela do VBE
 | Bordas 3D e botões "X" das janelas encaixadas | `DrawEdge`/`DrawFrameControl` substituídos por versões lisas |
 | Abas das Propriedades e botões de modo de exibição | Desenho próprio em `Painters.cs` |
 | Números de linha | Faixa reservada na área não-cliente da janela de código (`WM_NCCALCSIZE`), onde os números são desenhados (`WM_NCPAINT`). O VBE continua cuidando de clique, cursor e rolagem no espaço restante. A altura das linhas vem do desenho do código; a primeira linha visível e a linha atual vêm do `CodePane`, associado à janela pelo título |
+| Abas | Faixa reservada no topo da área não-cliente do `MDIClient`, o contêiner das janelas de código; as janelas, maximizadas ou não, ficam no espaço que sobra. A lista vem dos filhos do `MDIClient` (Win32, sem COM); os cliques chegam como `WM_NC*BUTTON*` (o hit-test da faixa responde `HTBORDER`) e viram `WM_MDIACTIVATE` ou `SC_CLOSE`. O arrasto usa um loop próprio que acompanha o cursor (`GetCursorPos`), porque o loop de mensagens do VBE não entrega `WM_MOUSEMOVE` com a captura ativa. Subclassing próprio (`EditorTabs.cs`), independente do tema |
 | Realce de sintaxe | `ExtTextOutA`/`TextOutA` do `VBE7.DLL`: cada trecho de texto normal ou de palavra-chave é dividido em tokens (`Syntax.cs`) e redesenhado em pedaços. O VBE usa `TA_UPDATECP`, então os pedaços saem em sequência. Os nomes de procedimentos vêm dos módulos não protegidos e das declarações que aparecem na tela |
 | Barras de rolagem, caixas e barra de título | Tema escuro do Windows (`DarkMode_Explorer`, `DarkMode_CFD`) e DWM |
+| Caixa de ferramentas | Desenhada pelo FM20.DLL (Microsoft Forms), que não lê as cores pelo `GetSysColor` importado. Depois de cada desenho, os cinzas têm a luminosidade invertida (`Painters.InvertGrays`): branco vira o fundo do tema, preto vira o texto e cores (ícones, seleção) ficam. Ela é criada sem dono, então é encontrada pela verificação periódica e não pelo hook CBT. Os UserForms não são tocados |
+| Fundo do designer | `WM_ERASEBKGND` do `DesignerWindow` com a cor do editor |
 
 ## Limitações
 

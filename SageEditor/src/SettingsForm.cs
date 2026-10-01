@@ -4,7 +4,7 @@ using System.Drawing;
 using System.Threading;
 using System.Windows.Forms;
 
-namespace SageVBE
+namespace SageEditor
 {
     // Tela de Configurações no estilo do VS Code. Roda numa thread própria (com seu
     // loop de mensagens), para não depender do loop do Excel e não travar o VBE.
@@ -77,9 +77,9 @@ namespace SageVBE
         readonly Label sectionTitle = new Label();
         readonly SettingItem themeItem;
         readonly Label editorTitle = new Label();
-        readonly SettingItem lineItem;
+        readonly SettingItem lineItem, tabsItem;
         // Resultado da pesquisa (Control.Visible é falso enquanto a janela não aparece)
-        bool showAppearance = true, showEditor = true;
+        bool showAppearance = true, showLines = true, showTabs = true;
         readonly Label noResults = new Label();
         Theme theme;
 
@@ -88,7 +88,7 @@ namespace SageVBE
             this.applyTheme = applyTheme;
             theme = Theme.Find(Settings.ColorTheme);
 
-            Text = "Configurações - Sage";
+            Text = Strings.SettingsTitle;
             Font = uiFont;
             StartPosition = FormStartPosition.CenterScreen;
             ClientSize = new Size(960, 620);
@@ -106,51 +106,56 @@ namespace SageVBE
             Controls.Add(searchBox);
 
             // Aba "Usuário"
-            userTab.Text = "Usuário";
+            userTab.Text = Strings.UserTab;
             userTab.AutoSize = true;
             Controls.Add(userTab);
             Controls.Add(userTabLine);
             Controls.Add(separator);
 
             // Índice à esquerda
-            AddNavItem("Comumente Usado");
-            AddNavItem("Aparência");
-            AddNavItem("Editor");
+            AddNavItem(Strings.NavCommon);
+            AddNavItem(Strings.NavAppearance);
+            AddNavItem(Strings.NavEditor);
             Controls.Add(nav);
 
             // Conteúdo
-            sectionTitle.Text = "Aparência";
+            sectionTitle.Text = Strings.NavAppearance;
             sectionTitle.Font = sectionFont;
             sectionTitle.AutoSize = true;
             content.Controls.Add(sectionTitle);
 
             List<string> names = new List<string>();
-            foreach (Theme t in Theme.All) names.Add(t.Name);
-            themeItem = new SettingItem("Aparência: ", "Tema de Cores",
-                "Especifica o tema de cores de todo o editor do VBA: menus, barras de ferramentas, " +
-                "janelas de Projeto, Propriedades e Verificação imediata e o código.",
-                names.ToArray(), theme.Name, "tema cores aparência theme color workbench dark light escuro claro");
+            foreach (Theme t in Theme.All) names.Add(t.DisplayName);
+            themeItem = new SettingItem(Strings.AppearanceCategory, Strings.ColorTheme, Strings.ColorThemeDescription,
+                names.ToArray(), theme.DisplayName, Strings.ColorThemeKeywords);
             themeItem.ValueChanged += OnThemeChanged;
             content.Controls.Add(themeItem);
 
-            editorTitle.Text = "Editor";
+            editorTitle.Text = Strings.NavEditor;
             editorTitle.Font = sectionFont;
             editorTitle.AutoSize = true;
             content.Controls.Add(editorTitle);
 
-            lineItem = new SettingItem("Editor: ", "Números de Linha",
-                "Mostra o número de cada linha à esquerda do código, com a linha atual em destaque. " +
-                "Funciona com os temas do Sage (não com o Padrão do VBE).",
-                new string[] { "Ativado", "Desativado" }, Settings.LineNumbers ? "Ativado" : "Desativado",
-                "linha linhas números numeração line numbers editor margem");
+            string[] onOff = { Strings.On, Strings.Off };
+            lineItem = new SettingItem(Strings.EditorCategory, Strings.LineNumbers, Strings.LineNumbersDescription,
+                onOff, Settings.LineNumbers ? Strings.On : Strings.Off, Strings.LineNumbersKeywords);
             lineItem.ValueChanged += delegate(string value)
             {
-                Settings.LineNumbers = value == "Ativado";
+                Settings.LineNumbers = value == Strings.On;
                 applyTheme(theme); // redesenha o VBE
             };
             content.Controls.Add(lineItem);
 
-            noResults.Text = "Nenhuma configuração encontrada";
+            tabsItem = new SettingItem(Strings.EditorCategory, Strings.ShowTabs, Strings.ShowTabsDescription,
+                onOff, Settings.EditorTabs ? Strings.On : Strings.Off, Strings.ShowTabsKeywords);
+            tabsItem.ValueChanged += delegate(string value)
+            {
+                Settings.EditorTabs = value == Strings.On;
+                applyTheme(theme); // redesenha o VBE
+            };
+            content.Controls.Add(tabsItem);
+
+            noResults.Text = Strings.NoResults;
             noResults.AutoSize = true;
             noResults.Visible = false;
             content.Controls.Add(noResults);
@@ -186,7 +191,7 @@ namespace SageVBE
                 l.Font = on ? titleFont : uiFont;
                 l.ForeColor = on ? theme.Foreground : theme.Muted;
             }
-            if (selected.Text == "Editor") { content.ScrollControlIntoView(lineItem); lineItem.Focus(); }
+            if (selected == navItems[2]) { content.ScrollControlIntoView(lineItem); lineItem.Focus(); }
             else { content.ScrollControlIntoView(sectionTitle); themeItem.Focus(); }
         }
 
@@ -213,10 +218,17 @@ namespace SageVBE
                 themeItem.SetBounds(0, sectionTitle.Bottom + 12, itemWidth, themeItem.PreferredHeight);
                 y = themeItem.Bottom + 24;
             }
-            if (showEditor)
+            if (showLines || showTabs)
             {
                 editorTitle.Location = new Point(12, y);
-                lineItem.SetBounds(0, editorTitle.Bottom + 12, itemWidth, lineItem.PreferredHeight);
+                y = editorTitle.Bottom + 12;
+                if (showLines)
+                {
+                    lineItem.SetBounds(0, y, itemWidth, lineItem.PreferredHeight);
+                    y = lineItem.Bottom + 12;
+                }
+                if (showTabs)
+                    tabsItem.SetBounds(0, y, itemWidth, tabsItem.PreferredHeight);
             }
             noResults.Location = new Point(12, 4);
         }
@@ -225,10 +237,13 @@ namespace SageVBE
         {
             string q = search.Text.Trim();
             showAppearance = themeItem.Matches(q);
-            showEditor = lineItem.Matches(q);
+            showLines = lineItem.Matches(q);
+            showTabs = tabsItem.Matches(q);
             themeItem.Visible = sectionTitle.Visible = showAppearance;
-            lineItem.Visible = editorTitle.Visible = showEditor;
-            noResults.Visible = !showAppearance && !showEditor;
+            lineItem.Visible = showLines;
+            tabsItem.Visible = showTabs;
+            editorTitle.Visible = showLines || showTabs;
+            noResults.Visible = !showAppearance && !showLines && !showTabs;
             DoLayout();
         }
 
@@ -255,9 +270,11 @@ namespace SageVBE
             separator.BackColor = theme.Border;
             nav.BackColor = theme.Background;
             content.BackColor = theme.Background;
+            Native.SetWindowTheme(content.Handle, theme.IsDark ? "DarkMode_Explorer" : null, null); // barras de rolagem
             sectionTitle.ForeColor = theme.Foreground;
             editorTitle.ForeColor = theme.Foreground;
             lineItem.SetTheme(theme);
+            tabsItem.SetTheme(theme);
             noResults.ForeColor = theme.Muted;
             foreach (Label l in navItems) l.BackColor = theme.Background;
             themeItem.SetTheme(theme);
@@ -283,7 +300,7 @@ namespace SageVBE
             base.OnHandleCreated(e);
             const int EM_SETCUEBANNER = 0x1501;
             Native.SendMessage(search.Handle, EM_SETCUEBANNER, (IntPtr)1,
-                System.Runtime.InteropServices.Marshal.StringToHGlobalUni("Pesquisar configurações"));
+                System.Runtime.InteropServices.Marshal.StringToHGlobalUni(Strings.SearchCue));
             search.GotFocus += delegate { searchBox.Invalidate(); };
             search.LostFocus += delegate { searchBox.Invalidate(); };
             UseDarkTitleBar(theme.IsDark);

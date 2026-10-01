@@ -1,15 +1,16 @@
-// SageVBE - add-in do editor do VBA (VBE), carregado dentro do Excel.
+// SageEditor - add-in do editor do VBA (VBE), carregado dentro do Excel.
 //
 // Roda código .NET no processo do Excel, independente do VBA: continua funcionando
 // com o código em modo de interrupção ou resetado.
 //   - Menu "Sage" > "Configurações..." (tela no estilo do VS Code)
 //   - Temas de cores para todo o VBE (ThemeEngine)
+//   - Abas das janelas abertas no topo da área de código (EditorTabs)
 
 using System;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
-namespace SageVBE
+namespace SageEditor
 {
     // IDTExtensibility2 da biblioteca "Microsoft Add-In Designer" (MSADDNDR.DLL)
     [ComImport, Guid("B65AD801-ABAF-11D0-BB8B-00A0C90F2744"), InterfaceType(ComInterfaceType.InterfaceIsDual)]
@@ -22,7 +23,7 @@ namespace SageVBE
         [DispId(5)] void OnBeginShutdown(ref Array custom);
     }
 
-    [ComVisible(true), Guid("3C1D5E7A-9B2F-4A6C-8E41-7F0A2B9D6C53"), ProgId("Sage.VBE"), ClassInterface(ClassInterfaceType.AutoDispatch)]
+    [ComVisible(true), Guid("3C1D5E7A-9B2F-4A6C-8E41-7F0A2B9D6C53"), ProgId("Sage.Editor"), ClassInterface(ClassInterfaceType.AutoDispatch)]
     public class Connect : IDTExtensibility2
     {
         const int ext_cm_Startup = 1;
@@ -66,9 +67,13 @@ namespace SageVBE
             started = true;
 
             Settings.Load();
+            Strings.Load();
             LineNumbers.Vbe = vbe;
-            ThemeEngine.Initialize(new IntPtr((long)vbe.MainWindow.HWnd));
+            IntPtr main = new IntPtr((long)vbe.MainWindow.HWnd);
+            ThemeEngine.Initialize(main);
             ThemeEngine.Apply(Theme.Find(Settings.ColorTheme));
+            try { EditorTabs.Start(main); }
+            catch (Exception ex) { Log.Error(ex); }
 
             menu = new SageMenu((object)vbe, new Action(OpenSettings));
             try { Syntax.Scan(vbe); }
@@ -80,9 +85,11 @@ namespace SageVBE
             {
                 try { LineNumbers.Poll(); }
                 catch (Exception) { } // VBE ocupado (ex.: executando código)
+                try { EditorTabs.Poll(); ThemeEngine.PollForms(); }
+                catch (Exception ex) { Log.Error(ex); }
             };
             lineTimer.Start();
-            Log.Info("Iniciado. Tema: " + Settings.ColorTheme);
+            Log.Info("Iniciado. Tema: " + Settings.ColorTheme + ". Idioma: " + Strings.Language);
         }
 
         public void OnDisconnection(int removeMode, ref Array custom)
@@ -93,6 +100,7 @@ namespace SageVBE
                 if (menu != null) { menu.Dispose(); menu = null; }
                 if (lineTimer != null) { lineTimer.Dispose(); lineTimer = null; }
                 LineNumbers.Vbe = null;
+                EditorTabs.Shutdown();
                 ThemeEngine.Shutdown();
                 if (ui != null) { ui.Dispose(); ui = null; }
                 started = false;
@@ -110,7 +118,7 @@ namespace SageVBE
         public void OnBeginShutdown(ref Array custom) { }
 
         // ------------------------------------------------------------------
-        // Também acessíveis por automação: VBE.Addins("Sage.VBE").Object
+        // Também acessíveis por automação: VBE.Addins("Sage.Editor").Object
         // ------------------------------------------------------------------
 
         public void OpenSettings()
@@ -128,10 +136,16 @@ namespace SageVBE
             // só podem ser subclassificadas na thread delas.
             Control target = ui;
             if (target != null && target.InvokeRequired)
-                target.Invoke((MethodInvoker)delegate { ThemeEngine.Apply(theme); });
+                target.Invoke((MethodInvoker)delegate { Apply(theme); });
             else
-                ThemeEngine.Apply(theme);
+                Apply(theme);
             return theme.Name;
+        }
+
+        static void Apply(Theme theme)
+        {
+            ThemeEngine.Apply(theme);
+            EditorTabs.Refresh(); // o tema padrão não passa pelo ThemeEngine
         }
 
         // Chamado pela thread da tela de Configurações
@@ -141,7 +155,7 @@ namespace SageVBE
             if (target == null) return;
             target.BeginInvoke((MethodInvoker)delegate
             {
-                try { ThemeEngine.Apply(theme); }
+                try { Apply(theme); }
                 catch (Exception ex) { Log.Error(ex); }
             });
         }

@@ -1,11 +1,11 @@
-// VBEShortcuts - atalhos de teclado (com acordes, estilo VS Code) para o editor do VBA.
+// SageShortcuts - atalhos de teclado (com acordes, estilo VS Code) para o editor do VBA.
 //
 // Roda fora do Excel: instala um hook WH_KEYBOARD_LL, reconhece os atalhos de
 // keybindings.txt quando o VBE é a janela ativa e executa a ação via COM.
 // Como nenhum código VBA roda dentro do hook, o Excel não trava em modo de
 // interrupção nem quando o projeto é resetado.
 //
-// Carregado por VBEShortcuts.ps1 (Add-Type, C# 5), que chama Program.Main.
+// Carregado por SageShortcuts.ps1 (Add-Type, C# 5), que chama Program.Main.
 
 using System;
 using System.Collections.Generic;
@@ -18,12 +18,12 @@ using System.Text;
 using System.Threading;
 using System.Windows.Forms;
 
-namespace VBEShortcuts
+namespace SageShortcuts
 {
     public static class Program
     {
-        const string MutexName = @"Local\VBEShortcuts.Instance";
-        internal const string StopEventName = @"Local\VBEShortcuts.Stop";
+        const string MutexName = @"Local\SageShortcuts.Instance";
+        internal const string StopEventName = @"Local\SageShortcuts.Stop";
 
         [STAThread]
         public static int Main(string[] args)
@@ -127,7 +127,7 @@ namespace VBEShortcuts
             watcher.Renamed += delegate { reloadTimer.Stop(); reloadTimer.Start(); };
             watcher.EnableRaisingEvents = true;
 
-            // Encerramento: "VBEShortcuts.exe --stop" ou fim do processo do Excel
+            // Encerramento: "SageShortcuts.exe --stop" ou fim do processo do Excel
             stopWait = ThreadPool.RegisterWaitForSingleObject(stopEvent,
                 delegate { invoker.BeginInvoke((MethodInvoker)ExitThread); }, null, -1, true);
 

@@ -4,7 +4,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace SageVBE
+namespace SageEditor
 {
     // Cores de sintaxe além das três categorias do VBE (palavra-chave, comentário,
     // texto normal), no estilo do VS Code.
