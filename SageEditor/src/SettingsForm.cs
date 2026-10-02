@@ -77,9 +77,10 @@ namespace SageEditor
         readonly Label sectionTitle = new Label();
         readonly SettingItem themeItem;
         readonly Label editorTitle = new Label();
-        readonly SettingItem lineItem, tabsItem;
+        readonly List<SettingItem> editorItems = new List<SettingItem>();
         // Resultado da pesquisa (Control.Visible é falso enquanto a janela não aparece)
-        bool showAppearance = true, showLines = true, showTabs = true;
+        bool showAppearance = true;
+        readonly HashSet<SettingItem> hidden = new HashSet<SettingItem>();
         readonly Label noResults = new Label();
         Theme theme;
 
@@ -136,24 +137,14 @@ namespace SageEditor
             editorTitle.AutoSize = true;
             content.Controls.Add(editorTitle);
 
-            string[] onOff = { Strings.On, Strings.Off };
-            lineItem = new SettingItem(Strings.EditorCategory, Strings.LineNumbers, Strings.LineNumbersDescription,
-                onOff, Settings.LineNumbers ? Strings.On : Strings.Off, Strings.LineNumbersKeywords);
-            lineItem.ValueChanged += delegate(string value)
-            {
-                Settings.LineNumbers = value == Strings.On;
-                applyTheme(theme); // redesenha o VBE
-            };
-            content.Controls.Add(lineItem);
-
-            tabsItem = new SettingItem(Strings.EditorCategory, Strings.ShowTabs, Strings.ShowTabsDescription,
-                onOff, Settings.EditorTabs ? Strings.On : Strings.Off, Strings.ShowTabsKeywords);
-            tabsItem.ValueChanged += delegate(string value)
-            {
-                Settings.EditorTabs = value == Strings.On;
-                applyTheme(theme); // redesenha o VBE
-            };
-            content.Controls.Add(tabsItem);
+            AddOnOff(Strings.LineNumbers, Strings.LineNumbersDescription, Strings.LineNumbersKeywords, Settings.LineNumbers,
+                delegate(bool on) { Settings.LineNumbers = on; applyTheme(theme); }); // redesenha o VBE
+            AddOnOff(Strings.ShowTabs, Strings.ShowTabsDescription, Strings.ShowTabsKeywords, Settings.EditorTabs,
+                delegate(bool on) { Settings.EditorTabs = on; applyTheme(theme); });
+            AddOnOff(Strings.MultiCursor, Strings.MultiCursorDescription, Strings.MultiCursorKeywords, Settings.MultiCursor,
+                delegate(bool on) { Settings.MultiCursor = on; });
+            AddOnOff(Strings.AutoReference, Strings.AutoReferenceDescription, Strings.AutoReferenceKeywords, Settings.AutoReference,
+                delegate(bool on) { Settings.AutoReference = on; });
 
             noResults.Text = Strings.NoResults;
             noResults.AutoSize = true;
@@ -167,6 +158,16 @@ namespace SageEditor
             DoLayout();
             ApplyColors();
             SelectNav(navItems[1]);
+        }
+
+        // Item "Editor: <nome>" com Ativado/Desativado
+        void AddOnOff(string name, string description, string keywords, bool value, Action<bool> changed)
+        {
+            SettingItem item = new SettingItem(Strings.EditorCategory, name, description,
+                new string[] { Strings.On, Strings.Off }, value ? Strings.On : Strings.Off, keywords);
+            item.ValueChanged += delegate(string selected) { changed(selected == Strings.On); };
+            editorItems.Add(item);
+            content.Controls.Add(item);
         }
 
         void AddNavItem(string text)
@@ -191,7 +192,7 @@ namespace SageEditor
                 l.Font = on ? titleFont : uiFont;
                 l.ForeColor = on ? theme.Foreground : theme.Muted;
             }
-            if (selected == navItems[2]) { content.ScrollControlIntoView(lineItem); lineItem.Focus(); }
+            if (selected == navItems[2]) { content.ScrollControlIntoView(editorItems[0]); editorItems[0].Focus(); }
             else { content.ScrollControlIntoView(sectionTitle); themeItem.Focus(); }
         }
 
@@ -218,17 +219,16 @@ namespace SageEditor
                 themeItem.SetBounds(0, sectionTitle.Bottom + 12, itemWidth, themeItem.PreferredHeight);
                 y = themeItem.Bottom + 24;
             }
-            if (showLines || showTabs)
+            if (hidden.Count < editorItems.Count)
             {
                 editorTitle.Location = new Point(12, y);
                 y = editorTitle.Bottom + 12;
-                if (showLines)
+                foreach (SettingItem item in editorItems)
                 {
-                    lineItem.SetBounds(0, y, itemWidth, lineItem.PreferredHeight);
-                    y = lineItem.Bottom + 12;
+                    if (hidden.Contains(item)) continue;
+                    item.SetBounds(0, y, itemWidth, item.PreferredHeight);
+                    y = item.Bottom + 12;
                 }
-                if (showTabs)
-                    tabsItem.SetBounds(0, y, itemWidth, tabsItem.PreferredHeight);
             }
             noResults.Location = new Point(12, 4);
         }
@@ -237,13 +237,17 @@ namespace SageEditor
         {
             string q = search.Text.Trim();
             showAppearance = themeItem.Matches(q);
-            showLines = lineItem.Matches(q);
-            showTabs = tabsItem.Matches(q);
             themeItem.Visible = sectionTitle.Visible = showAppearance;
-            lineItem.Visible = showLines;
-            tabsItem.Visible = showTabs;
-            editorTitle.Visible = showLines || showTabs;
-            noResults.Visible = !showAppearance && !showLines && !showTabs;
+            hidden.Clear();
+            foreach (SettingItem item in editorItems)
+            {
+                bool match = item.Matches(q);
+                item.Visible = match;
+                if (!match) hidden.Add(item);
+            }
+            bool anyEditor = hidden.Count < editorItems.Count;
+            editorTitle.Visible = anyEditor;
+            noResults.Visible = !showAppearance && !anyEditor;
             DoLayout();
         }
 
@@ -273,8 +277,7 @@ namespace SageEditor
             Native.SetWindowTheme(content.Handle, theme.IsDark ? "DarkMode_Explorer" : null, null); // barras de rolagem
             sectionTitle.ForeColor = theme.Foreground;
             editorTitle.ForeColor = theme.Foreground;
-            lineItem.SetTheme(theme);
-            tabsItem.SetTheme(theme);
+            foreach (SettingItem item in editorItems) item.SetTheme(theme);
             noResults.ForeColor = theme.Muted;
             foreach (Label l in navItems) l.BackColor = theme.Background;
             themeItem.SetTheme(theme);

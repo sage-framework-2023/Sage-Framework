@@ -24,6 +24,8 @@ namespace SageEditor
         public static string AppearanceCategory, ColorTheme, ColorThemeDescription, ColorThemeKeywords;
         public static string EditorCategory, LineNumbers, LineNumbersDescription, LineNumbersKeywords;
         public static string ShowTabs, ShowTabsDescription, ShowTabsKeywords;
+        public static string AutoReference, AutoReferenceDescription, AutoReferenceKeywords;
+        public static string MultiCursor, MultiCursorDescription, MultiCursorKeywords;
         public static string DefaultTheme;
 
         // Abas
@@ -95,6 +97,15 @@ namespace SageEditor
             ShowTabsDescription = "Mostra as janelas abertas (módulos, classes e formulários) como abas no topo da área de código. " +
                 "Clique para ativar, arraste para mudar de lugar, \"×\" ou botão do meio para fechar e botão direito para mais opções.";
             ShowTabsKeywords = "abas aba guias tabs janelas abertas módulos workbench editor show tabs";
+            AutoReference = "Referência Automática";
+            AutoReferenceDescription = "Marca a biblioteca Sage Framework (Sage.StringS...) em Ferramentas > Referências " +
+                "do projeto cujo código você abre. Projetos protegidos, em execução ou que usam o Sage.xlam ficam como estão.";
+            AutoReferenceKeywords = "referência referências biblioteca sage framework stringS tipos references library";
+            MultiCursor = "Vários Cursores";
+            MultiCursorDescription = "Edita várias linhas ao mesmo tempo, como no VS Code: Alt+Clique acrescenta um cursor, " +
+                "Ctrl+Alt+Seta para Cima/Baixo acrescenta na linha de cima/de baixo, Shift+Alt+arrastar seleciona em coluna " +
+                "e Esc volta a um cursor. O Ctrl+Z do VBE não desfaz essas edições.";
+            MultiCursorKeywords = "cursores cursor múltiplos vários coluna seleção multi cursor column selection";
 
             DefaultTheme = "Padrão do VBE";
 
@@ -133,6 +144,15 @@ namespace SageEditor
             ShowTabsDescription = "Shows the open windows (modules, classes and forms) as tabs at the top of the code area. " +
                 "Click to activate, drag to reorder, \"×\" or middle button to close and right button for more options.";
             ShowTabsKeywords = "tabs open windows modules workbench editor show tabs";
+            AutoReference = "Automatic Reference";
+            AutoReferenceDescription = "Checks the Sage Framework library (Sage.StringS...) in Tools > References " +
+                "of the project whose code you open. Protected projects, running ones and those using Sage.xlam are left as they are.";
+            AutoReferenceKeywords = "reference references library sage framework strings types";
+            MultiCursor = "Multiple Cursors";
+            MultiCursorDescription = "Edits several lines at once, like VS Code: Alt+Click adds a cursor, " +
+                "Ctrl+Alt+Up/Down adds one on the line above/below, Shift+Alt+drag selects a column " +
+                "and Esc goes back to one cursor. The VBE's Ctrl+Z does not undo these edits.";
+            MultiCursorKeywords = "multi cursor cursors multiple column selection";
 
             DefaultTheme = "VBE Default";
 

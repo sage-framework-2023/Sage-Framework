@@ -39,25 +39,21 @@ namespace SageInstaller
         public virtual DateTime InstalledAt { get { return DateTime.MinValue; } }
     }
 
-    sealed class SageEditor : Component
+    // Componente compilado pelo install.ps1 (src\*.cs) num DLL em %LOCALAPPDATA%\Sage
+    abstract class CompiledComponent : Component
     {
-        static readonly string Dll = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Sage\Editor\SageEditor.dll");
+        protected string Dll;
 
-        public SageEditor(string root)
+        protected CompiledComponent(string root, string folder, string dll)
         {
-            Name = "Menu e temas do VBE";
-            Folder = Path.Combine(root, "SageEditor");
+            Folder = Path.Combine(root, folder);
+            Dll = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), dll);
             NeedsExcelClosed = true;
         }
 
-        public override bool Installed
+        protected static bool KeyExists(string path)
         {
-            get
-            {
-                using (RegistryKey k = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\VBA\VBE\6.0\Addins64\Sage.Editor"))
-                    return k != null && File.Exists(Dll);
-            }
+            using (RegistryKey k = Registry.CurrentUser.OpenSubKey(path)) return k != null;
         }
 
         public override DateTime InstalledAt { get { return Installed ? File.GetLastWriteTime(Dll) : DateTime.MinValue; } }
@@ -73,6 +69,33 @@ namespace SageInstaller
                     if (File.GetLastWriteTime(f) > installed) return true;
                 return false;
             }
+        }
+    }
+
+    sealed class SageEditor : CompiledComponent
+    {
+        public SageEditor(string root) : base(root, "SageEditor", @"Sage\Editor\SageEditor.dll")
+        {
+            Name = "Menu e temas do VBE";
+        }
+
+        public override bool Installed
+        {
+            get { return KeyExists(@"Software\Microsoft\VBA\VBE\6.0\Addins64\Sage.Editor") && File.Exists(Dll); }
+        }
+    }
+
+    // Tipos para o VBA (StringS...): biblioteca "Sage" em Ferramentas > Referências
+    sealed class SageTypes : CompiledComponent
+    {
+        public SageTypes(string root) : base(root, "SageTypes", @"Sage\Types\SageTypes.dll")
+        {
+            Name = "Tipos para o VBA";
+        }
+
+        public override bool Installed
+        {
+            get { return KeyExists(@"Software\Classes\TypeLib\{3F8E2A61-7C4B-4E9D-A215-6B0C9D8E7F14}") && File.Exists(Dll); }
         }
     }
 
@@ -125,17 +148,18 @@ namespace SageInstaller
             Shortcuts = new SageShortcuts(root);
             Components.Add(Addin);
             Components.Add(Shortcuts);
+            Components.Add(new SageTypes(root));
         }
 
         public const string Name = "Sage Framework";
         public const string Description =
             "Menu Sage e temas de cores para todo o editor do VBA, abas das janelas abertas, tela de Configurações " +
-            "no estilo do VS Code e atalhos de teclado (Ctrl+K, Ctrl+C para comentar, Ctrl+J para a Verificação imediata).";
+            "no estilo do VS Code, atalhos de teclado (Ctrl+K, Ctrl+C para comentar) e tipos para o VBA (StringS, ListS, DictionaryS).";
 
         public bool AnyInstalled { get { foreach (Component c in Components) if (c.Installed) return true; return false; } }
         public bool AllInstalled { get { foreach (Component c in Components) if (!c.Installed) return false; return true; } }
         public bool Incomplete { get { return AnyInstalled && !AllInstalled; } }
-        public bool UpdateAvailable { get { return Addin.UpdateAvailable; } }
+        public bool UpdateAvailable { get { foreach (Component c in Components) if (c.UpdateAvailable) return true; return false; } }
         public bool NeedsExcelClosed { get { return true; } }
 
         public string Status

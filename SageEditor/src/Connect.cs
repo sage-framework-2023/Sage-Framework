@@ -5,6 +5,8 @@
 //   - Menu "Sage" > "Configurações..." (tela no estilo do VS Code)
 //   - Temas de cores para todo o VBE (ThemeEngine)
 //   - Abas das janelas abertas no topo da área de código (EditorTabs)
+//   - Vários cursores na janela de código (MultiCursor)
+//   - Comandos Clear e Exit na Verificação imediata (ImmediateCommands)
 
 using System;
 using System.Runtime.InteropServices;
@@ -74,6 +76,10 @@ namespace SageEditor
             ThemeEngine.Apply(Theme.Find(Settings.ColorTheme));
             try { EditorTabs.Start(main); }
             catch (Exception ex) { Log.Error(ex); }
+            MultiCursor.Vbe = vbe;
+            MultiCursor.Start(main);
+            ImmediateCommands.Vbe = vbe;
+            ImmediateCommands.Start(main);
 
             menu = new SageMenu((object)vbe, new Action(OpenSettings));
             try { Syntax.Scan(vbe); }
@@ -85,8 +91,10 @@ namespace SageEditor
             {
                 try { LineNumbers.Poll(); }
                 catch (Exception) { } // VBE ocupado (ex.: executando código)
-                try { EditorTabs.Poll(); ThemeEngine.PollForms(); }
+                try { EditorTabs.Poll(); ThemeEngine.PollForms(); MultiCursor.Poll(); }
                 catch (Exception ex) { Log.Error(ex); }
+                try { AutoReference.Poll(vbe); ImmediateCommands.Poll(); }
+                catch (Exception) { } // VBE ocupado; tenta no próximo ciclo
             };
             lineTimer.Start();
             Log.Info("Iniciado. Tema: " + Settings.ColorTheme + ". Idioma: " + Strings.Language);
@@ -100,6 +108,10 @@ namespace SageEditor
                 if (menu != null) { menu.Dispose(); menu = null; }
                 if (lineTimer != null) { lineTimer.Dispose(); lineTimer = null; }
                 LineNumbers.Vbe = null;
+                MultiCursor.Shutdown();
+                MultiCursor.Vbe = null;
+                ImmediateCommands.Shutdown();
+                ImmediateCommands.Vbe = null;
                 EditorTabs.Shutdown();
                 ThemeEngine.Shutdown();
                 if (ui != null) { ui.Dispose(); ui = null; }

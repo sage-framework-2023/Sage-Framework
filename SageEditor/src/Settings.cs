@@ -17,6 +17,8 @@ namespace SageEditor
         public const string ColorThemeKey = "workbench.colorTheme";
         public const string LineNumbersKey = "editor.lineNumbers";
         public const string EditorTabsKey = "workbench.editor.showTabs";
+        public const string AutoReferenceKey = "sage.autoReference";
+        public const string MultiCursorKey = "sage.multiCursor";
         public const string LocaleKey = "locale"; // opcional: força o idioma ("pt-BR", "en"); senão, o do Office
 
         static readonly object sync = new object();
@@ -33,6 +35,20 @@ namespace SageEditor
         {
             get { return !string.Equals(Get(LineNumbersKey, "on"), "off", StringComparison.OrdinalIgnoreCase); }
             set { Set(LineNumbersKey, value ? "on" : "off"); }
+        }
+
+        // "on" (padrão) ou "off": referência ao Sage Framework nos projetos abertos (AutoReference)
+        public static bool AutoReference
+        {
+            get { return !string.Equals(Get(AutoReferenceKey, "on"), "off", StringComparison.OrdinalIgnoreCase); }
+            set { Set(AutoReferenceKey, value ? "on" : "off"); }
+        }
+
+        // "on" (padrão) ou "off": vários cursores (MultiCursor)
+        public static bool MultiCursor
+        {
+            get { return !string.Equals(Get(MultiCursorKey, "on"), "off", StringComparison.OrdinalIgnoreCase); }
+            set { Set(MultiCursorKey, value ? "on" : "off"); }
         }
 
         // "multiple" (padrão) ou "none", como no VS Code

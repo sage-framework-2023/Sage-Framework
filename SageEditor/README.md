@@ -18,6 +18,14 @@ Add-in .NET do editor do VBA (VBE), carregado dentro do Excel. Ele roda independ
   - o botão direito abre *Fechar*, *Fechar Outras*, *Fechar à Direita* e *Fechar Todas*;
   - formulários mostram o tipo ao lado do nome (`frmPrincipal  UserForm`); módulos com o mesmo nome em projetos diferentes mostram o projeto.
 
+- **Vários cursores**, como no VS Code (*Editor: Vários Cursores* nas Configurações):
+  - **Alt+Clique** acrescenta um cursor (ou tira, se já houver um ali);
+  - **Ctrl+Alt+Seta para Cima/Baixo** acrescenta um cursor na linha de cima/de baixo;
+  - **Shift+Alt+arrastar** seleciona em coluna (um cursor por linha);
+  - digitar, Backspace, Delete, Tab, setas (Shift+Seta seleciona na linha), Home e End valem para todos; **Esc** volta a um cursor; outras teclas (Enter, Ctrl+...) e cliques sem Alt também voltam a um cursor.
+  - As edições são feitas pelo `CodeModule`: o Ctrl+Z do VBE não as desfaz, e o VBE arruma a linha enquanto você digita (`x=1` vira `x = 1`), não só ao sair dela. Precisa de fonte de largura fixa no editor, como a padrão.
+- **Comandos na Verificação imediata**, como num terminal: digite `Clear` e Enter para apagar tudo, ou `Exit` e Enter para fechar a janela (o histórico continua lá ao reabrir). Sem diferenciar maiúsculas. Como o VBE não dá acesso ao texto da janela, o add-in acompanha o que é digitado desde o começo da linha; se o cursor for movido (setas, clique) antes do Enter, a linha segue normalmente para o VBE. (`Exit` é palavra reservada do VBA: não daria para ser uma função.) O Ctrl+J que abre e fecha a janela fica no SageShortcuts.
+- **Referência automática** à biblioteca Sage Framework (`Sage.StringS`, do SageTypes): marcada em *Ferramentas > Referências* do projeto cujo código você abre (*Editor: Referência Automática* nas Configurações). Projetos protegidos, em execução ou depuração, ou que usam o `Sage.xlam` ficam como estão. Como qualquer mudança no projeto, a pasta de trabalho passa a pedir para ser salva.
 - **Idioma** da interface do Sage igual ao do Office/Excel: português ou inglês (os demais idiomas usam inglês). Os textos ficam em `src\Strings.cs`; para outro idioma, basta um método com a tradução.
 
 ## Instalar
@@ -54,6 +62,7 @@ Tudo roda na thread de interface do Excel e só age **enquanto uma janela do VBE
 | Barras de rolagem, caixas e barra de título | Tema escuro do Windows (`DarkMode_Explorer`, `DarkMode_CFD`) e DWM |
 | Caixa de ferramentas | Desenhada pelo FM20.DLL (Microsoft Forms), que não lê as cores pelo `GetSysColor` importado. Depois de cada desenho, os cinzas têm a luminosidade invertida (`Painters.InvertGrays`): branco vira o fundo do tema, preto vira o texto e cores (ícones, seleção) ficam. Ela é criada sem dono, então é encontrada pela verificação periódica e não pelo hook CBT. Os UserForms não são tocados |
 | Fundo do designer | `WM_ERASEBKGND` do `DesignerWindow` com a cor do editor |
+| Vários cursores | Subclassing próprio das janelas de código (`MultiCursor.cs`): com mais de um cursor, as teclas viram edições pelo `CodeModule.ReplaceLine`, e a coluna de cada cursor é recalculada pelos caracteres que não são espaço (o VBE reformata a linha). Os cursores extras são desenhados com XOR no `WM_PAINT`, só na área repintada. A posição na tela vem de uma referência medida com o cursor do VBE sem seleção (com seleção ele o esconde) mais a largura do caractere e a altura da linha. O Shift+Alt+arrastar usa um laço próprio, como o arraste das abas |
 
 ## Limitações
 

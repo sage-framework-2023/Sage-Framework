@@ -12,6 +12,11 @@
 #                        comentar linhas vazias (funciona com o código pausado;
 #                        o Ctrl+Z do VBE não desfaz)
 #         uncomment      remove o comentário do bloco (idem)
+#         copyLinesUp    duplica a linha (ou as linhas selecionadas) para cima (idem)
+#         copyLinesDown  duplica a linha (ou as linhas selecionadas) para baixo (idem)
+#         moveLinesUp    troca a linha (ou as linhas selecionadas) com a de cima (idem)
+#         moveLinesDown  troca a linha (ou as linhas selecionadas) com a de baixo (idem)
+#         toggleImmediate  abre a Verificação imediata, ou fecha se estiver aberta
 #         vbe:<id>       executa o controle do VBE com esse Id (CommandBars.FindControl)
 #         macro:<nome>   executa Application.Run "<nome>" (ex.: macro:'Sage.xlam'!Modulo.Proc)
 #
@@ -20,4 +25,8 @@
 
 Ctrl+K, Ctrl+C = comment      # Comentar bloco
 Ctrl+K, Ctrl+U = uncomment    # Remover comentário do bloco
-Ctrl+J         = vbe:2554     # Abrir a janela Verificação imediata (substitui "Listar propriedades/métodos")
+Ctrl+J         = toggleImmediate  # Abrir/fechar a Verificação imediata (substitui "Listar propriedades/métodos")
+Shift+Alt+Up   = copyLinesUp    # Duplicar linha para cima
+Shift+Alt+Down = copyLinesDown  # Duplicar linha para baixo
+Alt+Up         = moveLinesUp    # Mover linha para cima
+Alt+Down       = moveLinesDown  # Mover linha para baixo

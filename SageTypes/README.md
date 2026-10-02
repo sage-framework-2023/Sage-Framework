@@ -1,0 +1,152 @@
+# SageTypes
+
+Tipos para o VBA escritos em C#, no lugar das classes do `Sage.xlam` (legado, que será aposentado). Funcionam em qualquer pasta de trabalho sem precisar do suplemento.
+
+O VBA os vê como a biblioteca **Sage**, então o código continua escrevendo `Sage.StringS`, como já fazia com o `Sage.xlam`.
+
+Por enquanto:
+- **StringS**, com a mesma API do `StringS` do `Sage.xlam`;
+- **DictionaryS**, com a API do `DictionaryS` do `Sage.xlam` e o comportamento e os métodos do dicionário do Python;
+- **ListS**, com a API do `ListS` do `Sage.xlam` e o comportamento e os métodos da lista do Python.
+
+## Instalar
+
+1. Feche o Excel.
+2. Rode:
+
+   ```
+   powershell -ExecutionPolicy Bypass -File install.ps1
+   ```
+
+   O script compila `src\*.cs` com o `csc` do .NET Framework 4, que já vem no Windows, copia o DLL para `%LOCALAPPDATA%\Sage\Types`, gera a biblioteca de tipos (`SageTypes.tlb`, com o nome de biblioteca `Sage`) e registra tudo só no usuário atual (HKCU), sem administrador.
+3. Com o SageEditor instalado, a referência é marcada sozinha quando você abre o código de um projeto (*Editor: Referência Automática* nas Configurações). Sem ele: **Ferramentas > Referências > Sage Framework**.
+
+Uma pasta de trabalho não pode referenciar ao mesmo tempo esta biblioteca e o projeto `Sage` do `Sage.xlam`, porque os nomes são iguais. Remova a referência ao `Sage.xlam` antes de adicionar esta.
+
+Para remover: `install.ps1 -Uninstall`.
+
+## Uso
+
+```vb
+Dim s As Sage.StringS
+Set s = New Sage.StringS
+s = "  olá\tmundo  "                  ' membro padrão (Value)
+Debug.Print s.Upper.Replace("MUNDO", "VBA")
+
+Dim t As Object                       ' sem referência (late binding)
+Set t = CreateObject("Sage.StringS")
+```
+
+O nome precisa do prefixo `Sage.` no `Dim` e no `New`. O VBA não diferencia maiúsculas de minúsculas, e `StringS` é igual a `Strings`, um módulo da própria biblioteca VBA, que sempre vem antes das outras referências. Nas chamadas de métodos (`s.Upper`) o prefixo não é necessário.
+
+## Valores dentro de ListS e DictionaryS
+
+Os tipos devolvem os tipos do Sage sempre que possível, como o `Sage.xlam` fazia:
+
+```vb
+Dim lst As New Sage.ListS
+lst = Array("Teste 2", "Teste 1", Array(1, 2))
+Debug.Print lst(0).Upper()            ' TESTE 2: texto volta como StringS
+lst(2).Append 3                       ' array guardado vira ListS e é alterado no lugar
+```
+
+- **Ao ler** (`l(i)`, `d(chave)`, `Item`, `GetItem`, `Pop`, `Min`, `Max`, `For Each`...), texto volta como `StringS`. Onde o VBA espera texto (`Debug.Print`, `x = lst(0)`, `lst(0) = "a"`, `Len`, `&`), ele usa o `Value` do `StringS`; `TypeName(lst(0))` é `"StringS"`.
+- **Ao guardar**, array vira `ListS` (os de dentro também; um array 2D, como `Range.Value`, vira lista de linhas), e um `StringS` é guardado como texto.
+- **Ficam como estão:** números, datas e objetos (`Scripting.Dictionary`, `Collection`, `Range`...), guardados por referência.
+- **VBA "puro":** `l.Value` sem índice, `l.ToArray` e `d.Value` sem chave devolvem arrays e texto comuns, com as listas internas também como arrays, para `UBound`, `Join` do VBA etc.
+
+## DictionaryS
+
+```vb
+Dim d As New Sage.DictionaryS
+d("nome") = "Ana"                     ' membro padrão (Value)
+d(1) = 10                             ' chave de qualquer tipo
+Set d("filho") = New Sage.DictionaryS ' objetos com Set
+Debug.Print d.ToString                ' {'nome': 'Ana', 1: 10, 'filho': {}}
+
+Dim k As Variant
+For Each k In d                       ' chaves, na ordem de inserção
+    Debug.Print k, d.GetItem(k)
+Next k
+```
+
+| Python | DictionaryS |
+|---|---|
+| `d[k]`, `d[k] = v` | `d(k)`, `d(k) = v` / `Set d(k) = objeto` |
+| `d[k]` com chave inexistente: `KeyError` | erro 9, "KeyError: 'k'" |
+| `k in d`, `len(d)` | `d.Contains(k)` (ou `Exists`), `d.Count` (ou `Length`) |
+| `d.get(k, padrão)` | `d.GetItem(k, padrão)` |
+| `d.keys()`, `d.values()`, `d.items()` | `d.Keys`, `d.Values` (ou `Itens`), `d.Items` (pares `Array(k, v)`) |
+| `d.pop(k[, padrão])`, `d.popitem()` | `d.Pop(k[, padrão])`, `d.PopItem` |
+| `d.setdefault(k[, v])`, `d.update(outro)` | `d.SetDefault(k[, v])`, `d.Update(outro)` |
+| `dict.fromkeys(chaves[, v])`, `d.copy()`, `d.clear()` | `d.FromKeys(chaves[, v])`, `d.Copy`, `d.Clear` |
+| `del d[k]` | `d.Remove k` (sem erro se não existir) |
+| `repr(d)` | `d.ToString` |
+
+- **Chaves:** como no Python, números são comparados pelo valor (`1`, `1#` e `CLng(1)` são a mesma chave) e texto diferencia maiúsculas; `"1"` é outra chave. Um `StringS` como chave vira o texto dele. Arrays não podem ser chave (erro 13).
+- **Fontes aceitas** por `Update`, `Append` e `d = ...`: outro `DictionaryS`, um `Scripting.Dictionary`, `Array(k1, v1, k2, v2...)` ou `Array(Array(k1, v1), ...)`.
+- **Sem chave:** `d = fonte` substitui todo o conteúdo; ler `d.Value` devolve um `Scripting.Dictionary` com tudo, como no `Sage.xlam`.
+
+### Diferenças em relação ao DictionaryS do Sage.xlam
+
+- Chave inexistente gera erro (`KeyError`) em vez de devolver `Empty`, como no Python. Para ler com valor padrão: `GetItem(chave, padrão)`.
+- As chaves mantêm o tipo (o `Sage.xlam` convertia tudo para texto): `d(1)` e `d("1")` são chaves diferentes.
+- Arrays guardados viram `ListS` (no `Sage.xlam`, só ao ler); `Items` e `PopItem` devolvem pares como `ListS`.
+
+## ListS
+
+```vb
+Dim l As New Sage.ListS
+l = Array(3, 1, 2)                    ' membro padrão (Value)
+l.Append 4                            ' altera a própria lista
+Debug.Print l(0), l(-1)               ' 3  4 (negativo conta do fim)
+Debug.Print l.Slice(1, 3).ToString    ' [1, 2]
+Debug.Print l.Sort.ToString           ' [1, 2, 3, 4]
+Debug.Print l.Join(", ")              ' 1, 2, 3, 4 (StringS)
+```
+
+| Python | ListS |
+|---|---|
+| `l[i]`, `l[i] = v`, `l[-1]` | `l(i)`, `l(i) = v` / `Set l(i) = objeto`, `l(-1)` |
+| índice fora do intervalo: `IndexError` | erro 9, "IndexError: list index out of range" |
+| `len(l)`, `x in l` | `l.Count` (ou `Length`), `l.Contains(x)` |
+| `l.append(x)`, `l.extend(it)`, `l.insert(i, x)` | `l.Append x`, `l.Extend it`, `l.Insert i, x` |
+| `l.pop([i])`, `l.remove(x)`, `del l[i]`, `l.clear()` | `l.Pop([i])`, `l.RemoveValue x`, `l.Remove i`, `l.Clear` |
+| `l.index(x[, ini[, fim]])`, `l.count(x)` | `l.Index(x[, ini[, fim]])`, `l.CountOf(x)` |
+| `l.sort(reverse=True)`, `l.reverse()`, `l.copy()` | `l.Sort(True)`, `l.Reverse`, `l.Copy` |
+| `l[ini:fim:passo]` | `l.Slice(ini, fim, passo)` (qualquer um pode ser omitido: `l.Slice(, , -1)`) |
+| `l1 + l2`, `l * n` | `l1.Concat(l2)`, `l.Repeat(n)` |
+| `sum(l)`, `min(l)`, `max(l)` | `l.Sum`, `l.Min`, `l.Max` |
+| `repr(l)`, `tuple(l)` | `l.ToString`, `l.ArrayType = sgTuple` |
+
+- **Métodos que alteram a lista** (`Append`, `Remove`, `Extend`, `Insert`, `RemoveValue`, `Clear`, `Sort`, `Reverse`) também a devolvem. Funciona tanto `l.Append x` quanto o encadeamento do `Sage.xlam`: `.Split(vbNewLine).Remove(-1).Join(vbNewLine)`.
+- **Iteráveis** aceitos por `l = ...`, `Extend` e `Concat`: array (2D: cada linha vira uma `ListS`), outro `ListS`, `DictionaryS` (as chaves), `Collection`, `Range` e texto (os caracteres).
+- **Comparação** (`Contains`, `Index`, `CountOf`, `RemoveValue`): números pelo valor (`21 = 21#`), texto diferenciando maiúsculas, objetos pela identidade.
+- **Ordenação** estável, como no Python: números pelo valor, texto pela ordem dos caracteres (maiúsculas antes das minúsculas); texto e número misturados geram erro 13.
+- **Tupla:** com `ArrayType = sgTuple`, qualquer alteração gera erro 13; `ToString` mostra `(1, 2)`.
+- `l.Value` sem índice (ou `l.ToArray`) devolve um array do VBA, para `UBound`, `Join` do VBA etc.
+
+### Diferenças em relação ao ListS do Sage.xlam
+
+- `Append` e `Remove` alteram a própria lista (no `Sage.xlam` devolviam uma cópia e a original ficava igual). Como continuam devolvendo a lista, `l = l.Append(x)` dá o mesmo resultado.
+- Índice fora do intervalo gera `IndexError` (erro 9) com a mensagem do Python.
+- Arrays viram `ListS` ao guardar (no `Sage.xlam`, uma cópia a cada leitura), então alterar uma lista interna altera a lista guardada.
+
+## Diferenças em relação ao StringS do Sage.xlam
+
+- `FString` e `Join` aceitam até 30 argumentos, e não uma `ParamArray` ilimitada: o VBA recusa a `ParamArray` exportada pelo .NET.
+- `Count("an")` conta ocorrências (2 em "banana"); a versão VBA contava caracteres removidos (4).
+- `Mid(3)` sem tamanho vai até o fim; na versão VBA o padrão `"End"` dava erro de tipo.
+- `Proper` segue as mesmas regras do PROPER do Excel, sem chamar o Excel.
+
+Mantidos de propósito, como no original: ao atribuir um valor, `\n` vira quebra de linha, `\t` vira espaços até a próxima coluna múltipla de 4 e o texto perde espaços e quebras das pontas (por isso `", "` vira `","`).
+
+## Para acrescentar membros
+
+As interfaces (`_StringS`, `_DictionaryS`, `_ListS`) são duais: o VBA as chama pela vtable. Acrescente membros **sempre no fim**, com o próximo `DispId`, e nunca reordene nem remova os existentes, senão o código VBA já compilado chama o método errado. Uma classe nova precisa de `[Guid]`, `[ProgId]`, interface própria e uma linha em `$Classes` no `install.ps1`.
+
+Limitações do exportador do .NET (`TypeLibConverter`) e como contorná-las:
+- **Propriedade Variant com `Let`:** o .NET exporta o setter só como `Property Set`. Declare também um método `let_Nome(...)` com os mesmos parâmetros mais o valor; o `install.ps1` o transforma no `Property Let` de `Nome` ao gerar o `.tlb`.
+- **`ParamArray`:** o `params` do C# não é aceito pelo VBA; use parâmetros `[Optional]`.
+- **Membros de enum:** o .NET os exporta como `Enum_Membro` (`sgArrayTypes_sgTuple`); o `install.ps1` tira o prefixo, e o VBA vê `sgTuple`.
+- **Nome igual a algo da biblioteca VBA** (como `Strings`): o VBA acha o dele primeiro, por isso o prefixo `Sage.`.

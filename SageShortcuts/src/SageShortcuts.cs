@@ -210,7 +210,7 @@ namespace SageShortcuts
     // ------------------------------------------------------------------------
     // Atalhos (keybindings.txt)
     // ------------------------------------------------------------------------
-    enum ActionKind { VbeCommand, Macro, Comment, Uncomment }
+    enum ActionKind { VbeCommand, Macro, Comment, Uncomment, CopyLinesUp, CopyLinesDown, MoveLinesUp, MoveLinesDown, ToggleImmediate }
 
     sealed class Binding
     {
@@ -240,7 +240,8 @@ namespace SageShortcuts
 
         // Formato:  <tecla>[, <tecla>...] = <ação>     # comentário
         //   tecla: [Ctrl+][Shift+][Alt+][Win+]<nome>   (ex.: Ctrl+K, Ctrl+Shift+F2)
-        //   ação:  comment | uncomment | vbe:<id do controle> | macro:<nome para Application.Run>
+        //   ação:  comment | uncomment | copyLinesUp | copyLinesDown | moveLinesUp | moveLinesDown |
+        //          toggleImmediate | vbe:<id do controle> | macro:<nome para Application.Run>
         public static Bindings Load(string path, out List<string> errors)
         {
             Bindings result = new Bindings();
@@ -295,6 +296,11 @@ namespace SageShortcuts
             {
                 case "comment": { Binding c = new Binding(); c.Kind = ActionKind.Comment; return c; }
                 case "uncomment": { Binding u = new Binding(); u.Kind = ActionKind.Uncomment; return u; }
+                case "copylinesup": { Binding up = new Binding(); up.Kind = ActionKind.CopyLinesUp; return up; }
+                case "copylinesdown": { Binding down = new Binding(); down.Kind = ActionKind.CopyLinesDown; return down; }
+                case "movelinesup": { Binding mu = new Binding(); mu.Kind = ActionKind.MoveLinesUp; return mu; }
+                case "movelinesdown": { Binding md = new Binding(); md.Kind = ActionKind.MoveLinesDown; return md; }
+                case "toggleimmediate": { Binding ti = new Binding(); ti.Kind = ActionKind.ToggleImmediate; return ti; }
             }
             int colon = text.IndexOf(':');
             string kind = colon < 0 ? "" : text.Substring(0, colon).Trim().ToLowerInvariant();
@@ -315,7 +321,7 @@ namespace SageShortcuts
                 b.Macro = arg;
                 return b;
             }
-            error = "ação inválida '" + text + "' (use comment, uncomment, vbe:<id> ou macro:<nome>)";
+            error = "ação inválida '" + text + "' (use comment, uncomment, copyLinesUp, copyLinesDown, moveLinesUp, moveLinesDown, toggleImmediate, vbe:<id> ou macro:<nome>)";
             return null;
         }
     }
@@ -444,13 +450,24 @@ namespace SageShortcuts
                 pending = sequence;
                 pendingTick = Environment.TickCount;
                 swallowed.Add(vk);
+                MaskAlt();
                 return true;
             }
             Binding binding = current.Find(sequence);
             if (binding == null) return false;
             swallowed.Add(vk);
+            MaskAlt();
             onMatch(binding, vbe);
             return true;
+        }
+
+        // Com a tecla consumida, o VBE veria só "Alt pressionado e solto" e ativaria a
+        // barra de menus. Uma tecla neutra no meio evita isso (o hook ignora teclas
+        // sintéticas, então ela não volta para cá).
+        static void MaskAlt()
+        {
+            if (Native.IsDown(Keys.Menu) || Native.IsDown(Keys.LWin) || Native.IsDown(Keys.RWin))
+                Native.TapMaskKey();
         }
 
         static bool IsModifier(int vk)
@@ -607,6 +624,91 @@ namespace SageShortcuts
                     // O Desfazer do VBE não registra essas edições.
                     ToggleComment(app.VBE.ActiveCodePane, binding.Kind == ActionKind.Comment);
                     break;
+                case ActionKind.CopyLinesUp:
+                case ActionKind.CopyLinesDown:
+                    CopyLines(app.VBE.ActiveCodePane, binding.Kind == ActionKind.CopyLinesDown);
+                    break;
+                case ActionKind.MoveLinesUp:
+                case ActionKind.MoveLinesDown:
+                    MoveLines(app.VBE.ActiveCodePane, binding.Kind == ActionKind.MoveLinesDown);
+                    break;
+                case ActionKind.ToggleImmediate:
+                    ToggleImmediate(app.VBE);
+                    break;
+            }
+        }
+
+        const int vbext_wt_Immediate = 5;
+
+        // Fecha a Verificação imediata se estiver aberta; senão abre e põe o foco nela,
+        // como Ctrl+J no VS Code (que alterna o painel)
+        static void ToggleImmediate(dynamic vbe)
+        {
+            foreach (dynamic window in vbe.Windows)
+            {
+                if ((int)window.Type != vbext_wt_Immediate) continue;
+                if ((bool)window.Visible) window.Visible = false;
+                else
+                {
+                    window.Visible = true;
+                    window.SetFocus();
+                }
+                return;
+            }
+        }
+
+        // Troca as linhas da seleção com a de cima ou a de baixo, como Alt+Seta no VS Code;
+        // a seleção acompanha. Também pelo CodeModule (sem Desfazer).
+        static void MoveLines(dynamic pane, bool down)
+        {
+            if (pane == null) return;
+            dynamic module = pane.CodeModule;
+            int total = module.CountOfLines;
+            if (total == 0) return;
+            int startLine = 0, startCol = 0, endLine = 0, endCol = 0;
+            pane.GetSelection(ref startLine, ref startCol, ref endLine, ref endCol);
+            int lastLine = (endLine > startLine && endCol == 1) ? endLine - 1 : endLine;
+            if (down ? lastLine >= total : startLine <= 1) return;
+
+            if (down)
+            {
+                string below = module.Lines(lastLine + 1, 1);
+                module.DeleteLines(lastLine + 1, 1);
+                module.InsertLines(startLine, below);
+                pane.SetSelection(startLine + 1, startCol, endLine + 1, endCol);
+            }
+            else
+            {
+                string above = module.Lines(startLine - 1, 1);
+                module.DeleteLines(startLine - 1, 1);
+                module.InsertLines(lastLine, above); // o bloco subiu uma linha; a de cima vai para depois dele
+                pane.SetSelection(startLine - 1, startCol, endLine - 1, endCol);
+            }
+        }
+
+        // Duplica as linhas da seleção, como Shift+Alt+Seta no VS Code. Para baixo, a
+        // seleção vai para a cópia; para cima, fica na cópia (que ocupa o lugar original).
+        // Também pelo CodeModule: funciona em modo de interrupção, sem Desfazer.
+        static void CopyLines(dynamic pane, bool down)
+        {
+            if (pane == null) return;
+            dynamic module = pane.CodeModule;
+            if (module.CountOfLines == 0) return;
+            int startLine = 0, startCol = 0, endLine = 0, endCol = 0;
+            pane.GetSelection(ref startLine, ref startCol, ref endLine, ref endCol);
+            int lastLine = (endLine > startLine && endCol == 1) ? endLine - 1 : endLine;
+            int count = lastLine - startLine + 1;
+            string text = module.Lines(startLine, count);
+
+            if (down)
+            {
+                module.InsertLines(lastLine + 1, text);
+                pane.SetSelection(startLine + count, startCol, endLine + count, endCol);
+            }
+            else
+            {
+                module.InsertLines(startLine, text);
+                pane.SetSelection(startLine, startCol, endLine, endCol);
             }
         }
 
@@ -796,6 +898,17 @@ namespace SageShortcuts
         public static bool IsDown(Keys key)
         {
             return (GetAsyncKeyState((int)key) & 0x8000) != 0;
+        }
+
+        [DllImport("user32.dll")]
+        static extern void keybd_event(byte vk, byte scan, uint flags, UIntPtr extraInfo);
+        const byte VK_MASK = 0xE8; // código de tecla sem uso
+        const uint KEYEVENTF_KEYUP = 0x2;
+
+        public static void TapMaskKey()
+        {
+            keybd_event(VK_MASK, 0, 0, UIntPtr.Zero);
+            keybd_event(VK_MASK, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
         }
 
         public static string ClassName(IntPtr hwnd)
