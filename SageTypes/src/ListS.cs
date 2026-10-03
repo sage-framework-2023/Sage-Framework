@@ -10,10 +10,10 @@ namespace SageTypes
 {
     // Tipo de ListS: lista (pode mudar) ou tupla (não pode), como no Sage.xlam
     [ComVisible(true), Guid("8D3F5A72-1E94-4C6B-A0D8-2F7B9E4C1A53")]
-    public enum sgArrayTypes
+    public enum SgArrayTypes
     {
-        sgList = 0,
-        sgTuple = 1,
+        SgList = 0,
+        SgTuple = 1,
     }
 
     // ListS: lista como a do Python, no lugar do ListS do Sage.xlam (mesma API, mais os
@@ -32,10 +32,10 @@ namespace SageTypes
     [ComVisible(true), Guid("5A1C8E3D-7B26-4F90-9D4E-B3C6A8F2D715"), InterfaceType(ComInterfaceType.InterfaceIsDual)]
     public interface _ListS
     {
-        // l(i) lê; Set l(i) = objeto grava; l(i) = valor é o let_Value abaixo.
+        // l(i) lê; Set l(i) = objeto grava; l(i) = valor é o LetValue abaixo.
         // Sem índice: lê um array do VBA; l = Array(...) / outraLista substitui tudo.
         [DispId(0), IndexerName("Value")] object this[[Optional] object Index] { get; set; }
-        [DispId(1)] sgArrayTypes ArrayType { get; set; }
+        [DispId(1)] SgArrayTypes ArrayType { get; set; }
         [DispId(2)] StringS Join([Optional] object Delimiter);
         [DispId(3)] int Length();
         [DispId(4)] ListS Remove(object Index);
@@ -63,7 +63,7 @@ namespace SageTypes
         [DispId(-4)] IEnumerator GetEnumerator();
 
         // Vira o Property Let de Value (DispId 0) na geração do .tlb (install.ps1).
-        [DispId(1000)] void let_Value([Optional] object Index, object Value);
+        [DispId(1000), PropertyLet("Value")] void LetValue([Optional] object Index, object Value);
     }
 
     [ComVisible(true), Guid("E7A42C19-6D3B-4E85-8F1A-0C9B5D2E7A64"), ProgId("Sage.ListS")]
@@ -71,7 +71,7 @@ namespace SageTypes
     public sealed class ListS : _ListS, IEnumerable
     {
         readonly List<object> items = new List<object>();
-        sgArrayTypes type = sgArrayTypes.sgList;
+        SgArrayTypes type = SgArrayTypes.SgList;
 
         public ListS() { }
 
@@ -83,7 +83,7 @@ namespace SageTypes
         }
 
         internal IList<object> Items { get { return items; } }
-        internal bool IsTuple { get { return type == sgArrayTypes.sgTuple; } }
+        internal bool IsTuple { get { return type == SgArrayTypes.SgTuple; } }
 
         // ------------------------------------------------------------------
         // Valor (membro padrão)
@@ -97,7 +97,7 @@ namespace SageTypes
             set { Store(Index, value); }
         }
 
-        public void let_Value(object Index, object Value) { Store(Index, Value); }
+        public void LetValue(object Index, object Value) { Store(Index, Value); }
 
         void Store(object index, object value)
         {
@@ -112,7 +112,7 @@ namespace SageTypes
             else items[Position(index)] = Interop.Store(value);
         }
 
-        public sgArrayTypes ArrayType
+        public SgArrayTypes ArrayType
         {
             get { return type; }
             set { type = value; }
@@ -336,7 +336,7 @@ namespace SageTypes
 
         void Mutable()
         {
-            if (type == sgArrayTypes.sgTuple) throw Interop.Error(13, "TypeError: 'tuple' object does not support item assignment");
+            if (type == SgArrayTypes.SgTuple) throw Interop.Error(13, "TypeError: 'tuple' object does not support item assignment");
         }
 
         // Índice válido (negativo conta do fim) ou IndexError

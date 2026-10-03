@@ -7,6 +7,24 @@ using System.Text;
 
 namespace SageTypes
 {
+    // Marca um método de interface que vira propriedade na geração do .tlb (install.ps1):
+    // o .NET não exporta propriedades com parâmetros (só o indexador) nem Property Let
+    // para valores Variant. [PropertyGet("At")] GetAt(...) é lido como At(...) no VBA;
+    // [PropertyLet("Value")] LetValue(..., valor) é a atribuição d(k) = valor.
+    [AttributeUsage(AttributeTargets.Method)]
+    sealed class PropertyGetAttribute : Attribute
+    {
+        public readonly string Name;
+        public PropertyGetAttribute(string name) { Name = name; }
+    }
+
+    [AttributeUsage(AttributeTargets.Method)]
+    sealed class PropertyLetAttribute : Attribute
+    {
+        public readonly string Name;
+        public PropertyLetAttribute(string name) { Name = name; }
+    }
+
     // Conversões entre os valores que chegam do VBA e os tipos do Sage
     static class Interop
     {
@@ -149,8 +167,15 @@ namespace SageTypes
                 sb.Append('#').Append(d.ToString(d.TimeOfDay == TimeSpan.Zero ? "yyyy-MM-dd" : "yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)).Append('#');
                 return;
             }
-            if (value is double) { sb.Append(((double)value).ToString("R", CultureInfo.InvariantCulture)); return; }
-            if (value is float) { sb.Append(((float)value).ToString("R", CultureInfo.InvariantCulture)); return; }
+            if (value is double || value is float)
+            {
+                // Como o Python: decimal inteiro aparece com ".0" (1.0), para não parecer inteiro
+                double d = Convert.ToDouble(value, CultureInfo.InvariantCulture);
+                string text = d.ToString("R", CultureInfo.InvariantCulture);
+                if (!double.IsNaN(d) && !double.IsInfinity(d) && text.IndexOfAny(new[] { '.', 'E', 'e' }) < 0) text += ".0";
+                sb.Append(text);
+                return;
+            }
             if (value.GetType().IsPrimitive || value is decimal) { sb.Append(((IFormattable)value).ToString(null, CultureInfo.InvariantCulture)); return; }
 
             DictionaryS dict = value as DictionaryS;

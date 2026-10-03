@@ -8,6 +8,7 @@ Por enquanto:
 - **StringS**, com a mesma API do `StringS` do `Sage.xlam`;
 - **DictionaryS**, com a API do `DictionaryS` do `Sage.xlam` e o comportamento e os métodos do dicionário do Python;
 - **ListS**, com a API do `ListS` do `Sage.xlam` e o comportamento e os métodos da lista do Python.
+- **DataFrame**, tabela no estilo do pandas sobre o DuckDB, para milhões de linhas.
 
 ## Instalar
 
@@ -18,12 +19,14 @@ Por enquanto:
    powershell -ExecutionPolicy Bypass -File install.ps1
    ```
 
-   O script compila `src\*.cs` com o `csc` do .NET Framework 4, que já vem no Windows, copia o DLL para `%LOCALAPPDATA%\Sage\Types`, gera a biblioteca de tipos (`SageTypes.tlb`, com o nome de biblioteca `Sage`) e registra tudo só no usuário atual (HKCU), sem administrador.
+   O script compila `src\*.cs` com o `csc` do .NET Framework 4, que já vem no Windows, copia o DLL e a `duckdb.dll` para `%LOCALAPPDATA%\Sage\Types`, gera a biblioteca de tipos (`SageTypes.tlb`, com o nome de biblioteca `Sage`) e registra tudo só no usuário atual (HKCU), sem administrador.
 3. Com o SageEditor instalado, a referência é marcada sozinha quando você abre o código de um projeto (*Editor: Referência Automática* nas Configurações). Sem ele: **Ferramentas > Referências > Sage Framework**.
 
 Uma pasta de trabalho não pode referenciar ao mesmo tempo esta biblioteca e o projeto `Sage` do `Sage.xlam`, porque os nomes são iguais. Remova a referência ao `Sage.xlam` antes de adicionar esta.
 
 Para remover: `install.ps1 -Uninstall`.
+
+A `duckdb.dll` (64 bits, assinada pela DuckDB Foundation) vem em `lib\` no pacote da release. Num clone do git ela não existe, e o `install.ps1` baixa a versão fixada e confere o hash SHA-256. Para montar o pacote da release: `build-release.ps1 -Version x.y.z` na raiz do repositório (licença em `THIRD-PARTY-NOTICES.txt`).
 
 ## Uso
 
@@ -117,13 +120,13 @@ Debug.Print l.Join(", ")              ' 1, 2, 3, 4 (StringS)
 | `l[ini:fim:passo]` | `l.Slice(ini, fim, passo)` (qualquer um pode ser omitido: `l.Slice(, , -1)`) |
 | `l1 + l2`, `l * n` | `l1.Concat(l2)`, `l.Repeat(n)` |
 | `sum(l)`, `min(l)`, `max(l)` | `l.Sum`, `l.Min`, `l.Max` |
-| `repr(l)`, `tuple(l)` | `l.ToString`, `l.ArrayType = sgTuple` |
+| `repr(l)`, `tuple(l)` | `l.ToString`, `l.ArrayType = SgTuple` |
 
 - **Métodos que alteram a lista** (`Append`, `Remove`, `Extend`, `Insert`, `RemoveValue`, `Clear`, `Sort`, `Reverse`) também a devolvem. Funciona tanto `l.Append x` quanto o encadeamento do `Sage.xlam`: `.Split(vbNewLine).Remove(-1).Join(vbNewLine)`.
 - **Iteráveis** aceitos por `l = ...`, `Extend` e `Concat`: array (2D: cada linha vira uma `ListS`), outro `ListS`, `DictionaryS` (as chaves), `Collection`, `Range` e texto (os caracteres).
 - **Comparação** (`Contains`, `Index`, `CountOf`, `RemoveValue`): números pelo valor (`21 = 21#`), texto diferenciando maiúsculas, objetos pela identidade.
 - **Ordenação** estável, como no Python: números pelo valor, texto pela ordem dos caracteres (maiúsculas antes das minúsculas); texto e número misturados geram erro 13.
-- **Tupla:** com `ArrayType = sgTuple`, qualquer alteração gera erro 13; `ToString` mostra `(1, 2)`.
+- **Tupla:** com `ArrayType = SgTuple`, qualquer alteração gera erro 13; `ToString` mostra `(1, 2)`.
 - `l.Value` sem índice (ou `l.ToArray`) devolve um array do VBA, para `UBound`, `Join` do VBA etc.
 
 ### Diferenças em relação ao ListS do Sage.xlam
@@ -131,6 +134,56 @@ Debug.Print l.Join(", ")              ' 1, 2, 3, 4 (StringS)
 - `Append` e `Remove` alteram a própria lista (no `Sage.xlam` devolviam uma cópia e a original ficava igual). Como continuam devolvendo a lista, `l = l.Append(x)` dá o mesmo resultado.
 - Índice fora do intervalo gera `IndexError` (erro 9) com a mensagem do Python.
 - Arrays viram `ListS` ao guardar (no `Sage.xlam`, uma cópia a cada leitura), então alterar uma lista interna altera a lista guardada.
+
+## DataFrame
+
+Tabela no estilo do pandas, feita para volumes grandes (dezenas de milhões de linhas). Os dados ficam no [DuckDB](https://duckdb.org), um banco analítico embutido (`duckdb.dll`, junto do `SageTypes.dll`), e não em arrays do VBA. Cada operação vira SQL, executado em paralelo e só quando o resultado é pedido. O banco é um arquivo temporário por processo do Excel (`%TEMP%\SageDuckDB`, apagado ao fechar), com as tabelas comprimidas no disco: só o que está em uso fica na memória, limitada a 40% da RAM.
+
+```vb
+Dim df As New Sage.DataFrame
+df.ReadCsv "C:\dados\vendas.csv"
+Debug.Print df                                   ' tabela como no pandas (5 primeiras + 5 últimas)
+
+Dim resumo As Sage.DataFrame
+Set resumo = df.Query("Valor > 100 And Cidade = ""SP""") _
+               .GroupBy("Produto", "Total = sum(Valor), N = count(*)") _
+               .SortValues("Total", False)
+resumo.ToRange Sheets("Resumo").Range("A1")
+
+df.Eval "Total = Valor * Qtd"                    ' coluna nova (ou substituída), em SQL
+df("Ativo") = True                               ' coluna inteira
+
+df.MoveFirst                                     ' cursor, linha a linha
+Do Until df.EOF
+    df("Valor") = df("Valor") / 100
+    df.MoveNext
+Loop
+```
+
+**Carregar:** `ReadCsv(Caminho, [Cabeçalho], [Delimitador], [SeparadorDecimal], [Codificação])`, `ReadParquet`, `ReadExcel(Caminho, [Planilha], [Cabeçalho])`, `FromRange`, `FromArray` (2D ou array de linhas), `FromRecords` (lista de `DictionaryS`), `Sql("SELECT ... FROM {0} JOIN {1} ...", outroDf)`.
+
+**Gravar e ver:** `ToCsv`, `ToParquet`, `ToExcel` (formato pela extensão), `ToRange`, `ToArray`, `ToString` / `Debug.Print df`, `Show` (janela com grade, lida aos poucos: abre na hora mesmo com milhões de linhas).
+
+**Explorar:** `Count`, `Columns`, `DTypes`, `Shape`, `Info`, `Describe`, `Head`, `Tail`, `Slice`, `Sample`, `Col`, `Unique`, `ValueCounts`, `Sum`, `Mean`, `Min`, `Max`, `Median`, `Std`, `NUnique`.
+
+**Transformar** (devolvem um DataFrame novo; o original fica igual, menos em `Eval` com `=` e atribuições): `Query`, `Select` (aceita `"Nova = expressão"`), `Drop`, `Rename`, `SortValues`, `DropDuplicates`, `DropNA`, `FillNA`, `GroupBy(Chaves, "Nome = agregação, ...")` ou com um `DictionaryS` `{coluna: "sum"}`, `Pivot`, `Merge(Outro, On, How, LeftOn, RightOn)` (sufixos `_x`/`_y`), `Concat` (por nome de coluna), `Copy`.
+
+Nas expressões (`Query`, `Eval`, `Select`, `GroupBy`), texto vai entre aspas duplas como no VBA (`"SP"`) e nomes com espaço entre colchetes (`[Valor Total]`); o resto é SQL do DuckDB (`round`, `year(Data)`, `Is Null`, `Like`...).
+
+**Linhas e células:** `df.At(linha, "Coluna")` lê e grava uma célula; `df.Loc(linha)` devolve a linha como `DictionaryS`; `df.Loc(df.Count) = Array(...)` acrescenta uma linha, como `df.loc[len(df)] = [...]`; `For Each linha In df` percorre as linhas como `DictionaryS`. O cursor (`MoveFirst`, `MoveNext`, `MovePrevious`, `MoveLast`, `Move`, `EOF`, `BOF`, `Index`) lê blocos de 65.536 linhas e grava as alterações em lote, mas ainda passa por cada linha no VBA: para milhões de linhas, prefira `Eval`/`Query`/`GroupBy`, que rodam no DuckDB.
+
+`df("Coluna")` devolve a coluna como `ListS` fora do cursor e a célula da linha atual dentro dele. Uma coluna inteira recebe um valor (`df("X") = 0`) ou um array/`ListS` com um valor por linha.
+
+### No lugar das funções do DataFrame do Sage.xlam
+
+| Sage.xlam | DataFrame |
+|---|---|
+| `AddColumn` | `df("Nova") = valor`, `df("Nova") = array`, `df.Eval "Nova = expressão"` |
+| `AddRow` | `df.Loc(df.Count) = Array(...)`; muitas linhas: `df.Concat(outro)` |
+| remover coluna/linhas | `df.Drop("Col")`, `df.Query("condição")` |
+| `Data` (array interno) | `df.ToArray` / `df.FromArray` |
+
+O tipo de uma coluna se alarga sozinho: um inteiro que recebe um decimal vira `DOUBLE`; um número que recebe texto vira `VARCHAR`.
 
 ## Diferenças em relação ao StringS do Sage.xlam
 
@@ -143,10 +196,13 @@ Mantidos de propósito, como no original: ao atribuir um valor, `\n` vira quebra
 
 ## Para acrescentar membros
 
-As interfaces (`_StringS`, `_DictionaryS`, `_ListS`) são duais: o VBA as chama pela vtable. Acrescente membros **sempre no fim**, com o próximo `DispId`, e nunca reordene nem remova os existentes, senão o código VBA já compilado chama o método errado. Uma classe nova precisa de `[Guid]`, `[ProgId]`, interface própria e uma linha em `$Classes` no `install.ps1`.
+Todos os nomes (tipos, membros, parâmetros, enums) seguem o PascalCase, sem sublinhado: `ReadCsv`, `SortValues`, `SgTuple`.
+
+As interfaces (`_StringS`, `_DictionaryS`, `_ListS`, `_DataFrame`) são duais: o VBA as chama pela vtable. Acrescente membros **sempre no fim**, com o próximo `DispId`, e nunca reordene nem remova os existentes, senão o código VBA já compilado chama o método errado. Uma classe nova precisa de `[Guid]`, `[ProgId]`, interface própria e uma linha em `$Classes` no `install.ps1`.
 
 Limitações do exportador do .NET (`TypeLibConverter`) e como contorná-las:
-- **Propriedade Variant com `Let`:** o .NET exporta o setter só como `Property Set`. Declare também um método `let_Nome(...)` com os mesmos parâmetros mais o valor; o `install.ps1` o transforma no `Property Let` de `Nome` ao gerar o `.tlb`.
+- **Propriedade Variant com `Let`:** o .NET exporta o setter só como `Property Set`. Declare também um método `LetNome(...)` com `[PropertyLet("Nome")]`, os mesmos parâmetros e mais o valor; o `install.ps1` o transforma no `Property Let` de `Nome` ao gerar o `.tlb`.
+- **Propriedade com parâmetros** (como `At(linha, coluna)`): o .NET só exporta o indexador. Declare um método `GetNome(...)` com `[PropertyGet("Nome")]`; no VBA ele é lido como `Nome(...)`.
 - **`ParamArray`:** o `params` do C# não é aceito pelo VBA; use parâmetros `[Optional]`.
-- **Membros de enum:** o .NET os exporta como `Enum_Membro` (`sgArrayTypes_sgTuple`); o `install.ps1` tira o prefixo, e o VBA vê `sgTuple`.
+- **Membros de enum:** o .NET os exporta como `Enum_Membro` (`SgArrayTypes_SgTuple`); o `install.ps1` tira o prefixo, e o VBA vê `SgTuple`.
 - **Nome igual a algo da biblioteca VBA** (como `Strings`): o VBA acha o dele primeiro, por isso o prefixo `Sage.`.

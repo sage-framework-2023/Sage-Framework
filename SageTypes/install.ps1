@@ -13,6 +13,7 @@ $Tlb = Join-Path $Target 'SageTypes.tlb'
 
 Add-Type -TypeDefinition @'
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using System.Runtime.InteropServices;
 
@@ -67,15 +68,39 @@ public static class SageTypeLib
         ICreateTypeLib lib = (ICreateTypeLib)new TypeLibConverter().ConvertAssemblyToTypeLib(
             assembly, tlb, TypeLibExporterFlags.ExportAs64Bit, new Sink());
         lib.SetName(libraryName);
-        ApplyLetProperties((System.Runtime.InteropServices.ComTypes.ITypeLib)lib);
+        ApplyProperties((System.Runtime.InteropServices.ComTypes.ITypeLib)lib, PropertyMethods(assembly));
         lib.SaveAllChanges();
     }
 
-    // O .NET exporta o setter de uma propriedade Variant só como Property Set
-    // (propputref), e "d(chave) = valor" não compila no VBA. Cada método let_X das
-    // interfaces vira o Property Let (propput) de X: mesmo DispId de X, mesma posição
-    // na vtable (onde o .NET implementou let_X), parâmetros iguais.
-    static void ApplyLetProperties(System.Runtime.InteropServices.ComTypes.ITypeLib lib)
+    // Métodos das interfaces marcados com [PropertyGet("X")] ou [PropertyLet("X")] no
+    // código: "Interface.Método" -> (é Let, nome da propriedade)
+    static Dictionary<string, KeyValuePair<bool, string>> PropertyMethods(Assembly assembly)
+    {
+        var result = new Dictionary<string, KeyValuePair<bool, string>>();
+        foreach (Type type in assembly.GetTypes())
+        {
+            if (!type.IsInterface) continue;
+            foreach (MethodInfo method in type.GetMethods())
+                foreach (CustomAttributeData data in CustomAttributeData.GetCustomAttributes(method))
+                {
+                    string kind = data.Constructor.DeclaringType.Name;
+                    if (kind != "PropertyGetAttribute" && kind != "PropertyLetAttribute") continue;
+                    result[type.Name + "." + method.Name] = new KeyValuePair<bool, string>(
+                        kind == "PropertyLetAttribute", (string)data.ConstructorArguments[0].Value);
+                }
+        }
+        return result;
+    }
+
+    // O .NET não exporta propriedades com parâmetros além do indexador, e exporta o
+    // setter de uma propriedade Variant só como Property Set (propputref), com o que
+    // "d(chave) = valor" não compila no VBA. Por isso:
+    // - [PropertyGet("X")] (GetAt): o método vira a leitura da propriedade X, com
+    //   parâmetros, como At(linha, coluna);
+    // - [PropertyLet("X")] (LetValue): o método vira o Property Let (propput) de X:
+    //   mesmo DispId de X, mesma posição na vtable (onde o .NET o implementou),
+    //   parâmetros iguais.
+    static void ApplyProperties(System.Runtime.InteropServices.ComTypes.ITypeLib lib, Dictionary<string, KeyValuePair<bool, string>> methods)
     {
         for (int i = 0; i < lib.GetTypeInfoCount(); i++)
         {
@@ -97,12 +122,15 @@ public static class SageTypeLib
             info.GetRefTypeOfImplType(-1, out href);
             System.Runtime.InteropServices.ComTypes.ITypeInfo vtable;
             info.GetRefTypeInfo(href, out vtable);
-            ApplyLetProperties(vtable);
+            ApplyProperties(vtable, methods);
         }
     }
 
-    static void ApplyLetProperties(System.Runtime.InteropServices.ComTypes.ITypeInfo info)
+    static void ApplyProperties(System.Runtime.InteropServices.ComTypes.ITypeInfo info, Dictionary<string, KeyValuePair<bool, string>> methods)
     {
+        string typeName, doc, helpFile;
+        int helpContext;
+        info.GetDocumentation(-1, out typeName, out doc, out helpContext, out helpFile);
         IntPtr pa;
         info.GetTypeAttr(out pa);
         var attr = (System.Runtime.InteropServices.ComTypes.TYPEATTR)Marshal.PtrToStructure(pa, typeof(System.Runtime.InteropServices.ComTypes.TYPEATTR));
@@ -116,13 +144,36 @@ public static class SageTypeLib
             string[] names = new string[desc.cParams + 1];
             int count;
             info.GetNames(desc.memid, names, names.Length, out count);
-            if (!names[0].StartsWith("let_") || desc.invkind != System.Runtime.InteropServices.ComTypes.INVOKEKIND.INVOKE_FUNC)
+            KeyValuePair<bool, string> mark;
+            if (!methods.TryGetValue(typeName + "." + names[0], out mark) ||
+                desc.invkind != System.Runtime.InteropServices.ComTypes.INVOKEKIND.INVOKE_FUNC)
             {
                 info.ReleaseFuncDesc(pf);
                 continue;
             }
 
-            string property = names[0].Substring(4);
+            string property = mark.Value;
+            if (!mark.Key)
+            {
+                desc.invkind = System.Runtime.InteropServices.ComTypes.INVOKEKIND.INVOKE_PROPERTYGET;
+                IntPtr getCopy = Marshal.AllocHGlobal(Marshal.SizeOf(desc));
+                try
+                {
+                    Marshal.StructureToPtr(desc, getCopy, false);
+                    ICreateTypeInfo2 create = (ICreateTypeInfo2)info;
+                    create.DeleteFuncDesc(f);
+                    create.AddFuncDesc(f, getCopy);
+                    names[0] = property;
+                    create.SetFuncAndParamNames(f, names, count);
+                }
+                finally
+                {
+                    Marshal.FreeHGlobal(getCopy);
+                    info.ReleaseFuncDesc(pf);
+                }
+                continue;
+            }
+
             desc.memid = MemberId(info, attr.cFuncs, property);
             desc.invkind = System.Runtime.InteropServices.ComTypes.INVOKEKIND.INVOKE_PROPERTYPUT;
             IntPtr copy = Marshal.AllocHGlobal(Marshal.SizeOf(desc));
@@ -146,8 +197,8 @@ public static class SageTypeLib
         }
     }
 
-    // O .NET exporta os membros de um enum como "Enum_Membro" (sgArrayTypes_sgTuple);
-    // no VBA eles ficam só com o nome do membro (sgTuple), como no Sage.xlam
+    // O .NET exporta os membros de um enum como "Enum_Membro" (SgArrayTypes_SgTuple);
+    // no VBA eles ficam só com o nome do membro (SgTuple)
     static void RemoveEnumPrefix(System.Runtime.InteropServices.ComTypes.ITypeInfo info, int vars)
     {
         string enumName, doc, helpFile;
@@ -179,7 +230,7 @@ public static class SageTypeLib
             info.GetNames(desc.memid, names, 1, out count);
             if (names[0] == name) return desc.memid;
         }
-        throw new InvalidOperationException("let_" + name + " sem a propriedade " + name);
+        throw new InvalidOperationException("[PropertyLet(\"" + name + "\")] sem a propriedade " + name);
     }
 
     public static void Register(string tlb)
@@ -203,7 +254,36 @@ $Classes = @(
     @{ Class = 'SageTypes.StringS'; Clsid = '{9A4C1E7B-2D58-4F3A-B6C9-0E1F2A3B4C5D}'; ProgId = 'Sage.StringS' }
     @{ Class = 'SageTypes.DictionaryS'; Clsid = '{4B8E6D21-9F3C-4A57-B1D0-E5C27A8F6B39}'; ProgId = 'Sage.DictionaryS' }
     @{ Class = 'SageTypes.ListS'; Clsid = '{E7A42C19-6D3B-4E85-8F1A-0C9B5D2E7A64}'; ProgId = 'Sage.ListS' }
+    @{ Class = 'SageTypes.DataFrame'; Clsid = '{2F9C6E14-8B3A-4D71-A5E2-7C0D9B4F3A68}'; ProgId = 'Sage.DataFrame' }
 )
+
+# DuckDB (motor do DataFrame). No pacote da release vem em lib\; num clone do git é
+# baixado do GitHub do DuckDB, nesta versão exata, conferindo o hash.
+$DuckDB = @{
+    Version = '1.5.6'
+    Url     = 'https://github.com/duckdb/duckdb/releases/download/v1.5.6/libduckdb-windows-amd64.zip'
+    ZipHash = '44CF59583F9951D2CB09B1BF115A63ECB2D8901E363903029D86C7D8683FE96A'
+    DllHash = '7E90BDEF028D57B45490D6F53530E3C012A5D9ABDC4C6723449200663DC84ED0'
+}
+
+function Get-DuckDB {
+    $lib = Join-Path $PSScriptRoot 'lib'
+    $dll = Join-Path $lib 'duckdb.dll'
+    if ((Test-Path $dll) -and (Get-FileHash $dll -Algorithm SHA256).Hash -eq $DuckDB.DllHash) { return $dll }
+    Write-Host "Baixando o DuckDB $($DuckDB.Version)..."
+    New-Item $lib -ItemType Directory -Force | Out-Null
+    $zip = Join-Path ([IO.Path]::GetTempPath()) "libduckdb-$($DuckDB.Version).zip"
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    Invoke-WebRequest $DuckDB.Url -OutFile $zip -UseBasicParsing
+    if ((Get-FileHash $zip -Algorithm SHA256).Hash -ne $DuckDB.ZipHash) { Remove-Item $zip; throw 'O arquivo do DuckDB baixado não confere com o hash esperado.' }
+    $unzip = Join-Path ([IO.Path]::GetTempPath()) "libduckdb-$($DuckDB.Version)"
+    if (Test-Path $unzip) { Remove-Item $unzip -Recurse -Force }
+    Expand-Archive $zip $unzip
+    Copy-Item (Join-Path $unzip 'duckdb.dll') $dll -Force
+    Remove-Item $zip, $unzip -Recurse -Force
+    if ((Get-FileHash $dll -Algorithm SHA256).Hash -ne $DuckDB.DllHash) { throw 'A duckdb.dll não confere com o hash esperado.' }
+    return $dll
+}
 
 function Remove-Registration {
     [SageTypeLib]::Unregister($LibId)
@@ -230,9 +310,17 @@ if (Get-Process EXCEL -ErrorAction SilentlyContinue) {
 & cmd /c "`"$PSScriptRoot\build.cmd`""
 if ($LASTEXITCODE -ne 0) { throw 'A compilação falhou.' }
 
+$duckdbDll = Get-DuckDB
 New-Item $Target -ItemType Directory -Force | Out-Null
-try { Copy-Item (Join-Path $PSScriptRoot 'bin\SageTypes.dll') $Dll -Force }
-catch { throw "Não foi possível copiar o DLL (o Excel está usando?). Feche o Excel e rode de novo." }
+try
+{
+    Copy-Item (Join-Path $PSScriptRoot 'bin\SageTypes.dll') $Dll -Force
+    $installedDuckDB = Join-Path $Target 'duckdb.dll'
+    if (-not (Test-Path $installedDuckDB) -or (Get-FileHash $installedDuckDB -Algorithm SHA256).Hash -ne $DuckDB.DllHash) {
+        Copy-Item $duckdbDll $installedDuckDB -Force
+    }
+}
+catch { throw "Não foi possível copiar os DLLs (o Excel está usando?). Feche o Excel e rode de novo." }
 
 # Biblioteca de tipos: o que o VBA lista em Referências e usa no IntelliSense
 Remove-Registration

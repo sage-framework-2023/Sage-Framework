@@ -25,7 +25,7 @@ namespace SageTypes
     public interface _DictionaryS
     {
         // d(chave) lê; Set d(chave) = objeto grava. d(chave) = valor (Property Let) é o
-        // let_Value abaixo. Sem chave: lê um Scripting.Dictionary com tudo (como no
+        // LetValue abaixo. Sem chave: lê um Scripting.Dictionary com tudo (como no
         // Sage.xlam); d = Array(k1, v1, k2, v2...) ou d = outroDicionario substitui tudo.
         [DispId(0), IndexerName("Value")] object this[[Optional] object Key] { get; set; }
         [DispId(1)] object Item(object Key);
@@ -53,7 +53,7 @@ namespace SageTypes
 
         // Vira o Property Let de Value (DispId 0) na geração do .tlb (install.ps1): o
         // .NET só exporta Property Set para valores Variant. Fica sempre por último.
-        [DispId(1000)] void let_Value([Optional] object Key, object Value);
+        [DispId(1000), PropertyLet("Value")] void LetValue([Optional] object Key, object Value);
     }
 
     [ComVisible(true), Guid("4B8E6D21-9F3C-4A57-B1D0-E5C27A8F6B39"), ProgId("Sage.DictionaryS")]
@@ -79,7 +79,7 @@ namespace SageTypes
             set { Store(Key, value); }
         }
 
-        public void let_Value(object Key, object Value) { Store(Key, Value); }
+        public void LetValue(object Key, object Value) { Store(Key, Value); }
 
         void Store(object key, object value)
         {
