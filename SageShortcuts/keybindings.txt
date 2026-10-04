@@ -21,6 +21,7 @@
 #         toggleLocals   abre a janela Variáveis locais, ou fecha se estiver aberta
 #         vbe:<id>       executa o controle do VBE com esse Id (CommandBars.FindControl)
 #         macro:<nome>   executa Application.Run "<nome>" (ex.: macro:'Sage.xlam'!Modulo.Proc)
+#         keys:<tecla>   envia outra combinação ao VBE, como se fosse digitada (ex.: keys:Shift+F2)
 #
 # Ids úteis: 192 Comentar bloco | 2552 Remover comentário do bloco
 #            2554 Janela Verificação imediata | 2555 Variáveis locais | 2556 Inspeção de variáveis
@@ -29,6 +30,7 @@ Ctrl+K, Ctrl+C = comment      # Comentar bloco
 Ctrl+K, Ctrl+U = uncomment    # Remover comentário do bloco
 Ctrl+J         = toggleImmediate  # Abrir/fechar a Verificação imediata (substitui "Listar propriedades/métodos")
 Ctrl+I         = toggleWatch      # Abrir/fechar a Inspeção de variáveis (substitui "Informações rápidas")
+F12            = keys:Shift+F2    # Ir para a definição (como o F12 do VS Code)
 Shift+Alt+Up   = copyLinesUp    # Duplicar linha para cima
 Shift+Alt+Down = copyLinesDown  # Duplicar linha para baixo
 Alt+Up         = moveLinesUp    # Mover linha para cima

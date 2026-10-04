@@ -385,7 +385,7 @@ namespace SageEditor
 
                                 // campo "Ln, Col" da barra Padrão sai com o cinza fixo do Windows
                                 IntPtr result = Native.DefSubclassProc(hwnd, msg, wParam, lParam);
-                                Painters.ReplaceColors(hwnd, t, 0xF0F0F0, 0xF1F1F1);
+                                Painters.FixLightFields(hwnd, t);
                                 return result;
                             }
                             break;
@@ -590,7 +590,14 @@ namespace SageEditor
         // (só depois passa a pertencer ao VBE), então o hook CBT não a pega.
         public static void PollForms()
         {
-            if (!initialized || current == null || Native.GetModuleHandle("fm20.dll") == IntPtr.Zero) return;
+            if (!initialized || current == null) return;
+
+            // Campos das barras redesenhados fora do WM_PAINT (o "Ln, Col" a cada movimento do cursor)
+            if (current.IsDark)
+                foreach (KeyValuePair<IntPtr, string> w in new List<KeyValuePair<IntPtr, string>>(subclassed))
+                    if (w.Value == "MsoCommandBar" && Native.IsWindowVisible(w.Key)) Painters.FixLightFields(w.Key, current);
+
+            if (Native.GetModuleHandle("fm20.dll") == IntPtr.Zero) return;
 
             List<IntPtr> boxes = new List<IntPtr>();
             Native.EnumThreadWindows(Native.GetCurrentThreadId(), delegate(IntPtr h, IntPtr l)
@@ -612,22 +619,48 @@ namespace SageEditor
 
         // --- Office (barras de menu e de ferramentas) ---
 
-        static int HookOfficeSetTextColor(IntPtr hdc, int color) { return origText(hdc, OfficeTextColor(color)); }
-        static int HookOfficeSetBkColor(IntPtr hdc, int color) { return origBk(hdc, OfficeColor(color)); }
-        static IntPtr HookOfficeCreateSolidBrush(int color) { return origSolidBrush(OfficeColor(color)); }
-        static IntPtr HookOfficeCreatePen(int style, int width, int color) { return origPen(style, width, OfficeColor(color)); }
+        // As barras de ferramentas também são redesenhadas fora do tratamento de mensagens (o campo
+        // "Ln, Col" da barra Padrão, ao mover o cursor): com o DC de uma janela do VBE, vale o tema
+        static bool Active(IntPtr hdc) { return depth > 0 || (hdc != IntPtr.Zero && IsVbeSurface(hdc)); }
 
-        static int HookOfficeSetDCBrushColor(IntPtr hdc, int color) { return origDCBrush(hdc, OfficeColor(color)); }
-        static int HookOfficeSetDCPenColor(IntPtr hdc, int color) { return origDCPen(hdc, OfficeColor(color)); }
+        static int HookOfficeSetTextColor(IntPtr hdc, int color) { return origText(hdc, OfficeTextColor(color, Active(hdc))); }
+        static int HookOfficeSetBkColor(IntPtr hdc, int color) { return origBk(hdc, OfficeColor(color, Active(hdc))); }
+        static IntPtr HookOfficeCreateSolidBrush(int color) { return origSolidBrush(OfficeColor(color, depth > 0)); }
+        static IntPtr HookOfficeCreatePen(int style, int width, int color) { return origPen(style, width, OfficeColor(color, depth > 0)); }
 
-        // FillRect com pincel "COLOR_* + 1" é resolvido dentro do user32
+        static int HookOfficeSetDCBrushColor(IntPtr hdc, int color) { return origDCBrush(hdc, OfficeColor(color, Active(hdc))); }
+        static int HookOfficeSetDCPenColor(IntPtr hdc, int color) { return origDCPen(hdc, OfficeColor(color, Active(hdc))); }
+
+        [StructLayout(LayoutKind.Sequential)]
+        struct LogBrush { public uint Style; public int Color; public IntPtr Hatch; }
+        [DllImport("gdi32.dll")] static extern int GetObject(IntPtr obj, int size, out LogBrush brush);
+        [DllImport("gdi32.dll")] static extern int GetObjectType(IntPtr obj);
+        const int OBJ_BRUSH = 2, BS_SOLID = 0;
+
+        // FillRect com pincel "COLOR_* + 1" é resolvido dentro do user32. Fora do tratamento de
+        // mensagens, o Office pinta com pincéis sólidos já criados (com a cor original): a cor do
+        // pincel vira a do tema.
         static int HookOfficeFillRect(IntPtr hdc, IntPtr rect, IntPtr brush)
         {
             long value = brush.ToInt64();
             Theme t = current;
             int color;
-            if (depth > 0 && t != null && value > 0 && value <= 31 && t.SysColors.TryGetValue((int)value - 1, out color))
-                brush = t.Brush(color);
+            if (t != null && Active(hdc))
+            {
+                if (value > 0 && value <= 31)
+                {
+                    if (t.SysColors.TryGetValue((int)value - 1, out color)) brush = t.Brush(color);
+                }
+                else if (depth == 0 && t.IsDark && GetObjectType(brush) == OBJ_BRUSH)
+                {
+                    LogBrush lb;
+                    if (GetObject(brush, Marshal.SizeOf(typeof(LogBrush)), out lb) > 0 && lb.Style == BS_SOLID)
+                    {
+                        int mapped = OfficeColor(lb.Color, true);
+                        if (mapped != lb.Color) brush = t.Brush(mapped);
+                    }
+                }
+            }
             return origFillRect(hdc, rect, brush);
         }
 
@@ -655,14 +688,14 @@ namespace SageEditor
 
         // Texto: preto vira o texto do tema; cinzas claros (desabilitado, janela
         // inativa) viram um cinza ainda legível.
-        static int OfficeTextColor(int color)
+        static int OfficeTextColor(int color, bool active)
         {
             officeCalls[depth > 0 ? 1 : 0]++;
             Theme t = current;
-            if (depth == 0 || t == null || !t.IsDark || (color & unchecked((int)0xFF000000)) != 0 || t.OwnsColor(color))
+            if (!active || t == null || !t.IsDark || (color & unchecked((int)0xFF000000)) != 0 || t.OwnsColor(color))
                 return color;
             int r = color & 0xFF, g = (color >> 8) & 0xFF, b = (color >> 16) & 0xFF;
-            if (Math.Max(r, Math.Max(g, b)) - Math.Min(r, Math.Min(g, b)) >= 30) return OfficeColor(color);
+            if (Math.Max(r, Math.Max(g, b)) - Math.Min(r, Math.Min(g, b)) >= 30) return OfficeColor(color, true);
             double light = (r + g + b) / 765.0;
             // O Office escreve itens habilitados em preto ou cinza-escuro, desabilitados
             // em cinza-claro e o item pressionado/selecionado em quase branco.
@@ -670,10 +703,10 @@ namespace SageEditor
             return Lerp(t.WindowText, t.Face, 0.55); // desabilitado
         }
 
-        static int OfficeColor(int color)
+        static int OfficeColor(int color, bool active)
         {
             officeCalls[depth > 0 ? 1 : 0]++;
-            if (depth == 0) return color;
+            if (!active) return color;
             Theme t = current;
             if (t == null || !t.IsDark || (color & unchecked((int)0xFF000000)) != 0) return color;
             if (t.OwnsColor(color)) return color; // já veio do tema (GetSysColor desviado)

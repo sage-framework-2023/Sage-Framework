@@ -6,7 +6,7 @@ namespace SageEditor
 {
     // Comandos digitados na Verificação imediata, como num terminal:
     //   Clear + Enter   apaga tudo na Verificação imediata
-    //   Exit + Enter    fecha a Verificação imediata
+    //   Exit + Enter    apaga tudo e fecha a Verificação imediata
     // (sem diferenciar maiúsculas; "Exit" é palavra reservada do VBA, então não daria
     // para ser uma função: o Enter é interceptado antes de o VBE executar a linha).
     //
@@ -158,17 +158,12 @@ namespace SageEditor
 
         static void Run(IntPtr hwnd, int command, int typedLength)
         {
-            if (command == CommandClear)
-            {
-                // Tudo, inclusive o comando digitado: Editar > Selecionar tudo e Limpar,
-                // com a Verificação imediata ativa
-                Execute(SelectAllId);
-                Execute(ClearId);
-                return;
-            }
-            // Exit: apaga só o comando digitado (o resto continua lá ao reabrir) e fecha
-            for (int i = 0; i < typedLength; i++)
-                Native.DefSubclassProc(hwnd, WM_KEYDOWN, (IntPtr)VK_BACK, IntPtr.Zero);
+            // Tudo, inclusive o comando digitado: Editar > Selecionar tudo e Limpar, com a
+            // Verificação imediata ativa
+            Execute(SelectAllId);
+            Execute(ClearId);
+            if (command != CommandExit) return;
+            // Exit: depois de apagar, fecha (reabre vazia)
             foreach (dynamic w in Vbe.Windows)
                 if ((int)w.Type == vbext_wt_Immediate) { w.Visible = false; break; }
         }

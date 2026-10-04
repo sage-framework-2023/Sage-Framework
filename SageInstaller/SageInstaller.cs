@@ -154,7 +154,7 @@ namespace SageInstaller
         public const string Name = "Sage Framework";
         public const string Description =
             "Menu Sage e temas de cores para todo o editor do VBA, abas das janelas abertas, tela de Configurações " +
-            "no estilo do VS Code, atalhos de teclado (Ctrl+K, Ctrl+C para comentar) e tipos para o VBA no estilo do Python (StringS, ListS, DictionaryS, DataFrame, DateTimeS, Json e Requests).";
+            "no estilo do VS Code, atalhos de teclado (Ctrl+K, Ctrl+C para comentar) e tipos para o VBA no estilo do Python (StringS, ListS, DictionaryS, DataFrame, DateTimeS, Json, Requests e SqlEngine).";
 
         public bool AnyInstalled { get { foreach (Component c in Components) if (c.Installed) return true; return false; } }
         public bool AllInstalled { get { foreach (Component c in Components) if (!c.Installed) return false; return true; } }

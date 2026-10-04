@@ -1,6 +1,7 @@
 SageTypes inclui software de terceiros:
 
-DuckDB 1.5.6 (lib\duckdb.dll)
+DuckDB 1.5.6 (lib\duckdb.dll) e as extensões postgres_scanner, mysql_scanner e sqlite_scanner
+(lib\extensions), distribuídas pela DuckDB Foundation
 https://github.com/duckdb/duckdb
 Licença MIT:
 

@@ -287,6 +287,7 @@ $Classes = @(
     @{ Class = 'SageTypes.Requests'; Clsid = '{18A710C0-DD90-407E-92A8-56E2E1FBB35C}'; ProgId = 'Sage.Requests' }
     @{ Class = 'SageTypes.Session'; Clsid = '{FCB13B55-C345-4703-89B6-F4635B7C5A9A}'; ProgId = 'Sage.Session' }
     @{ Class = 'SageTypes.Response'; Clsid = '{B028ADB0-40B2-461C-8AD1-B4236852C17E}'; ProgId = 'Sage.Response' }
+    @{ Class = 'SageTypes.SqlEngine'; Clsid = '{6795C777-D195-4CBE-9E32-3DADA65AE733}'; ProgId = 'Sage.SqlEngine' }
     # Membros globais (Json, Requests): o VBA cria esta classe sozinho
     @{ Class = 'SageTypes.Globals'; Clsid = '{3129D3A3-5535-4294-8923-083DAA4A6F75}'; ProgId = 'Sage.Globals' }
 )
@@ -298,6 +299,38 @@ $DuckDB = @{
     Url     = 'https://github.com/duckdb/duckdb/releases/download/v1.5.6/libduckdb-windows-amd64.zip'
     ZipHash = '44CF59583F9951D2CB09B1BF115A63ECB2D8901E363903029D86C7D8683FE96A'
     DllHash = '7E90BDEF028D57B45490D6F53530E3C012A5D9ABDC4C6723449200663DC84ED0'
+}
+
+# Extensões do DuckDB usadas pelo SqlEngine (PostgreSQL, MySQL, SQLite), nesta versão exata e
+# conferidas pelo hash; vão no pacote em extensions\v<versão>\windows_amd64 (o DuckDB também
+# confere a assinatura delas ao carregar)
+$DuckDBExtensions = @(
+    @{ Name = 'postgres_scanner'; Hash = 'E5CCB234E0AF0C16D783C8CBB342FE289C1A611528CE9A62D88F199E37E6F75B' }
+    @{ Name = 'mysql_scanner'; Hash = '81EFA774EBF42773EAAC05B2919A4893BB6DD9CA98D5A2641EB90A8FAE355625' }
+    @{ Name = 'sqlite_scanner'; Hash = '8EA084754E9BA052E072B351E64A52B8DFC9498D1E0A18EF421C2C793C5AF2A1' }
+)
+
+# Pasta com as extensões (lib\extensions\v<versão>\windows_amd64), baixando o que faltar
+function Get-DuckDBExtensions {
+    $dir = Join-Path $PSScriptRoot "lib\extensions\v$($DuckDB.Version)\windows_amd64"
+    New-Item $dir -ItemType Directory -Force | Out-Null
+    foreach ($e in $DuckDBExtensions) {
+        $file = Join-Path $dir "$($e.Name).duckdb_extension"
+        if ((Test-Path $file) -and (Get-FileHash $file -Algorithm SHA256).Hash -eq $e.Hash) { continue }
+        Write-Host "Baixando a extensão $($e.Name) do DuckDB..."
+        $gz = "$file.gz"
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        Invoke-WebRequest "http://extensions.duckdb.org/v$($DuckDB.Version)/windows_amd64/$($e.Name).duckdb_extension.gz" -OutFile $gz -UseBasicParsing
+        $in = [IO.File]::OpenRead($gz)
+        try {
+            $zip = New-Object IO.Compression.GZipStream($in, [IO.Compression.CompressionMode]::Decompress)
+            $out = [IO.File]::Create($file)
+            try { $zip.CopyTo($out) } finally { $out.Dispose(); $zip.Dispose() }
+        } finally { $in.Dispose() }
+        Remove-Item $gz
+        if ((Get-FileHash $file -Algorithm SHA256).Hash -ne $e.Hash) { Remove-Item $file; throw "A extensão $($e.Name) baixada não confere com o hash esperado." }
+    }
+    return (Join-Path $PSScriptRoot 'lib\extensions')
 }
 
 function Get-DuckDB {
@@ -334,7 +367,10 @@ if ($ExportTo) {
     & cmd /c "`"$PSScriptRoot\build.cmd`""
     if ($LASTEXITCODE -ne 0) { throw 'A compilação falhou.' }
     $duckdbDll = Get-DuckDB
+    $extensions = Get-DuckDBExtensions
     New-Item $ExportTo -ItemType Directory -Force | Out-Null
+    New-Item (Join-Path $ExportTo 'extensions') -ItemType Directory -Force | Out-Null
+    Copy-Item (Join-Path $extensions '*') (Join-Path $ExportTo 'extensions') -Recurse -Force
     $exportDll = Join-Path $ExportTo 'SageTypes.dll'
     Copy-Item (Join-Path $PSScriptRoot 'bin\SageTypes.dll') $exportDll -Force
     Copy-Item $duckdbDll (Join-Path $ExportTo 'duckdb.dll') -Force
@@ -360,7 +396,10 @@ if (Get-Process EXCEL -ErrorAction SilentlyContinue) {
 if ($LASTEXITCODE -ne 0) { throw 'A compilação falhou.' }
 
 $duckdbDll = Get-DuckDB
+$extensions = Get-DuckDBExtensions
 New-Item $Target -ItemType Directory -Force | Out-Null
+New-Item (Join-Path $Target 'extensions') -ItemType Directory -Force | Out-Null
+Copy-Item (Join-Path $extensions '*') (Join-Path $Target 'extensions') -Recurse -Force
 try
 {
     Copy-Item (Join-Path $PSScriptRoot 'bin\SageTypes.dll') $Dll -Force

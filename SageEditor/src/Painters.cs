@@ -353,6 +353,81 @@ namespace SageEditor
             finally { Native.ReleaseDC(hwnd, dc); }
         }
 
+        // Campos claros desenhados pelo Office nas barras do VBE (o "Ln, Col" da barra Padrão):
+        // o fundo cinza fixo (#F0F0F0) não passa pelas cores desviadas. Só a área desse fundo
+        // tem os cinzas invertidos (fundo do campo -> fundo do editor, texto -> texto do tema);
+        // cores que esta conversão produziu não são convertidas de novo (o campo é redesenhado
+        // aos pedaços quando o cursor anda).
+        static readonly HashSet<int> fieldProduced = new HashSet<int>();
+        static Theme fieldTheme;
+
+        public static void FixLightFields(IntPtr hwnd, Theme t)
+        {
+            Native.RECT r;
+            Native.GetClientRect(hwnd, out r);
+            int w = r.Right, h = r.Bottom;
+            if (w <= 0 || h <= 0 || w * h > 400000) return;
+            if (fieldTheme != t) { fieldProduced.Clear(); fieldTheme = t; }
+
+            IntPtr dc = Native.GetDC(hwnd);
+            try
+            {
+                using (Bitmap bmp = new Bitmap(w, h, PixelFormat.Format32bppRgb))
+                {
+                    using (Graphics g = Graphics.FromImage(bmp))
+                    {
+                        IntPtr mem = g.GetHdc();
+                        Native.BitBlt(mem, 0, 0, w, h, dc, 0, 0, Native.SRCCOPY);
+                        g.ReleaseHdc(mem);
+                    }
+                    BitmapData data = bmp.LockBits(new Rectangle(0, 0, w, h), ImageLockMode.ReadWrite, PixelFormat.Format32bppRgb);
+                    int[] px = new int[w * h];
+                    Marshal.Copy(data.Scan0, px, 0, px.Length);
+
+                    // Retângulo do fundo claro
+                    int left = w, top = h, right = -1, bottom = -1;
+                    for (int y = 0; y < h; y++)
+                        for (int x = 0; x < w; x++)
+                            if ((px[y * w + x] & 0xFFFFFF) == 0xF0F0F0)
+                            {
+                                if (x < left) left = x;
+                                if (x > right) right = x;
+                                if (y < top) top = y;
+                                if (y > bottom) bottom = y;
+                            }
+                    if (right < 0) { bmp.UnlockBits(data); return; }
+
+                    Color back = FromRef(t.Window), text = FromRef(t.WindowText);
+                    bool changed = false;
+                    for (int y = top; y <= bottom; y++)
+                        for (int x = left; x <= right; x++)
+                        {
+                            int i = y * w + x, c = px[i] & 0xFFFFFF;
+                            if (fieldProduced.Contains(c)) continue;
+                            int cr = (c >> 16) & 0xFF, cg = (c >> 8) & 0xFF, cb = c & 0xFF;
+                            if (Math.Max(cr, Math.Max(cg, cb)) - Math.Min(cr, Math.Min(cg, cb)) >= 24) continue; // colorido
+                            // 0 = fundo claro (#F0F0F0), 1 = texto; o Office escreve o campo em cinza médio: mais contraste
+                            double k = Math.Max(0, Math.Min(1, ((1 - (cr + cg + cb) / 765.0) - 0.06) / 0.5));
+                            int mapped = ((int)(back.R + (text.R - back.R) * k) << 16) | ((int)(back.G + (text.G - back.G) * k) << 8) |
+                                (int)(back.B + (text.B - back.B) * k);
+                            fieldProduced.Add(mapped);
+                            if (mapped != c) { px[i] = unchecked((int)0xFF000000) | mapped; changed = true; }
+                        }
+                    if (!changed) { bmp.UnlockBits(data); return; }
+                    Marshal.Copy(px, 0, data.Scan0, px.Length);
+                    bmp.UnlockBits(data);
+                    using (Graphics g = Graphics.FromHdc(dc))
+                    {
+                        g.InterpolationMode = InterpolationMode.NearestNeighbor;
+                        g.PixelOffsetMode = PixelOffsetMode.Half;
+                        Rectangle area = new Rectangle(left, top, right - left + 1, bottom - top + 1);
+                        g.DrawImage(bmp, area, area, GraphicsUnit.Pixel);
+                    }
+                }
+            }
+            finally { Native.ReleaseDC(hwnd, dc); }
+        }
+
         // 0xRRGGBB -> 0xRRGGBB. Cinza claro vai para o fundo (Face), escuro para o texto.
         static int InvertGray(int rgb, Theme t)
         {

@@ -210,7 +210,7 @@ namespace SageShortcuts
     // ------------------------------------------------------------------------
     // Atalhos (keybindings.txt)
     // ------------------------------------------------------------------------
-    enum ActionKind { VbeCommand, Macro, Comment, Uncomment, CopyLinesUp, CopyLinesDown, MoveLinesUp, MoveLinesDown, ToggleImmediate, ToggleWatch, ToggleLocals }
+    enum ActionKind { VbeCommand, Macro, Comment, Uncomment, CopyLinesUp, CopyLinesDown, MoveLinesUp, MoveLinesDown, ToggleImmediate, ToggleWatch, ToggleLocals, SendKeys }
 
     sealed class Binding
     {
@@ -218,6 +218,7 @@ namespace SageShortcuts
         public ActionKind Kind;
         public int CommandId;      // vbe:<id>
         public string Macro;       // macro:<nome>
+        public string SendKeys;    // keys:<tecla>: acordes codificados como no KeyChord ("mods:vk,...")
     }
 
     sealed class Bindings
@@ -241,7 +242,8 @@ namespace SageShortcuts
         // Formato:  <tecla>[, <tecla>...] = <ação>     # comentário
         //   tecla: [Ctrl+][Shift+][Alt+][Win+]<nome>   (ex.: Ctrl+K, Ctrl+Shift+F2)
         //   ação:  comment | uncomment | copyLinesUp | copyLinesDown | moveLinesUp | moveLinesDown |
-        //          toggleImmediate | toggleWatch | toggleLocals | vbe:<id do controle> | macro:<nome para Application.Run>
+        //          toggleImmediate | toggleWatch | toggleLocals | vbe:<id do controle> | macro:<nome para Application.Run> |
+        //          keys:<tecla> (envia outra combinação ao VBE, ex.: keys:Shift+F2)
         public static Bindings Load(string path, out List<string> errors)
         {
             Bindings result = new Bindings();
@@ -317,13 +319,21 @@ namespace SageShortcuts
                 b.CommandId = id;
                 return b;
             }
+            if (kind == "keys" && arg.Length > 0)
+            {
+                string sequence;
+                if (!KeyChord.ParseSequence(arg, out sequence, out error)) { error = error + " em '" + text + "'"; return null; }
+                b.Kind = ActionKind.SendKeys;
+                b.SendKeys = sequence;
+                return b;
+            }
             if (kind == "macro" && arg.Length > 0)
             {
                 b.Kind = ActionKind.Macro;
                 b.Macro = arg;
                 return b;
             }
-            error = "ação inválida '" + text + "' (use comment, uncomment, copyLinesUp, copyLinesDown, moveLinesUp, moveLinesDown, toggleImmediate, toggleWatch, toggleLocals, vbe:<id> ou macro:<nome>)";
+            error = "ação inválida '" + text + "' (use comment, uncomment, copyLinesUp, copyLinesDown, moveLinesUp, moveLinesDown, toggleImmediate, toggleWatch, toggleLocals, vbe:<id>, macro:<nome> ou keys:<tecla>)";
             return null;
         }
     }
@@ -581,6 +591,17 @@ namespace SageShortcuts
 
         public static void Execute(Binding binding, IntPtr vbeWindow)
         {
+            // Só teclas: não precisa do Excel (o VBE recebe a combinação como se fosse digitada;
+            // o hook ignora teclas sintéticas, então não há laço)
+            if (binding.Kind == ActionKind.SendKeys)
+            {
+                foreach (string chord in binding.SendKeys.Split(','))
+                {
+                    string[] p = chord.Split(':');
+                    Native.SendChord(int.Parse(p[1]), int.Parse(p[0]));
+                }
+                return;
+            }
             for (int attempt = 0; ; attempt++)
             {
                 try
@@ -920,6 +941,20 @@ namespace SageShortcuts
         {
             keybd_event(VK_MASK, 0, 0, UIntPtr.Zero);
             keybd_event(VK_MASK, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+        }
+
+        // Pressiona os modificadores, a tecla, e solta tudo na ordem inversa (keys:<tecla>)
+        public static void SendChord(int vk, int mods)
+        {
+            List<byte> modifiers = new List<byte>();
+            if ((mods & KeyChord.Ctrl) != 0) modifiers.Add((byte)Keys.ControlKey);
+            if ((mods & KeyChord.Shift) != 0) modifiers.Add((byte)Keys.ShiftKey);
+            if ((mods & KeyChord.Alt) != 0) modifiers.Add((byte)Keys.Menu);
+            if ((mods & KeyChord.Win) != 0) modifiers.Add((byte)Keys.LWin);
+            foreach (byte m in modifiers) keybd_event(m, 0, 0, UIntPtr.Zero);
+            keybd_event((byte)vk, 0, 0, UIntPtr.Zero);
+            keybd_event((byte)vk, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+            for (int i = modifiers.Count - 1; i >= 0; i--) keybd_event(modifiers[i], 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
         }
 
         public static string ClassName(IntPtr hwnd)

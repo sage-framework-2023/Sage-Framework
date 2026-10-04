@@ -117,6 +117,11 @@ namespace SageTypes
         [DispId(1000), PropertyLet("Value")] void LetValue([Optional] object Column, object Value);
         [DispId(1001), PropertyLet("At")] void LetAt(long Row, object Column, object Value);
         [DispId(1002), PropertyLet("Loc")] void LetLoc(long Row, object Values);
+
+        // Banco de dados (df.to_sql do pandas): IfExists = "fail" (padrão), "replace" ou "append"
+        [DispId(82)] void ToSql(string Name, SqlEngine Engine, [Optional] object IfExists);
+        // pd.read_sql(consulta, engine, params=[...]): Engine é um SqlEngine ou o texto de conexão
+        [DispId(83)] DataFrame ReadSql(string Query, object Engine, [Optional] object Params);
     }
 
     [ComVisible(true), Guid("2F9C6E14-8B3A-4D71-A5E2-7C0D9B4F3A68"), ProgId("Sage.DataFrame")]
@@ -756,6 +761,52 @@ namespace SageTypes
         }
 
         // Cópia independente (tabela própria), como df.copy()
+        public void ToSql(string Name, SqlEngine Engine, object IfExists)
+        {
+            if (Engine == null) throw Interop.Error(91, "ToSql: informe o SqlEngine (Set db = New Sage.SqlEngine: db.Connect ...).");
+            string mode = Interop.IsMissing(IfExists) ? "fail" : Interop.Text(IfExists).Trim().ToLowerInvariant();
+            if (mode != "fail" && mode != "replace" && mode != "append")
+                throw Interop.Error(5, "ValueError: IfExists deve ser \"fail\", \"replace\" ou \"append\".");
+            Engine.WriteTable(this, Name, mode);
+        }
+
+        // Carrega o resultado da consulta neste DataFrame, como o ReadCsv. Com o texto de conexão no
+        // lugar do SqlEngine, conecta, lê e fecha.
+        public DataFrame ReadSql(string Query, object Engine, object Params)
+        {
+            SqlEngine engine = Engine as SqlEngine;
+            bool own = false;
+            if (engine == null)
+            {
+                object text = Interop.Unwrap(Engine);
+                if (!(text is string)) throw Interop.Error(13, "TypeError: Engine deve ser um SqlEngine (CreateEngine(...)) ou o texto de conexão.");
+                engine = new SqlEngine().Connect((string)text);
+                own = true;
+            }
+            try
+            {
+                DataFrame result = engine.ReadSql(Query, Params);
+                Reset(result.sql, result.deps, result.own);
+                return this;
+            }
+            finally { if (own) engine.Close(); }
+        }
+
+        // Consulta do DataFrame (com as alterações pendentes gravadas), para ler as linhas em outro lugar
+        internal string Source { get { return Need(); } }
+        // A mesma, com os tipos que o leitor de blocos entende (decimais como Double...)
+        internal string ReadableSource { get { return Readable(); } }
+
+        // Tabela nova preenchida por fora (resultado de um banco de dados): fill recebe o nome dela
+        internal static DataFrame FromTable(Action<string> fill)
+        {
+            Table table = new Table();
+            fill(table.Name);
+            DataFrame df = new DataFrame();
+            df.Reset("SELECT * FROM " + Engine.Quote(table.Name), new List<Table> { table }, table);
+            return df;
+        }
+
         public DataFrame Copy()
         {
             DataFrame copy = new DataFrame();

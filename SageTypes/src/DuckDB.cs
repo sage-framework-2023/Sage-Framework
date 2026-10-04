@@ -16,6 +16,7 @@ namespace SageTypes
     static class Engine
     {
         static IntPtr database, connection;
+        public static string MainCatalog;   // nome do banco da sessão (para criar tabelas a partir de outra conexão)
         static string databaseFile;
         static readonly ConcurrentQueue<string> pendingDrops = new ConcurrentQueue<string>(); // tabelas de DataFrames já liberados
         static int tableCounter;
@@ -94,6 +95,28 @@ namespace SageTypes
             Run("SET memory_limit = '" + Math.Max(256, (long)(total * 2 / 5 / 1048576)) + "MB'");
             Run("SET temp_directory = " + Literal(temp));
             Run("SET preserve_insertion_order = true");
+            MainCatalog = Interop.Text(Scalar("SELECT current_database()"));
+
+            // Extensões (PostgreSQL, MySQL, SQLite) que vêm no pacote, ao lado do SageTypes.dll
+            // (extensions\v<versão>\windows_amd64); sem elas, o DuckDB baixa na primeira vez
+            string extensions = Path.Combine(folder, "extensions");
+            if (Directory.Exists(extensions)) Run("SET extension_directory = " + Literal(extensions));
+        }
+
+        // LOAD da extensão (as do pacote, assinadas pelo DuckDB); se não estiver no pacote, INSTALL
+        // pela internet antes
+        public static void LoadExtension(string name)
+        {
+            Open();
+            try { Run("LOAD " + name); }
+            catch (COMException)
+            {
+                try { Run("INSTALL " + name); Run("LOAD " + name); }
+                catch (COMException ex)
+                {
+                    throw Interop.Error(5, "Extensão " + name + " do DuckDB indisponível (reinstale o Sage Framework): " + ex.Message);
+                }
+            }
         }
 
         static void Close()
@@ -168,10 +191,12 @@ namespace SageTypes
             return RawQuery(sql);
         }
 
-        static QueryResult RawQuery(string sql)
+        static QueryResult RawQuery(string sql) { return RawQuery(connection, sql); }
+
+        static QueryResult RawQuery(IntPtr on, string sql)
         {
             QueryResult r = new QueryResult();
-            if (duckdb_query(connection, Utf8(sql), r.Handle) != 0)
+            if (duckdb_query(on, Utf8(sql), r.Handle) != 0)
             {
                 string message = Text(duckdb_result_error(r.Handle));
                 r.Dispose();
@@ -179,6 +204,35 @@ namespace SageTypes
             }
             r.Load();
             return r;
+        }
+
+        // Outra conexão ao mesmo banco: tem o próprio USE (banco padrão), sem mexer na principal,
+        // onde ficam as tabelas dos DataFrames
+        public sealed class Connection : IDisposable
+        {
+            IntPtr handle;
+
+            public Connection()
+            {
+                Open();
+                if (duckdb_connect(database, out handle) != 0) throw Interop.Error(5, "Não foi possível conectar ao DuckDB.");
+            }
+
+            public void Run(string sql) { using (Query(sql)) { } }
+
+            public QueryResult Query(string sql)
+            {
+                if (handle == IntPtr.Zero) throw Interop.Error(5, "Conexão fechada.");
+                DropPending();
+                return RawQuery(handle, sql);
+            }
+
+            public void Dispose()
+            {
+                if (handle == IntPtr.Zero) return;
+                duckdb_disconnect(ref handle);
+                handle = IntPtr.Zero;
+            }
         }
 
         // Um único valor (count(*), sum(...))

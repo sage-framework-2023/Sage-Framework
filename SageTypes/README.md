@@ -11,7 +11,8 @@ Por enquanto:
 - **DataFrame**, tabela no estilo do pandas sobre o DuckDB, para milhões de linhas;
 - **DateTimeS**, data e hora como o `datetime` do Python, com fuso horário;
 - **Json**, o módulo `json` do Python;
-- **Requests**, a biblioteca `requests` do Python, para chamar APIs (com **Response** e **Session**).
+- **Requests**, a biblioteca `requests` do Python, para chamar APIs (com **Response** e **Session**);
+- **SqlEngine**, conexão a bancos de dados (PostgreSQL, MySQL, SQLite, SQL Server, Access, ODBC), como o `Engine` do SQLAlchemy usado pelo pandas.
 
 ## Instalar
 
@@ -165,7 +166,7 @@ Loop
 
 **Carregar:** `ReadCsv(Caminho, [Cabeçalho], [Delimitador], [SeparadorDecimal], [Codificação])`, `ReadParquet`, `ReadExcel(Caminho, [Planilha], [Cabeçalho])`, `FromRange`, `FromArray` (2D ou array de linhas), `FromRecords` (lista de `DictionaryS`), `Sql("SELECT ... FROM {0} JOIN {1} ...", outroDf)`.
 
-**Gravar e ver:** `ToCsv`, `ToParquet`, `ToExcel` (formato pela extensão), `ToRange`, `ToArray`, `ToString` / `Debug.Print df`, `Show` (janela com grade, lida aos poucos: abre na hora mesmo com milhões de linhas).
+**Gravar e ver:** `ToCsv`, `ToParquet`, `ToExcel` (formato pela extensão), `ToSql` (banco de dados, pelo `SqlEngine`), `ToRange`, `ToArray`, `ToString` / `Debug.Print df`, `Show` (janela com grade, lida aos poucos: abre na hora mesmo com milhões de linhas).
 
 **Explorar:** `Count`, `Columns`, `DTypes`, `Shape`, `Info`, `Describe`, `Head`, `Tail`, `Slice`, `Sample`, `Col`, `Unique`, `ValueCounts`, `Sum`, `Mean`, `Min`, `Max`, `Median`, `Std`, `NUnique`.
 
@@ -276,6 +277,46 @@ Set r = Requests.Post("https://httpbin.org/post", Json:=dados, _
 - **Downloads:** `r.Save "C:\arquivo.pdf"`.
 - Usa TLS 1.2/1.3 e o proxy do Windows (com o usuário logado), como o navegador. A chamada é síncrona: o Excel espera a resposta.
 
+## SqlEngine
+
+Conexão a um banco de dados, como o `Engine` do SQLAlchemy que o pandas usa em `pd.read_sql(consulta, engine)` e `df.to_sql("tabela", engine)`. As consultas vão no SQL do próprio banco; os parâmetros, com `?`, num `Array`.
+
+```vb
+Dim db As New Sage.SqlEngine
+db.Connect "mssql://servidor/Vendas"
+
+Dim df As Sage.DataFrame
+Set df = db.ReadSql("SELECT * FROM Pedidos WHERE Ano = ? AND Status = ?", Array(2024, "Aberto"))
+Debug.Print db.Execute("UPDATE Pedidos SET Status = 'OK' WHERE Id = ?", Array(10))   ' linhas afetadas
+df.ToSql "PedidosCopia", db, "replace"
+db.Close
+```
+
+| Banco | `Connect` | Como acessa |
+|---|---|---|
+| PostgreSQL | `postgresql://usuário:senha@servidor:5432/banco` ou `host=... dbname=...` | DuckDB (extensão `postgres`) |
+| MySQL / MariaDB | `mysql://usuário:senha@servidor:3306/banco` | DuckDB (extensão `mysql`) |
+| SQLite | `C:\dados\base.db` (`.sqlite`, `.sqlite3`) ou `sqlite:C:\dados\base.db` | DuckDB (extensão `sqlite`) |
+| Arquivo do DuckDB | `C:\dados\base.duckdb` | DuckDB |
+| SQL Server | `mssql://servidor/banco` (usuário do Windows), `mssql://usuário:senha@servidor/banco` ou `Server=...;Database=...` | cliente do .NET (sem driver ODBC) |
+| Access | `C:\dados\base.accdb` (`.mdb`) | OLE DB do Office (ACE) |
+| Outros | `Driver={...};...` ou `DSN=...` (ODBC), `Provider=...;...` (OLE DB) | drivers do Windows |
+
+| pandas / SQLAlchemy | SqlEngine |
+|---|---|
+| `engine = create_engine(url)` | `db.Connect url` |
+| `pd.read_sql(sql, engine, params=[...])` | `db.ReadSql(sql, Array(...))` (ou só o nome da tabela) |
+| `conn.execute(sql, params)` | `db.Execute(sql, Array(...))` (devolve as linhas afetadas; -1 quando o banco não informa) |
+| `df.to_sql("t", engine, if_exists="replace")` | `df.ToSql "t", db, "replace"` (`"fail"`, o padrão; `"replace"`; `"append"`) |
+| `inspect(engine).get_table_names()` | `db.Tables` |
+| `engine.dispose()` | `db.Close` |
+
+- **PostgreSQL, MySQL, SQLite e DuckDB** passam pelo mesmo DuckDB do DataFrame: os dados chegam direto no formato dele, sem passar linha a linha pelo VBA. As extensões vêm no pacote (não precisam de internet).
+- **SQL Server** grava com *bulk copy* (20 mil linhas em menos de meio segundo no LocalDB) e lê pelo `SqlClient` do .NET, que já vem no Windows.
+- **Access e ODBC** gravam linha a linha numa transação; para tabelas grandes, prefira o SQL Server ou o PostgreSQL.
+- **Tipos:** inteiros viram `BIGINT`, decimais `DOUBLE`, datas `DATE`/`TIMESTAMP`, sim/não `BOOLEAN`, o resto texto. Ao gravar (`ToSql`), a tabela é criada com os tipos equivalentes do banco (no SQL Server, `BIGINT`, `FLOAT`, `DATE`, `DATETIME2`, `BIT` e `NVARCHAR(MAX)`; no Access, `LONG`, `DOUBLE`, `DATETIME`, `YESNO` e `TEXT`/`LONGTEXT`).
+- **Erros** chegam como `DatabaseError` ou `ConnectionError` (erro 5), com a mensagem do banco. A senha nunca aparece na mensagem: ela é trocada por `***`.
+
 ## Diferenças em relação ao StringS do Sage.xlam
 
 - `FString` e `Join` aceitam até 30 argumentos, e não uma `ParamArray` ilimitada: o VBA recusa a `ParamArray` exportada pelo .NET.
@@ -289,7 +330,7 @@ Mantidos de propósito, como no original: ao atribuir um valor, `\n` vira quebra
 
 Todos os nomes (tipos, membros, parâmetros, enums) seguem o PascalCase, sem sublinhado: `ReadCsv`, `SortValues`, `SgTuple`.
 
-As interfaces (`_StringS`, `_DictionaryS`, `_ListS`, `_DataFrame`, `_DateTimeS`, `_Json`, `_Requests`, `_Session`, `_Response`, `_Globals`) são duais: o VBA as chama pela vtable. Acrescente membros **sempre no fim**, com o próximo `DispId`, e nunca reordene nem remova os existentes, senão o código VBA já compilado chama o método errado. Uma classe nova precisa de `[Guid]`, `[ProgId]`, interface própria e uma linha em `$Classes` no `install.ps1`.
+As interfaces (`_StringS`, `_DictionaryS`, `_ListS`, `_DataFrame`, `_DateTimeS`, `_Json`, `_Requests`, `_Session`, `_Response`, `_Globals`, `_SqlEngine`) são duais: o VBA as chama pela vtable. Acrescente membros **sempre no fim**, com o próximo `DispId`, e nunca reordene nem remova os existentes, senão o código VBA já compilado chama o método errado. Uma classe nova precisa de `[Guid]`, `[ProgId]`, interface própria e uma linha em `$Classes` no `install.ps1`.
 
 Limitações do exportador do .NET (`TypeLibConverter`) e como contorná-las:
 - **Propriedade Variant com `Let`:** o .NET exporta o setter só como `Property Set`. Declare também um método `LetNome(...)` com `[PropertyLet("Nome")]`, os mesmos parâmetros e mais o valor; o `install.ps1` o transforma no `Property Let` de `Nome` ao gerar o `.tlb`.
