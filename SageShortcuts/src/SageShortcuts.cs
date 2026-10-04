@@ -210,7 +210,7 @@ namespace SageShortcuts
     // ------------------------------------------------------------------------
     // Atalhos (keybindings.txt)
     // ------------------------------------------------------------------------
-    enum ActionKind { VbeCommand, Macro, Comment, Uncomment, CopyLinesUp, CopyLinesDown, MoveLinesUp, MoveLinesDown, ToggleImmediate }
+    enum ActionKind { VbeCommand, Macro, Comment, Uncomment, CopyLinesUp, CopyLinesDown, MoveLinesUp, MoveLinesDown, ToggleImmediate, ToggleWatch, ToggleLocals }
 
     sealed class Binding
     {
@@ -241,7 +241,7 @@ namespace SageShortcuts
         // Formato:  <tecla>[, <tecla>...] = <ação>     # comentário
         //   tecla: [Ctrl+][Shift+][Alt+][Win+]<nome>   (ex.: Ctrl+K, Ctrl+Shift+F2)
         //   ação:  comment | uncomment | copyLinesUp | copyLinesDown | moveLinesUp | moveLinesDown |
-        //          toggleImmediate | vbe:<id do controle> | macro:<nome para Application.Run>
+        //          toggleImmediate | toggleWatch | toggleLocals | vbe:<id do controle> | macro:<nome para Application.Run>
         public static Bindings Load(string path, out List<string> errors)
         {
             Bindings result = new Bindings();
@@ -301,6 +301,8 @@ namespace SageShortcuts
                 case "movelinesup": { Binding mu = new Binding(); mu.Kind = ActionKind.MoveLinesUp; return mu; }
                 case "movelinesdown": { Binding md = new Binding(); md.Kind = ActionKind.MoveLinesDown; return md; }
                 case "toggleimmediate": { Binding ti = new Binding(); ti.Kind = ActionKind.ToggleImmediate; return ti; }
+                case "togglewatch": { Binding tw = new Binding(); tw.Kind = ActionKind.ToggleWatch; return tw; }
+                case "togglelocals": { Binding tl = new Binding(); tl.Kind = ActionKind.ToggleLocals; return tl; }
             }
             int colon = text.IndexOf(':');
             string kind = colon < 0 ? "" : text.Substring(0, colon).Trim().ToLowerInvariant();
@@ -321,7 +323,7 @@ namespace SageShortcuts
                 b.Macro = arg;
                 return b;
             }
-            error = "ação inválida '" + text + "' (use comment, uncomment, copyLinesUp, copyLinesDown, moveLinesUp, moveLinesDown, toggleImmediate, vbe:<id> ou macro:<nome>)";
+            error = "ação inválida '" + text + "' (use comment, uncomment, copyLinesUp, copyLinesDown, moveLinesUp, moveLinesDown, toggleImmediate, toggleWatch, toggleLocals, vbe:<id> ou macro:<nome>)";
             return null;
         }
     }
@@ -633,20 +635,27 @@ namespace SageShortcuts
                     MoveLines(app.VBE.ActiveCodePane, binding.Kind == ActionKind.MoveLinesDown);
                     break;
                 case ActionKind.ToggleImmediate:
-                    ToggleImmediate(app.VBE);
+                    ToggleWindow(app.VBE, vbext_wt_Immediate, 2554);
+                    break;
+                case ActionKind.ToggleWatch:
+                    ToggleWindow(app.VBE, vbext_wt_Watch, 2556);
+                    break;
+                case ActionKind.ToggleLocals:
+                    ToggleWindow(app.VBE, vbext_wt_Locals, 2555);
                     break;
             }
         }
 
-        const int vbext_wt_Immediate = 5;
+        const int vbext_wt_Watch = 3, vbext_wt_Locals = 4, vbext_wt_Immediate = 5;
 
-        // Fecha a Verificação imediata se estiver aberta; senão abre e põe o foco nela,
-        // como Ctrl+J no VS Code (que alterna o painel)
-        static void ToggleImmediate(dynamic vbe)
+        // Fecha a janela (Verificação imediata, Inspeção de variáveis, Variáveis locais) se
+        // estiver aberta; senão abre e põe o foco nela, como Ctrl+J no VS Code (que alterna o
+        // painel). Se ela ainda não existir em VBE.Windows, abre pelo comando do menu Exibir.
+        static void ToggleWindow(dynamic vbe, int type, int commandId)
         {
             foreach (dynamic window in vbe.Windows)
             {
-                if ((int)window.Type != vbext_wt_Immediate) continue;
+                if ((int)window.Type != type) continue;
                 if ((bool)window.Visible) window.Visible = false;
                 else
                 {
@@ -655,6 +664,8 @@ namespace SageShortcuts
                 }
                 return;
             }
+            dynamic control = vbe.CommandBars.FindControl(Type.Missing, commandId);
+            if (control != null && (bool)control.Enabled) control.Execute();
         }
 
         // Troca as linhas da seleção com a de cima ou a de baixo, como Alt+Seta no VS Code;

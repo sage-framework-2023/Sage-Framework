@@ -28,11 +28,14 @@ if ($Uninstall) {
     return
 }
 
+# Pelo conhost sem janela: com o Windows Terminal como terminal padrão (Windows 11), o
+# powershell.exe abriria numa aba dele, e o -WindowStyle Hidden não a esconde
+$powershell = Join-Path $PSHOME 'powershell.exe'
 $arguments = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$script`""
 $shell = New-Object -ComObject WScript.Shell
 $shortcut = $shell.CreateShortcut($link)
-$shortcut.TargetPath = Join-Path $PSHOME 'powershell.exe'
-$shortcut.Arguments = $arguments
+$shortcut.TargetPath = Join-Path $env:WINDIR 'System32\conhost.exe'
+$shortcut.Arguments = "--headless `"$powershell`" $arguments"
 $shortcut.WorkingDirectory = $PSScriptRoot
 $shortcut.WindowStyle = 7   # minimizado, para não piscar janela
 $shortcut.Description = 'Atalhos de teclado do editor VBA'
@@ -41,5 +44,5 @@ $shortcut.Save()
 
 Stop-SageShortcuts   # reinicia, caso uma versão anterior esteja rodando
 Start-Sleep -Milliseconds 500
-Start-Process $shortcut.TargetPath -ArgumentList $arguments -WindowStyle Hidden
+Start-Process $shortcut.TargetPath -ArgumentList $shortcut.Arguments -WindowStyle Hidden
 "Iniciado (ícone na bandeja)."

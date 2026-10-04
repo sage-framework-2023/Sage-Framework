@@ -21,9 +21,11 @@ namespace SageEditor
             public int LineHeight, LastY = -1, TextTop = int.MaxValue;
             public int Width;                       // largura reservada (0 = sem faixa)
             public int TopLine = -1, Current = -1, Total = -1;
+            public bool Pending;                    // faixa desenhada sem os números: redesenhar
         }
 
         static readonly Dictionary<IntPtr, Pane> panes = new Dictionary<IntPtr, Pane>();
+        static int lastRepair;
         static Font font;
         static int fontSize;
 
@@ -39,10 +41,19 @@ namespace SageEditor
             Pane p;
             if (!panes.TryGetValue(hwnd, out p))
             {
-                if (panes.Count > 100) panes.Clear();
+                // Janelas fechadas (o VBE as destrói; reabertas, são outras): só elas saem.
+                // Limpar tudo apagaria a faixa das janelas abertas, e os números sumiriam até
+                // a área não-cliente ser recalculada.
+                if (panes.Count > 50) RemoveClosed();
                 panes[hwnd] = p = new Pane();
             }
             return p;
+        }
+
+        static void RemoveClosed()
+        {
+            foreach (IntPtr hwnd in new List<IntPtr>(panes.Keys))
+                if (!Native.IsWindow(hwnd)) panes.Remove(hwnd);
         }
 
         // Posição real de cada trecho de código desenhado (coordenadas da área cliente)
@@ -96,7 +107,10 @@ namespace SageEditor
 
         // Desenha a faixa com os números (chamado no WM_NCPAINT, depois de pintar o
         // código e depois de rolagem, teclas e cliques)
-        public static void Paint(IntPtr hwnd, Theme t)
+        public static void Paint(IntPtr hwnd, Theme t) { Paint(hwnd, t, null); }
+
+        // known: o CodePane desta janela, quando já se sabe (verificação periódica)
+        static void Paint(IntPtr hwnd, Theme t, object known)
         {
             Pane p;
             if (!panes.TryGetValue(hwnd, out p) || p.Width == 0 || t == null) return;
@@ -112,7 +126,8 @@ namespace SageEditor
 
             // Linhas visíveis (só quando já se sabe onde o texto fica)
             int topLine = 0, total = 0, current = 0, visible = 0;
-            bool rows = p.LineHeight > 0 && p.TextTop != int.MaxValue && Read(hwnd, out topLine, out total, out current, out visible);
+            bool rows = p.LineHeight > 0 && p.TextTop != int.MaxValue && Read(hwnd, known, out topLine, out total, out current, out visible);
+            p.Pending = !rows;
             if (rows)
             {
                 p.TopLine = topLine; p.Current = current;
@@ -161,21 +176,36 @@ namespace SageEditor
             dynamic pane = Vbe.ActiveCodePane;
             if (pane == null) return;
             IntPtr hwnd = HwndOf(pane);
+            if (hwnd == IntPtr.Zero) return;
             Pane p;
-            if (hwnd == IntPtr.Zero || !panes.TryGetValue(hwnd, out p) || p.Width == 0) return;
+            if (!panes.TryGetValue(hwnd, out p) || p.Width == 0)
+            {
+                // A janela ativa deveria ter a faixa e não tem: recalcula a área não-cliente
+                // (o mesmo que ligar e desligar a opção), no máximo duas vezes por segundo
+                if (Environment.TickCount - lastRepair > 500)
+                {
+                    lastRepair = Environment.TickCount;
+                    RefreshFrames(new IntPtr[] { hwnd });
+                }
+                return;
+            }
 
             int topLine, total, current;
             if (!ReadPane(pane, out topLine, out total, out current)) return;
-            if (topLine != p.TopLine || current != p.Current || total != p.Total)
-                Paint(hwnd, ThemeEngine.Current);
+            if (p.Pending || topLine != p.TopLine || current != p.Current || total != p.Total)
+            {
+                // Sem a altura da linha (o código ainda não foi desenhado nesta janela): pede o desenho
+                if (p.LineHeight == 0 || p.TextTop == int.MaxValue) Native.InvalidateRect(hwnd, IntPtr.Zero, false);
+                Paint(hwnd, ThemeEngine.Current, (object)pane);
+            }
         }
 
         // ------------------------------------------------------------------
 
-        static bool Read(IntPtr hwnd, out int topLine, out int total, out int current, out int visible)
+        static bool Read(IntPtr hwnd, object known, out int topLine, out int total, out int current, out int visible)
         {
             topLine = total = current = visible = 0;
-            dynamic pane = PaneFor(hwnd);
+            dynamic pane = known ?? PaneFor(hwnd);
             if (pane == null || !ReadPane(pane, out topLine, out total, out current)) return false;
             try { visible = pane.CountOfVisibleLines; } catch (Exception) { return false; }
             return true;
@@ -206,9 +236,26 @@ namespace SageEditor
             {
                 foreach (dynamic pane in Vbe.CodePanes)
                     if ((string)pane.Window.Caption == title) return pane;
+                // Ao fechar ou ativar uma aba, o VBE tira ou põe o "Projeto - " no título da
+                // janela e no Caption, nem sempre ao mesmo tempo: compara sem o prefixo
+                dynamic match = null;
+                int matches = 0;
+                foreach (dynamic pane in Vbe.CodePanes)
+                {
+                    if (!(bool)pane.Window.Visible) continue;
+                    if (SameWindow((string)pane.Window.Caption, title)) { match = pane; matches++; }
+                }
+                if (matches == 1) return match;
             }
             catch (Exception) { }
             return null;
+        }
+
+        // "Pasta1 - Modulo1 (Código)" e "Modulo1 (Código)" são a mesma janela
+        static bool SameWindow(string caption, string title)
+        {
+            if (caption.Length == 0 || title.Length == 0) return false;
+            return caption == title || caption.EndsWith(" - " + title, StringComparison.Ordinal) || title.EndsWith(" - " + caption, StringComparison.Ordinal);
         }
 
         static IntPtr HwndOf(dynamic pane)
@@ -218,7 +265,17 @@ namespace SageEditor
             catch (Exception) { return IntPtr.Zero; }
             foreach (IntPtr hwnd in panes.Keys)
                 if (Native.IsWindow(hwnd) && TitleOf(hwnd) == caption) return hwnd;
-            return IntPtr.Zero;
+            foreach (IntPtr hwnd in panes.Keys)
+                if (Native.IsWindow(hwnd) && Native.IsWindowVisible(hwnd) && SameWindow(caption, TitleOf(hwnd))) return hwnd;
+            // Ainda não vista (ou esquecida): procura entre as janelas de código do VBE
+            IntPtr found = IntPtr.Zero;
+            IntPtr main = (IntPtr)(long)Vbe.MainWindow.HWnd;
+            Native.EnumChildWindows(main, delegate(IntPtr h, IntPtr l)
+            {
+                if (IsCodePane(h) && Native.IsWindowVisible(h) && SameWindow(caption, TitleOf(h))) { found = h; return false; }
+                return true;
+            }, IntPtr.Zero);
+            return found;
         }
 
         [DllImport("user32.dll", CharSet = CharSet.Unicode)]

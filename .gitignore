@@ -2,3 +2,7 @@ bin/
 # duckdb.dll: vai no pacote da release (build-release.ps1), não no git
 SageTypes/lib/
 dist/
+Pasta1.xlsm
+Sage.xlam
+*.lnk
+~$*

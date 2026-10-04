@@ -150,6 +150,10 @@ namespace SageEditor
         public static extern IntPtr GetParent(IntPtr hwnd);
         [DllImport("user32.dll")]
         public static extern bool IsWindow(IntPtr hwnd);
+        [DllImport("user32.dll")]
+        public static extern bool IsWindowVisible(IntPtr hwnd);
+        [DllImport("user32.dll")]
+        public static extern bool InvalidateRect(IntPtr hwnd, IntPtr rect, bool erase);
         [DllImport("user32.dll", CharSet = CharSet.Unicode)]
         static extern int GetClassName(IntPtr hwnd, StringBuilder name, int max);
         [DllImport("user32.dll")]

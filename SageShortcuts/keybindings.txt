@@ -17,6 +17,8 @@
 #         moveLinesUp    troca a linha (ou as linhas selecionadas) com a de cima (idem)
 #         moveLinesDown  troca a linha (ou as linhas selecionadas) com a de baixo (idem)
 #         toggleImmediate  abre a Verificação imediata, ou fecha se estiver aberta
+#         toggleWatch    abre a Inspeção de variáveis, ou fecha se estiver aberta
+#         toggleLocals   abre a janela Variáveis locais, ou fecha se estiver aberta
 #         vbe:<id>       executa o controle do VBE com esse Id (CommandBars.FindControl)
 #         macro:<nome>   executa Application.Run "<nome>" (ex.: macro:'Sage.xlam'!Modulo.Proc)
 #
@@ -26,6 +28,7 @@
 Ctrl+K, Ctrl+C = comment      # Comentar bloco
 Ctrl+K, Ctrl+U = uncomment    # Remover comentário do bloco
 Ctrl+J         = toggleImmediate  # Abrir/fechar a Verificação imediata (substitui "Listar propriedades/métodos")
+Ctrl+I         = toggleWatch      # Abrir/fechar a Inspeção de variáveis (substitui "Informações rápidas")
 Shift+Alt+Up   = copyLinesUp    # Duplicar linha para cima
 Shift+Alt+Down = copyLinesDown  # Duplicar linha para baixo
 Alt+Up         = moveLinesUp    # Mover linha para cima

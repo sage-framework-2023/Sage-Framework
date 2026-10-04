@@ -38,6 +38,14 @@ namespace SageEditor
         const int WM_NCACTIVATE = 0x0086, WM_TIMER = 0x0113, WM_MOUSEMOVE = 0x0200, WM_LBUTTONUP = 0x0202, WM_MOUSELEAVE = 0x02A3;
         static readonly UIntPtr SubclassId = (UIntPtr)0x5A6E;
 
+        // Diálogos (erro em tempo de execução, MsgBox, Opções...): ficam com as cores do
+        // Windows. Abertos enquanto o VBE trata uma mensagem (F5 no código, Enter na
+        // Verificação imediata), eles rodam dentro dela, com depth > 0; este subclassing
+        // zera o depth enquanto o diálogo e os controles dele tratam as mensagens.
+        static readonly Native.SubclassProc neutralProc = NeutralProc;
+        static readonly HashSet<IntPtr> neutral = new HashSet<IntPtr>();
+        static readonly UIntPtr NeutralId = (UIntPtr)0x5A6F;
+
         // Hook CBT para janelas criadas depois
         static readonly Native.HookProc cbtProc = CbtProc;
         static IntPtr cbtHook;
@@ -154,6 +162,8 @@ namespace SageEditor
                 Native.RemoveWindowSubclass(hwnd, subclassProc, SubclassId);
             }
             subclassed.Clear();
+            foreach (IntPtr hwnd in new List<IntPtr>(neutral)) Native.RemoveWindowSubclass(hwnd, neutralProc, NeutralId);
+            neutral.Clear();
             if (cbtHook != IntPtr.Zero) { Native.UnhookWindowsHookEx(cbtHook); cbtHook = IntPtr.Zero; }
             RestoreModules();
             Refresh();
@@ -208,7 +218,9 @@ namespace SageEditor
                     // CBT_CREATEWND { CREATESTRUCT* lpcs; ... }; CREATESTRUCT.hwndParent é o 4º campo
                     IntPtr cs = Marshal.ReadIntPtr(lParam);
                     IntPtr parent = Marshal.ReadIntPtr(cs, 3 * IntPtr.Size);
-                    if (BelongsToVbe(parent))
+                    if (IsDialog(wParam, parent))
+                        Neutralize(wParam);
+                    else if (BelongsToVbe(parent))
                     {
                         Subclass(wParam);
                         pendingStyle.Add(wParam);
@@ -217,6 +229,35 @@ namespace SageEditor
                 catch (Exception ex) { Log.Error(ex); }
             }
             return Native.CallNextHookEx(cbtHook, code, wParam, lParam);
+        }
+
+        // Diálogo (#32770) ou janela dentro de um, como os botões e o texto da mensagem
+        static bool IsDialog(IntPtr hwnd, IntPtr parent)
+        {
+            if (Native.ClassName(hwnd) == "#32770") return true;
+            if (parent == IntPtr.Zero) return false;
+            if (neutral.Contains(parent)) return true;
+            IntPtr root = Native.GetAncestor(parent, Native.GA_ROOT);
+            return root != IntPtr.Zero && Native.ClassName(root) == "#32770";
+        }
+
+        static void Neutralize(IntPtr hwnd)
+        {
+            if (neutral.Contains(hwnd)) return;
+            if (Native.SetWindowSubclass(hwnd, neutralProc, NeutralId, UIntPtr.Zero)) neutral.Add(hwnd);
+        }
+
+        static IntPtr NeutralProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, UIntPtr id, UIntPtr refData)
+        {
+            if (msg == Native.WM_NCDESTROY)
+            {
+                Native.RemoveWindowSubclass(hwnd, neutralProc, NeutralId);
+                neutral.Remove(hwnd);
+            }
+            int saved = depth;
+            depth = 0;
+            try { return Native.DefSubclassProc(hwnd, msg, wParam, lParam); }
+            finally { depth = saved; }
         }
 
         // Janelas novas recebem o estilo (tema de rolagem, DWM) no primeiro WM_ERASEBKGND

@@ -8,7 +8,10 @@ Por enquanto:
 - **StringS**, com a mesma API do `StringS` do `Sage.xlam`;
 - **DictionaryS**, com a API do `DictionaryS` do `Sage.xlam` e o comportamento e os métodos do dicionário do Python;
 - **ListS**, com a API do `ListS` do `Sage.xlam` e o comportamento e os métodos da lista do Python.
-- **DataFrame**, tabela no estilo do pandas sobre o DuckDB, para milhões de linhas.
+- **DataFrame**, tabela no estilo do pandas sobre o DuckDB, para milhões de linhas;
+- **DateTimeS**, data e hora como o `datetime` do Python, com fuso horário;
+- **Json**, o módulo `json` do Python;
+- **Requests**, a biblioteca `requests` do Python, para chamar APIs (com **Response** e **Session**).
 
 ## Instalar
 
@@ -26,7 +29,7 @@ Uma pasta de trabalho não pode referenciar ao mesmo tempo esta biblioteca e o p
 
 Para remover: `install.ps1 -Uninstall`.
 
-A `duckdb.dll` (64 bits, assinada pela DuckDB Foundation) vem em `lib\` no pacote da release. Num clone do git ela não existe, e o `install.ps1` baixa a versão fixada e confere o hash SHA-256. Para montar o pacote da release: `build-release.ps1 -Version x.y.z` na raiz do repositório (licença em `THIRD-PARTY-NOTICES.txt`).
+A `duckdb.dll` (64 bits, assinada pela DuckDB Foundation) vem em `lib\` no pacote da release. Num clone do git ela não existe, e o `install.ps1` baixa a versão fixada e confere o hash SHA-256. Para montar o instalador da release (um `.exe` só, com tudo dentro): `build-release.ps1 -Version x.y.z` na raiz do repositório; ele gera `dist\SageFramework-Setup-x.y.z.exe` (licença do DuckDB em `THIRD-PARTY-NOTICES.txt`).
 
 ## Uso
 
@@ -185,6 +188,94 @@ Nas expressões (`Query`, `Eval`, `Select`, `GroupBy`), texto vai entre aspas du
 
 O tipo de uma coluna se alarga sozinho: um inteiro que recebe um decimal vira `DOUBLE`; um número que recebe texto vira `VARCHAR`.
 
+## DateTimeS
+
+```vb
+Dim d As New Sage.DateTimeS
+d = Now                                          ' ou Date, "2024-01-05T10:30:00Z", "15/03/2024"
+Debug.Print d.StrFTime("%d/%m/%Y %H:%M")         ' códigos do strftime do Python
+Debug.Print d.AddMonths(1).IsoFormat             ' 31/01 + 1 mês = 29/02
+Debug.Print d.Add(Days:=7, Hours:=-2).ToString
+Debug.Print d.UtcNow.AsTimeZone("E. South America Standard Time").IsoFormat   ' ...-03:00
+```
+
+Como no Python, uma data não muda: os métodos devolvem um `DateTimeS` novo (`Set d = d.AddMonths(1)`). O membro padrão (`Value`) é um `Date` do VBA, então `d > DateSerial(2024, 1, 1)`, `Format(d, ...)` e `Range("A1") = d.Value` funcionam.
+
+| Python | DateTimeS |
+|---|---|
+| `datetime.now()`, `date.today()`, `datetime.now(timezone.utc)` | `d.Now`, `d.Today`, `d.UtcNow` |
+| `datetime(2024, 1, 5, 10, 30)` | `d.Create(2024, 1, 5, 10, 30)` |
+| `strptime(texto, "%d/%m/%Y")`, `strftime(...)` | `d.StrPTime(texto, "%d/%m/%Y")`, `d.StrFTime(...)` |
+| `fromisoformat(...)`, `isoformat()`, `str(d)` | `d.FromIsoFormat(...)`, `d.IsoFormat`, `d.ToString` |
+| `fromtimestamp(s)`, `timestamp()` | `d.FromTimestamp(s)`, `d.Timestamp` |
+| `d + timedelta(days=1)`, `d + relativedelta(months=1)` | `d.Add(Days:=1)`, `d.AddMonths(1)` ou `d.Add(Months:=1)` |
+| `(d1 - d2).total_seconds()` | `d1.Diff(d2, "seconds")` (padrão: dias) |
+| `d.replace(day=1)`, `d.astimezone(tz)`, `d.utcoffset()` | `d.Replace(Day:=1)`, `d.AsTimeZone(tz)`, `d.UtcOffset` (horas) |
+| `d.year`, `d.weekday()`, `d.isocalendar()` | `d.Year`, `d.Weekday` (segunda = 0), `d.IsoCalendar` |
+| pandas: `quarter`, `days_in_month`, `normalize()` | `d.Quarter`, `d.DaysInMonth`, `d.Normalize` |
+
+- **Fuso horário:** sem fuso (`TimeZone = ""`) a data é "ingênua", como no Python. Fusos aceitos: `"UTC"`, `"local"`, deslocamentos (`"-03:00"`) e nomes do Windows (`"E. South America Standard Time"`; lista com `tzutil /l`). Os nomes da IANA (`"America/Sao_Paulo"`) não existem no .NET Framework.
+- **Nomes de mês e dia** (`%b`, `%A`) seguem o idioma do Windows, ao escrever e ao ler.
+- **Texto** atribuído (`d = "..."`) é lido como ISO 8601; se não for, no formato do Windows (dd/mm/aaaa no pt-BR).
+
+## Json
+
+Global, como o módulo do Python: usado sem `Dim` (ou como `Sage.Json`).
+
+```vb
+Dim d As Sage.DictionaryS
+Set d = Json.Loads("{""nome"": ""Ana"", ""itens"": [1, 2.5, null]}")
+Debug.Print d("nome").Upper, d("itens")(1)       ' ANA  2,5
+Debug.Print Json.Dumps(d, Indent:=2, SortKeys:=True)
+Json.Dump d, "C:\dados\saida.json"               ' UTF-8
+Set d = Json.Load("C:\dados\saida.json")
+```
+
+| JSON | VBA (Loads) |
+|---|---|
+| objeto, lista | `DictionaryS`, `ListS` (na ordem do texto) |
+| texto | `StringS` |
+| número inteiro / decimal | `Long` (ou `LongLong`, se não couber) / `Double` |
+| `true`, `false`, `null` | `True`, `False`, `Empty` |
+
+`Dumps` aceita também `Scripting.Dictionary`, arrays (2D: lista de linhas), `Collection`, `Date` e `DateTimeS` (texto ISO 8601) e `DataFrame` (lista de linhas). Erros no texto geram `JSONDecodeError` com linha e coluna, como no Python. Diferença do Python: `EnsureAscii` é `False` por padrão (acentos ficam como estão); com `EnsureAscii:=True`, saem como `\u00e7`.
+
+## Requests
+
+Global, como o módulo do Python: `Requests.Get(...)`, sem `Dim`. Devolve um `Sage.Response`.
+
+```vb
+Dim r As Sage.Response
+Set r = Requests.Get("https://economia.awesomeapi.com.br/json/last/USD-BRL")
+r.RaiseForStatus                                 ' erro se o status for 4xx ou 5xx
+Debug.Print Val(r.Json()("USDBRL")("bid"))       ' cotação do dólar (texto com ponto: Val, não CDbl)
+
+Dim dados As New Sage.DictionaryS
+dados("nome") = "Ana"
+Set r = Requests.Post("https://httpbin.org/post", Json:=dados, _
+                      Headers:=Array("Authorization", "Bearer " & token), Timeout:=30)
+```
+
+| Python | Sage |
+|---|---|
+| `requests.get(url, params=..., headers=..., auth=..., timeout=...)` | `Requests.Get(url, Params:=..., Headers:=..., Auth:=..., Timeout:=...)` |
+| `requests.post(url, data=..., json=...)` (e `put`, `patch`) | `Requests.Post(url, Data:=..., Json:=...)` (e `Put`, `Patch`) |
+| `requests.delete`, `head`, `request(método, url, ...)` | `Requests.Delete`, `Head`, `Request(método, url, ...)` |
+| `r.status_code`, `r.ok`, `r.reason` | `r.StatusCode`, `r.Ok`, `r.Reason` |
+| `r.text`, `r.content`, `r.json()` | `r.Text` (`StringS`), `r.Content` (`Byte()`), `r.Json()` |
+| `json.dumps(r.json(), indent=2)` | `r.JsonString` (uma linha) ou `r.JsonString(Indent:=2)` (formatado); também `SortKeys`, `EnsureAscii` |
+| `r.headers["content-type"]` | `r.Header("content-type")` (sem diferenciar maiúsculas) ou `r.Headers` (`DictionaryS`) |
+| `r.url`, `r.elapsed`, `r.encoding`, `r.raise_for_status()` | `r.Url`, `r.Elapsed` (segundos), `r.Encoding`, `r.RaiseForStatus` |
+| `s = requests.Session()` | `Set s = Requests.Session()` (`Sage.Session`) |
+
+- **Params, Headers e Data** aceitam `DictionaryS`, `Scripting.Dictionary` ou `Array(chave1, valor1, ...)`. Um valor lista repete a chave (`?id=1&id=2`).
+- **Corpo:** `Json:=` envia JSON (`application/json`); `Data:=` com dicionário envia formulário; com texto ou `Byte()`, envia como está.
+- **Auth:** `Array("usuário", "senha")` (autenticação básica). Tokens vão em `Headers`.
+- **Status 4xx/5xx** não geram erro, como no requests: confira `r.Ok` ou chame `r.RaiseForStatus`. Falha de rede gera `ConnectionError`; tempo esgotado, `Timeout` (erro 5).
+- **Session:** `s.Headers("X-Api-Key") = chave`, `s.Params`, `s.Auth` e `s.Timeout` valem para todas as chamadas da sessão, e os cookies (login) ficam guardados entre elas (`s.Cookies` os lista).
+- **Downloads:** `r.Save "C:\arquivo.pdf"`.
+- Usa TLS 1.2/1.3 e o proxy do Windows (com o usuário logado), como o navegador. A chamada é síncrona: o Excel espera a resposta.
+
 ## Diferenças em relação ao StringS do Sage.xlam
 
 - `FString` e `Join` aceitam até 30 argumentos, e não uma `ParamArray` ilimitada: o VBA recusa a `ParamArray` exportada pelo .NET.
@@ -198,11 +289,12 @@ Mantidos de propósito, como no original: ao atribuir um valor, `\n` vira quebra
 
 Todos os nomes (tipos, membros, parâmetros, enums) seguem o PascalCase, sem sublinhado: `ReadCsv`, `SortValues`, `SgTuple`.
 
-As interfaces (`_StringS`, `_DictionaryS`, `_ListS`, `_DataFrame`) são duais: o VBA as chama pela vtable. Acrescente membros **sempre no fim**, com o próximo `DispId`, e nunca reordene nem remova os existentes, senão o código VBA já compilado chama o método errado. Uma classe nova precisa de `[Guid]`, `[ProgId]`, interface própria e uma linha em `$Classes` no `install.ps1`.
+As interfaces (`_StringS`, `_DictionaryS`, `_ListS`, `_DataFrame`, `_DateTimeS`, `_Json`, `_Requests`, `_Session`, `_Response`, `_Globals`) são duais: o VBA as chama pela vtable. Acrescente membros **sempre no fim**, com o próximo `DispId`, e nunca reordene nem remova os existentes, senão o código VBA já compilado chama o método errado. Uma classe nova precisa de `[Guid]`, `[ProgId]`, interface própria e uma linha em `$Classes` no `install.ps1`.
 
 Limitações do exportador do .NET (`TypeLibConverter`) e como contorná-las:
 - **Propriedade Variant com `Let`:** o .NET exporta o setter só como `Property Set`. Declare também um método `LetNome(...)` com `[PropertyLet("Nome")]`, os mesmos parâmetros e mais o valor; o `install.ps1` o transforma no `Property Let` de `Nome` ao gerar o `.tlb`.
 - **Propriedade com parâmetros** (como `At(linha, coluna)`): o .NET só exporta o indexador. Declare um método `GetNome(...)` com `[PropertyGet("Nome")]`; no VBA ele é lido como `Nome(...)`.
 - **`ParamArray`:** o `params` do C# não é aceito pelo VBA; use parâmetros `[Optional]`.
 - **Membros de enum:** o .NET os exporta como `Enum_Membro` (`SgArrayTypes_SgTuple`); o `install.ps1` tira o prefixo, e o VBA vê `SgTuple`.
+- **Membros globais** (`Json`, `Requests`): ficam na classe `Globals`, com `[AppObject]`; o `install.ps1` a marca como *app object* no `.tlb`, e o VBA a cria sozinho.
 - **Nome igual a algo da biblioteca VBA** (como `Strings`): o VBA acha o dele primeiro, por isso o prefixo `Sage.`.

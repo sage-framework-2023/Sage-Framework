@@ -111,6 +111,7 @@ namespace SageEditor
                 MultiCursor.Shutdown();
                 MultiCursor.Vbe = null;
                 ImmediateCommands.Shutdown();
+                AutoReference.Shutdown();
                 ImmediateCommands.Vbe = null;
                 EditorTabs.Shutdown();
                 ThemeEngine.Shutdown();

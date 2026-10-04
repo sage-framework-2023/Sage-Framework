@@ -1,9 +1,12 @@
 ﻿# Instala o add-in Sage no editor do VBA (só para o usuário atual, sem admin).
 #   powershell -ExecutionPolicy Bypass -File install.ps1              compila, copia e registra
 #   powershell -ExecutionPolicy Bypass -File install.ps1 -Uninstall   remove
+#   powershell -ExecutionPolicy Bypass -File install.ps1 -ExportTo <pasta>
+#       só compila e copia para <pasta> (pacote da release; build-release.ps1), com com.txt
+#       (classes COM que o instalador registra)
 # O Excel carrega o add-in ao abrir; feche-o antes de instalar ou atualizar.
 
-param([switch]$Uninstall)
+param([switch]$Uninstall, [string]$ExportTo)
 
 $ErrorActionPreference = 'Stop'
 $ProgId = 'Sage.Editor'
@@ -12,6 +15,16 @@ $Target = Join-Path $env:LOCALAPPDATA 'Sage\Editor'
 $Dll = Join-Path $Target 'SageEditor.dll'
 $AddinKey = "HKCU:\Software\Microsoft\VBA\VBE\6.0\Addins64\$ProgId"
 $ClassKey = "HKCU:\Software\Classes\CLSID\$Clsid"
+
+if ($ExportTo) {
+    & cmd /c "`"$PSScriptRoot\build.cmd`""
+    if ($LASTEXITCODE -ne 0) { throw 'A compilação falhou.' }
+    New-Item $ExportTo -ItemType Directory -Force | Out-Null
+    Copy-Item (Join-Path $PSScriptRoot 'bin\SageEditor.dll') $ExportTo -Force
+    # dll|classe|CLSID|ProgId
+    Set-Content (Join-Path $ExportTo 'com.txt') "SageEditor.dll|SageEditor.Connect|$Clsid|$ProgId" -Encoding UTF8
+    return
+}
 
 # Versão antiga, quando o add-in se chamava SageVBE (ProgId Sage.VBE)
 foreach ($key in 'HKCU:\Software\Microsoft\VBA\VBE\6.0\Addins64\Sage.VBE', 'HKCU:\Software\Classes\Sage.VBE') {

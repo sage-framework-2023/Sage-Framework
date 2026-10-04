@@ -37,7 +37,7 @@ namespace SageEditor
             set { Set(LineNumbersKey, value ? "on" : "off"); }
         }
 
-        // "on" (padrão) ou "off": referência ao Sage Framework nos projetos abertos (AutoReference)
+        // "on" (padrão) ou "off": referência ao Sage Framework nas pastas de trabalho novas (AutoReference)
         public static bool AutoReference
         {
             get { return !string.Equals(Get(AutoReferenceKey, "on"), "off", StringComparison.OrdinalIgnoreCase); }

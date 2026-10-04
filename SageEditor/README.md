@@ -25,7 +25,7 @@ Add-in .NET do editor do VBA (VBE), carregado dentro do Excel. Ele roda independ
   - digitar, Backspace, Delete, Tab, setas (Shift+Seta seleciona na linha), Home e End valem para todos; **Esc** volta a um cursor; outras teclas (Enter, Ctrl+...) e cliques sem Alt também voltam a um cursor.
   - As edições são feitas pelo `CodeModule`: o Ctrl+Z do VBE não as desfaz, e o VBE arruma a linha enquanto você digita (`x=1` vira `x = 1`), não só ao sair dela. Precisa de fonte de largura fixa no editor, como a padrão.
 - **Comandos na Verificação imediata**, como num terminal: digite `Clear` e Enter para apagar tudo, ou `Exit` e Enter para fechar a janela (o histórico continua lá ao reabrir). Sem diferenciar maiúsculas. Como o VBE não dá acesso ao texto da janela, o add-in acompanha o que é digitado desde o começo da linha; se o cursor for movido (setas, clique) antes do Enter, a linha segue normalmente para o VBE. (`Exit` é palavra reservada do VBA: não daria para ser uma função.) O Ctrl+J que abre e fecha a janela fica no SageShortcuts.
-- **Referência automática** à biblioteca Sage Framework (`Sage.StringS`, do SageTypes): marcada em *Ferramentas > Referências* do projeto cujo código você abre (*Editor: Referência Automática* nas Configurações). Projetos protegidos, em execução ou depuração, ou que usam o `Sage.xlam` ficam como estão. Como qualquer mudança no projeto, a pasta de trabalho passa a pedir para ser salva.
+- **Referência automática** à biblioteca Sage Framework (`Sage.StringS`, do SageTypes): toda pasta de trabalho nova (Ctrl+N, *Arquivo > Novo*, a pasta em branco ao abrir o Excel) já vem com ela marcada em *Ferramentas > Referências* (*Editor: Referência Automática* nas Configurações). Arquivos já salvos nunca são alterados: para não usar o Sage num arquivo, desmarque a referência e salve, e ela não volta. A pasta nova continua "sem alterações" (o Excel não pede para salvá-la só por causa da referência). Salva como `.xlsx`, ela perde a referência junto com o projeto VBA, como qualquer código.
 - **Idioma** da interface do Sage igual ao do Office/Excel: português ou inglês (os demais idiomas usam inglês). Os textos ficam em `src\Strings.cs`; para outro idioma, basta um método com a tradução.
 
 ## Instalar
@@ -66,6 +66,6 @@ Tudo roda na thread de interface do Excel e só age **enquanto uma janela do VBE
 
 ## Limitações
 
-- Diálogos (Opções, Referências, Localizar...) continuam no visual padrão.
+- Diálogos (Opções, Referências, Localizar, erro em tempo de execução, `MsgBox`) continuam no visual padrão, de propósito.
 - Quem usa cores personalizadas em *Ferramentas > Opções > Formato do editor* vê as cores do tema no lugar das 16 cores padrão.
 - Janelas criadas por outros add-ins do VBE não são tratadas de forma especial.

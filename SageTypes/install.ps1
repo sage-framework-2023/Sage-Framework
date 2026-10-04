@@ -1,10 +1,13 @@
 ﻿# Instala os tipos do Sage para o VBA (StringS...) só para o usuário atual, sem admin.
 #   powershell -ExecutionPolicy Bypass -File install.ps1              compila, copia e registra
 #   powershell -ExecutionPolicy Bypass -File install.ps1 -Uninstall   remove
+#   powershell -ExecutionPolicy Bypass -File install.ps1 -ExportTo <pasta>
+#       só compila e gera em <pasta> o DLL, a duckdb.dll, o .tlb e o com.txt (classes COM
+#       que o instalador registra), sem registrar nada (pacote da release; build-release.ps1)
 # Depois, em cada pasta de trabalho: Ferramentas > Referências > "Sage".
 # O Excel carrega o DLL quando o VBA usa um tipo; feche-o antes de instalar ou atualizar.
 
-param([switch]$Uninstall)
+param([switch]$Uninstall, [string]$ExportTo)
 
 $ErrorActionPreference = 'Stop'
 $Target = Join-Path $env:LOCALAPPDATA 'Sage\Types'
@@ -24,7 +27,7 @@ public static class SageTypeLib
     {
         void CreateTypeInfo();
         void SetName([MarshalAs(UnmanagedType.LPWStr)] string name);
-        void SetVersion(); void SetGuid(); void SetDocString();
+        void SetVersion(); void SetGuid(); void SetDocString([MarshalAs(UnmanagedType.LPWStr)] string doc);
         void SetHelpFileName(); void SetHelpContext(); void SetLcid(); void SetLibFlags();
         void SaveAllChanges();
     }
@@ -33,7 +36,7 @@ public static class SageTypeLib
     [ComImport, Guid("0002040E-0000-0000-C000-000000000046"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     interface ICreateTypeInfo2
     {
-        void SetGuid(); void SetTypeFlags(); void SetDocString(); void SetHelpContext(); void SetVersion();
+        void SetGuid(); void SetTypeFlags(int flags); void SetDocString(); void SetHelpContext(); void SetVersion();
         void AddRefTypeInfo();
         void AddFuncDesc(int index, IntPtr funcDesc);
         void AddImplType(); void SetImplTypeFlags(); void SetAlignment(); void SetSchema(); void AddVarDesc();
@@ -68,8 +71,22 @@ public static class SageTypeLib
         ICreateTypeLib lib = (ICreateTypeLib)new TypeLibConverter().ConvertAssemblyToTypeLib(
             assembly, tlb, TypeLibExporterFlags.ExportAs64Bit, new Sink());
         lib.SetName(libraryName);
-        ApplyProperties((System.Runtime.InteropServices.ComTypes.ITypeLib)lib, PropertyMethods(assembly));
+        // Nome em Ferramentas > Referências: a descrição do assembly com a versão ("Sage Framework 1.0")
+        Version version = assembly.GetName().Version;
+        AssemblyDescriptionAttribute description = (AssemblyDescriptionAttribute)Attribute.GetCustomAttribute(assembly, typeof(AssemblyDescriptionAttribute));
+        lib.SetDocString((description != null ? description.Description : libraryName) + " " + version.Major + "." + version.Minor);
+        ApplyProperties((System.Runtime.InteropServices.ComTypes.ITypeLib)lib, PropertyMethods(assembly), AppObjects(assembly));
         lib.SaveAllChanges();
+    }
+
+    // Classes marcadas com [AppObject]: os membros ficam globais no VBA (Json.Loads sem Dim)
+    static Dictionary<string, bool> AppObjects(Assembly assembly)
+    {
+        var result = new Dictionary<string, bool>();
+        foreach (Type type in assembly.GetTypes())
+            foreach (CustomAttributeData data in CustomAttributeData.GetCustomAttributes(type))
+                if (data.Constructor.DeclaringType.Name == "AppObjectAttribute") result[type.Name] = true;
+        return result;
     }
 
     // Métodos das interfaces marcados com [PropertyGet("X")] ou [PropertyLet("X")] no
@@ -100,7 +117,8 @@ public static class SageTypeLib
     // - [PropertyLet("X")] (LetValue): o método vira o Property Let (propput) de X:
     //   mesmo DispId de X, mesma posição na vtable (onde o .NET o implementou),
     //   parâmetros iguais.
-    static void ApplyProperties(System.Runtime.InteropServices.ComTypes.ITypeLib lib, Dictionary<string, KeyValuePair<bool, string>> methods)
+    static void ApplyProperties(System.Runtime.InteropServices.ComTypes.ITypeLib lib, Dictionary<string, KeyValuePair<bool, string>> methods,
+        Dictionary<string, bool> appObjects)
     {
         for (int i = 0; i < lib.GetTypeInfoCount(); i++)
         {
@@ -113,6 +131,15 @@ public static class SageTypeLib
             if (attr.typekind == System.Runtime.InteropServices.ComTypes.TYPEKIND.TKIND_ENUM)
             {
                 RemoveEnumPrefix(info, attr.cVars);
+                continue;
+            }
+            if (attr.typekind == System.Runtime.InteropServices.ComTypes.TYPEKIND.TKIND_COCLASS)
+            {
+                string name, doc, helpFile;
+                int helpContext;
+                info.GetDocumentation(-1, out name, out doc, out helpContext, out helpFile);
+                if (appObjects.ContainsKey(name))
+                    ((ICreateTypeInfo2)info).SetTypeFlags((int)attr.wTypeFlags | 0x1 /* TYPEFLAG_FAPPOBJECT */);
                 continue;
             }
             if (attr.typekind != System.Runtime.InteropServices.ComTypes.TYPEKIND.TKIND_DISPATCH ||
@@ -255,6 +282,13 @@ $Classes = @(
     @{ Class = 'SageTypes.DictionaryS'; Clsid = '{4B8E6D21-9F3C-4A57-B1D0-E5C27A8F6B39}'; ProgId = 'Sage.DictionaryS' }
     @{ Class = 'SageTypes.ListS'; Clsid = '{E7A42C19-6D3B-4E85-8F1A-0C9B5D2E7A64}'; ProgId = 'Sage.ListS' }
     @{ Class = 'SageTypes.DataFrame'; Clsid = '{2F9C6E14-8B3A-4D71-A5E2-7C0D9B4F3A68}'; ProgId = 'Sage.DataFrame' }
+    @{ Class = 'SageTypes.DateTimeS'; Clsid = '{992489F3-7D1F-4D2F-B13A-05AB53F1A745}'; ProgId = 'Sage.DateTimeS' }
+    @{ Class = 'SageTypes.Json'; Clsid = '{F255D235-A52E-4362-9484-F344705B9DE7}'; ProgId = 'Sage.Json' }
+    @{ Class = 'SageTypes.Requests'; Clsid = '{18A710C0-DD90-407E-92A8-56E2E1FBB35C}'; ProgId = 'Sage.Requests' }
+    @{ Class = 'SageTypes.Session'; Clsid = '{FCB13B55-C345-4703-89B6-F4635B7C5A9A}'; ProgId = 'Sage.Session' }
+    @{ Class = 'SageTypes.Response'; Clsid = '{B028ADB0-40B2-461C-8AD1-B4236852C17E}'; ProgId = 'Sage.Response' }
+    # Membros globais (Json, Requests): o VBA cria esta classe sozinho
+    @{ Class = 'SageTypes.Globals'; Clsid = '{3129D3A3-5535-4294-8923-083DAA4A6F75}'; ProgId = 'Sage.Globals' }
 )
 
 # DuckDB (motor do DataFrame). No pacote da release vem em lib\; num clone do git é
@@ -294,6 +328,21 @@ function Remove-Registration {
     }
     # Primeira versão, com ProgId SageTypes.StringS
     if (Test-Path 'HKCU:\Software\Classes\SageTypes.StringS') { Remove-Item 'HKCU:\Software\Classes\SageTypes.StringS' -Recurse }
+}
+
+if ($ExportTo) {
+    & cmd /c "`"$PSScriptRoot\build.cmd`""
+    if ($LASTEXITCODE -ne 0) { throw 'A compilação falhou.' }
+    $duckdbDll = Get-DuckDB
+    New-Item $ExportTo -ItemType Directory -Force | Out-Null
+    $exportDll = Join-Path $ExportTo 'SageTypes.dll'
+    Copy-Item (Join-Path $PSScriptRoot 'bin\SageTypes.dll') $exportDll -Force
+    Copy-Item $duckdbDll (Join-Path $ExportTo 'duckdb.dll') -Force
+    [SageTypeLib]::Export($exportDll, (Join-Path $ExportTo 'SageTypes.tlb'), $LibraryName)
+    # dll|classe|CLSID|ProgId
+    $lines = foreach ($c in $Classes) { "SageTypes.dll|$($c.Class)|$($c.Clsid)|$($c.ProgId)" }
+    Set-Content (Join-Path $ExportTo 'com.txt') $lines -Encoding UTF8
+    return
 }
 
 if ($Uninstall) {

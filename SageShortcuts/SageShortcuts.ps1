@@ -15,5 +15,18 @@ $source = [IO.File]::ReadAllText((Join-Path $root 'src\SageShortcuts.cs'), [Text
 Add-Type -TypeDefinition $source -Language CSharp -ReferencedAssemblies @(
     'System.Core', 'System.Drawing', 'System.Windows.Forms', 'Microsoft.CSharp')
 
-$arguments = @($args) + @('--config', (Join-Path $root 'keybindings.txt'))
+# Instalado em Arquivos de Programas (só leitura para o usuário): os atalhos ficam em
+# %APPDATA%\Sage\keybindings.txt, copiado do padrão na primeira vez. Num clone do git,
+# o próprio keybindings.txt da pasta.
+$config = Join-Path $root 'keybindings.txt'
+if ($root.StartsWith($env:ProgramFiles, [StringComparison]::OrdinalIgnoreCase)) {
+    $userConfig = Join-Path $env:APPDATA 'Sage\keybindings.txt'
+    if (-not (Test-Path $userConfig)) {
+        New-Item (Split-Path $userConfig) -ItemType Directory -Force | Out-Null
+        Copy-Item $config $userConfig
+    }
+    $config = $userConfig
+}
+
+$arguments = @($args) + @('--config', $config)
 exit [SageShortcuts.Program]::Main([string[]]$arguments)
