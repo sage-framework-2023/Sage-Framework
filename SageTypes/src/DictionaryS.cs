@@ -54,6 +54,12 @@ namespace SageTypes
         // Vira o Property Let de Value (DispId 0) na geração do .tlb (install.ps1): o
         // .NET só exporta Property Set para valores Variant. Fica sempre por último.
         [DispId(1000), PropertyLet("Value")] void LetValue([Optional] object Key, object Value);
+
+        // Do Scripting.Dictionary, para o código VBA existente funcionar igual
+        [DispId(22)] void Add(object Key, object Item);
+        [DispId(23)] void RemoveAll();
+        // d | outro do Python 3.9: dicionário novo com os dois (o de outro vence nas chaves repetidas)
+        [DispId(24)] DictionaryS Union(object Other);
     }
 
     [ComVisible(true), Guid("4B8E6D21-9F3C-4A57-B1D0-E5C27A8F6B39"), ProgId("Sage.DictionaryS")]
@@ -151,6 +157,24 @@ namespace SageTypes
         }
 
         public void Clear() { entries.Clear(); }
+
+        // Como o Scripting.Dictionary: chave repetida é erro (457); para substituir, d(chave) = valor
+        public void Add(object Key, object Item)
+        {
+            object k = KeyOf(Key);
+            if (entries.Contains(k))
+                throw Interop.Error(457, "KeyError: a chave " + Interop.Repr(k) + " já existe (para substituir o valor, use d(chave) = valor).");
+            entries[k] = Interop.Store(Item);
+        }
+
+        public void RemoveAll() { Clear(); }
+
+        public DictionaryS Union(object Other)
+        {
+            DictionaryS result = Copy();
+            result.Update(Other);
+            return result;
+        }
 
         // Sem erro se a chave não existe (como no Sage.xlam); Pop gera KeyError
         public void Remove(object Key) { entries.Remove(KeyOf(Key)); }

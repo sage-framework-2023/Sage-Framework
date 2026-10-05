@@ -7,21 +7,37 @@ using System.Text.RegularExpressions;
 
 namespace SageTypes
 {
-    // DateTimeS: data e hora como o datetime do Python (com fuso opcional), no lugar do Date do VBA.
+    // DatetimeS: data e hora como o datetime do Python (com fuso opcional), no lugar do Date do VBA.
     //
-    //   Dim d As New Sage.DateTimeS
-    //   d = Now                                    ' membro padrão (Value): Date, texto ISO, outro DateTimeS
+    //   Dim d As New Sage.DatetimeS
+    //   d = Now                                    ' membro padrão (Value): Date, texto ISO, outro DatetimeS
     //   Debug.Print d.AddMonths(1).StrFTime("%d/%m/%Y %H:%M")
     //   Set d = d.FromIsoFormat("2024-01-05T10:30:00Z")
     //   Debug.Print d.AsTimeZone("E. South America Standard Time").IsoFormat
     //
-    // Os métodos não alteram o objeto: devolvem um DateTimeS novo (como no Python, datetime é
+    // Os métodos não alteram o objeto: devolvem um DatetimeS novo (como no Python, datetime é
     // imutável). Sem fuso (TimeZone = "") a data é "ingênua", como no Python; com fuso, ela sabe
     // a diferença para o UTC e IsoFormat a mostra (+00:00).
     //
     // Interface dual: acrescente membros só no fim, com o próximo DispId (ver StringS).
+    // Partes de uma data, para Trunc (as do DATETRUNC do SQL Server)
+    [ComVisible(true), Guid("6CF3A3DD-8AFA-47E2-BBE6-22DD273E7AD8")]
+    public enum sgDateParts
+    {
+        sgYear = 1,
+        sgQuarter = 2,
+        sgMonth = 3,
+        sgWeek = 4,
+        sgDay = 5,
+        sgHour = 6,
+        sgMinute = 7,
+        sgSecond = 8,
+        sgMillisecond = 9,
+        sgMicrosecond = 10,
+    }
+
     [ComVisible(true), Guid("EB5D4D4D-6B68-42B6-9A54-B169C43424CA"), InterfaceType(ComInterfaceType.InterfaceIsDual)]
-    public interface _DateTimeS
+    public interface _DatetimeS
     {
         // Lê como Date do VBA; d = valor é o LetValue abaixo
         [DispId(0)] object Value { get; set; }
@@ -42,16 +58,16 @@ namespace SageTypes
         [DispId(13)] int DaysInMonth { get; }
         [DispId(14)] bool IsLeapYear { get; }
 
-        // Criar (devolvem um DateTimeS novo)
-        [DispId(20)] DateTimeS Now([Optional] object TimeZone);
-        [DispId(21)] DateTimeS Today();
-        [DispId(22)] DateTimeS UtcNow();
-        [DispId(23)] DateTimeS Create(int Year, int Month, int Day, [Optional] object Hour, [Optional] object Minute,
+        // Criar (devolvem um DatetimeS novo)
+        [DispId(20)] DatetimeS Now([Optional] object TimeZone);
+        [DispId(21)] DatetimeS Today();
+        [DispId(22)] DatetimeS UtcNow();
+        [DispId(23)] DatetimeS Create(int Year, int Month, int Day, [Optional] object Hour, [Optional] object Minute,
             [Optional] object Second, [Optional] object Microsecond, [Optional] object TimeZone);
-        [DispId(24)] DateTimeS StrPTime(string Text, string Format);
-        [DispId(25)] DateTimeS FromIsoFormat(string Text);
-        [DispId(26)] DateTimeS FromTimestamp(double Seconds, [Optional] object TimeZone);
-        [DispId(27)] DateTimeS Parse(object Text);
+        [DispId(24)] DatetimeS StrPTime(string Text, string Format);
+        [DispId(25)] DatetimeS FromIsoFormat(string Text);
+        [DispId(26)] DatetimeS FromTimestamp(double Seconds, [Optional] object TimeZone);
+        [DispId(27)] DatetimeS Parse(object Text);
 
         // Texto e número
         [DispId(30)] StringS StrFTime(string Format);
@@ -59,35 +75,44 @@ namespace SageTypes
         [DispId(32)] double Timestamp();
         [DispId(33)] string ToString();
 
-        // Contas (devolvem um DateTimeS novo)
-        [DispId(40)] DateTimeS Replace([Optional] object Year, [Optional] object Month, [Optional] object Day, [Optional] object Hour,
+        // Contas (devolvem um DatetimeS novo)
+        [DispId(40)] DatetimeS Replace([Optional] object Year, [Optional] object Month, [Optional] object Day, [Optional] object Hour,
             [Optional] object Minute, [Optional] object Second, [Optional] object Microsecond, [Optional] object TimeZone);
-        [DispId(41)] DateTimeS Add([Optional] object Days, [Optional] object Hours, [Optional] object Minutes, [Optional] object Seconds,
+        [DispId(41)] DatetimeS Add([Optional] object Days, [Optional] object Hours, [Optional] object Minutes, [Optional] object Seconds,
             [Optional] object Weeks, [Optional] object Months, [Optional] object Years, [Optional] object Milliseconds);
-        [DispId(42)] DateTimeS AddMonths(int Months);
+        [DispId(42)] DatetimeS AddMonths(int Months);
         [DispId(43)] double Diff(object Other, [Optional] object Unit);
-        [DispId(44)] DateTimeS Normalize();
+        [DispId(44)] DatetimeS Normalize();
 
         // Fuso horário
         [DispId(50)] StringS TimeZone { get; }
-        [DispId(51)] DateTimeS AsTimeZone([Optional] object TimeZone);
+        [DispId(51)] DatetimeS AsTimeZone([Optional] object TimeZone);
         [DispId(52)] object UtcOffset();
 
         [DispId(1000), PropertyLet("Value")] void LetValue(object Value);
+
+        // DATETRUNC do SQL Server / date_trunc do DuckDB: início do ano, trimestre, mês, semana...
+        [DispId(53)] DatetimeS Trunc(sgDateParts Part);
+        // Dias úteis (segunda a sexta, menos os feriados): WORKDAY do Excel / busday_offset do numpy
+        [DispId(54)] DatetimeS AddBusinessDays(int Days, [Optional] object Holidays);
+        // Dias úteis entre esta data (inclusive) e a outra (exclusive), como o busday_count do numpy
+        [DispId(55)] int BusinessDays(object Other, [Optional] object Holidays);
+        // Último instante do período (end_time do pandas): o par do Trunc
+        [DispId(56)] DatetimeS EndOf(sgDateParts Part);
     }
 
-    [ComVisible(true), Guid("992489F3-7D1F-4D2F-B13A-05AB53F1A745"), ProgId("Sage.DateTimeS")]
-    [ClassInterface(ClassInterfaceType.None), ComDefaultInterface(typeof(_DateTimeS))]
-    public sealed class DateTimeS : _DateTimeS
+    [ComVisible(true), Guid("992489F3-7D1F-4D2F-B13A-05AB53F1A745"), ProgId("Sage.DatetimeS")]
+    [ClassInterface(ClassInterfaceType.None), ComDefaultInterface(typeof(_DatetimeS))]
+    public sealed class DatetimeS : _DatetimeS
     {
         DateTime value = DateTime.Today;   // relógio local do fuso (Kind Unspecified)
         TimeZoneInfo zone;                 // null: sem fuso ("ingênua")
 
-        public DateTimeS() { }
+        public DatetimeS() { }
 
-        internal static DateTimeS From(DateTime value, TimeZoneInfo zone)
+        internal static DatetimeS From(DateTime value, TimeZoneInfo zone)
         {
-            DateTimeS d = new DateTimeS();
+            DatetimeS d = new DatetimeS();
             d.value = DateTime.SpecifyKind(value, DateTimeKind.Unspecified);
             d.zone = zone;
             return d;
@@ -107,15 +132,15 @@ namespace SageTypes
 
         public void LetValue(object Value)
         {
-            DateTimeS parsed = Coerce(Value);
+            DatetimeS parsed = Coerce(Value);
             value = parsed.value;
             zone = parsed.zone;
         }
 
-        // Date, texto (ISO ou no formato do Windows), número (data serial) ou outro DateTimeS
-        internal static DateTimeS Coerce(object source)
+        // Date, texto (ISO ou no formato do Windows), número (data serial) ou outro DatetimeS
+        internal static DatetimeS Coerce(object source)
         {
-            DateTimeS other = source as DateTimeS;
+            DatetimeS other = source as DatetimeS;
             if (other != null) return From(other.value, other.zone);
             object v = Interop.Unwrap(source);
             if (v is DateTime) return From((DateTime)v, null);
@@ -149,7 +174,7 @@ namespace SageTypes
             if (week >= 52 && value.Month == 1) year--;
             else if (week == 1 && value.Month == 12) year++;
             ListS t = ListS.From(new object[] { year, week, IsoWeekday() });
-            t.ArrayType = SgArrayTypes.SgTuple;
+            t.ArrayType = sgArrayTypes.sgTuple;
             return t;
         }
 
@@ -170,20 +195,20 @@ namespace SageTypes
         // ------------------------------------------------------------------
 
         // Sem fuso: hora local do Windows, sem fuso (datetime.now()); com fuso: a hora de lá
-        public DateTimeS Now(object TimeZone)
+        public DatetimeS Now(object TimeZone)
         {
             if (Interop.IsMissing(TimeZone)) return From(DateTime.Now, null);
             TimeZoneInfo tz = Zone(TimeZone);
             return From(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz), tz);
         }
 
-        public DateTimeS Today() { return From(DateTime.Today, null); }
+        public DatetimeS Today() { return From(DateTime.Today, null); }
 
         // Com fuso UTC (o Python recomenda datetime.now(timezone.utc) no lugar do utcnow())
-        public DateTimeS UtcNow() { return From(DateTime.UtcNow, TimeZoneInfo.Utc); }
+        public DatetimeS UtcNow() { return From(DateTime.UtcNow, TimeZoneInfo.Utc); }
 
         // datetime(ano, mês, dia, hora, minuto, segundo, microssegundo, tzinfo)
-        public DateTimeS Create(int Year, int Month, int Day, object Hour, object Minute, object Second, object Microsecond, object TimeZone)
+        public DatetimeS Create(int Year, int Month, int Day, object Hour, object Minute, object Second, object Microsecond, object TimeZone)
         {
             try
             {
@@ -207,14 +232,14 @@ namespace SageTypes
             @"^\s*(\d{4})-?(\d{2})-?(\d{2})(?:[T ](\d{2})(?::?(\d{2})(?::?(\d{2})(?:[.,](\d{1,7}))?)?)?)?\s*(Z|[+-]\d{2}(?::?\d{2})?)?\s*$",
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
-        public DateTimeS FromIsoFormat(string Text)
+        public DatetimeS FromIsoFormat(string Text)
         {
-            DateTimeS d = TryIso(Text);
+            DatetimeS d = TryIso(Text);
             if (d == null) throw Interop.Error(5, "ValueError: Invalid isoformat string: " + Interop.Repr(Text));
             return d;
         }
 
-        static DateTimeS TryIso(string text)
+        static DatetimeS TryIso(string text)
         {
             Match m = Iso.Match(text ?? "");
             if (!m.Success) return null;
@@ -235,11 +260,11 @@ namespace SageTypes
 
         // Como o dateutil.parser.parse: ISO, depois o formato do Windows (dd/mm/aaaa no pt-BR),
         // depois o formato invariável (inglês)
-        public DateTimeS Parse(object Text) { return ParseText(Interop.Text(Text)); }
+        public DatetimeS Parse(object Text) { return ParseText(Interop.Text(Text)); }
 
-        static DateTimeS ParseText(string text)
+        static DatetimeS ParseText(string text)
         {
-            DateTimeS iso = TryIso(text);
+            DatetimeS iso = TryIso(text);
             if (iso != null) return iso;
             DateTime d;
             foreach (CultureInfo culture in new[] { CultureInfo.CurrentCulture, CultureInfo.InvariantCulture })
@@ -248,7 +273,7 @@ namespace SageTypes
         }
 
         // Com os códigos do strftime do Python: %d/%m/%Y %H:%M:%S, %b (jan), %z (+0300)...
-        public DateTimeS StrPTime(string Text, string Format)
+        public DatetimeS StrPTime(string Text, string Format)
         {
             bool hasZone;
             string[] formats = NetFormats(Format, out hasZone);
@@ -327,7 +352,7 @@ namespace SageTypes
             return char.IsLetterOrDigit(c) || "\\'\":/%.,-".IndexOf(c) >= 0 ? "\\" + c : c.ToString();
         }
 
-        public DateTimeS FromTimestamp(double Seconds, object TimeZone)
+        public DatetimeS FromTimestamp(double Seconds, object TimeZone)
         {
             DateTime utc = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddTicks((long)Math.Round(Seconds * TimeSpan.TicksPerSecond));
             if (Interop.IsMissing(TimeZone)) return From(utc.ToLocalTime(), null);
@@ -436,7 +461,7 @@ namespace SageTypes
         // Contas
         // ------------------------------------------------------------------
 
-        public DateTimeS Replace(object Year, object Month, object Day, object Hour, object Minute, object Second, object Microsecond, object TimeZone)
+        public DatetimeS Replace(object Year, object Month, object Day, object Hour, object Minute, object Second, object Microsecond, object TimeZone)
         {
             try
             {
@@ -459,7 +484,7 @@ namespace SageTypes
         }
 
         // timedelta (dias, horas...) e relativedelta (meses, anos: 31/01 + 1 mês = 29/02)
-        public DateTimeS Add(object Days, object Hours, object Minutes, object Seconds, object Weeks, object Months, object Years, object Milliseconds)
+        public DatetimeS Add(object Days, object Hours, object Minutes, object Seconds, object Weeks, object Months, object Years, object Milliseconds)
         {
             DateTime d = value;
             int months = (Interop.IsMissing(Years) ? 0 : Interop.Integer(Years) * 12) + (Interop.IsMissing(Months) ? 0 : Interop.Integer(Months));
@@ -477,12 +502,12 @@ namespace SageTypes
             return Convert.ToDouble(v, CultureInfo.InvariantCulture);
         }
 
-        public DateTimeS AddMonths(int Months) { return From(value.AddMonths(Months), zone); }
+        public DatetimeS AddMonths(int Months) { return From(value.AddMonths(Months), zone); }
 
         // Diferença Me - Other, em dias (padrão), "weeks", "hours", "minutes", "seconds" ou "milliseconds"
         public double Diff(object Other, object Unit)
         {
-            DateTimeS other = Coerce(Other);
+            DatetimeS other = Coerce(Other);
             TimeSpan span = ToUtc() - other.ToUtc();
             switch (Interop.IsMissing(Unit) ? "days" : Interop.Text(Unit).ToLowerInvariant())
             {
@@ -497,7 +522,91 @@ namespace SageTypes
         }
 
         // Meia-noite do mesmo dia (Timestamp.normalize do pandas)
-        public DateTimeS Normalize() { return From(value.Date, zone); }
+        public DatetimeS Normalize() { return From(value.Date, zone); }
+
+        // Zera o que vem depois da parte pedida, como o DATETRUNC do SQL Server. A semana começa
+        // na segunda-feira (ISO), como no date_trunc do DuckDB.
+        public DatetimeS Trunc(sgDateParts Part)
+        {
+            DateTime d = value;
+            switch (Part)
+            {
+                case sgDateParts.sgYear: return From(new DateTime(d.Year, 1, 1), zone);
+                case sgDateParts.sgQuarter: return From(new DateTime(d.Year, (d.Month - 1) / 3 * 3 + 1, 1), zone);
+                case sgDateParts.sgMonth: return From(new DateTime(d.Year, d.Month, 1), zone);
+                case sgDateParts.sgWeek: return From(d.Date.AddDays(-Weekday()), zone);
+                case sgDateParts.sgDay: return From(d.Date, zone);
+                case sgDateParts.sgHour: return From(new DateTime(d.Year, d.Month, d.Day, d.Hour, 0, 0), zone);
+                case sgDateParts.sgMinute: return From(new DateTime(d.Year, d.Month, d.Day, d.Hour, d.Minute, 0), zone);
+                case sgDateParts.sgSecond: return From(new DateTime(d.Year, d.Month, d.Day, d.Hour, d.Minute, d.Second), zone);
+                case sgDateParts.sgMillisecond: return From(new DateTime(d.Ticks - d.Ticks % TimeSpan.TicksPerMillisecond), zone);
+                case sgDateParts.sgMicrosecond: return From(new DateTime(d.Ticks - d.Ticks % 10), zone);
+                default: throw Interop.Error(5, "ValueError: parte inválida (" + (int)Part + "): use sgYear, sgQuarter, sgMonth, sgWeek, sgDay, sgHour, sgMinute, sgSecond, sgMillisecond ou sgMicrosecond.");
+            }
+        }
+
+        // Pula sábados, domingos e os feriados (Array/ListS de datas); Days negativo volta. Com 0, a
+        // própria data, como o WORKDAY do Excel. A hora fica a mesma.
+        public DatetimeS AddBusinessDays(int Days, object Holidays)
+        {
+            HashSet<DateTime> holidays = HolidaySet(Holidays);
+            DateTime d = value;
+            int step = Days < 0 ? -1 : 1;
+            for (int left = Math.Abs(Days); left > 0; )
+            {
+                d = d.AddDays(step);
+                if (IsBusinessDay(d, holidays)) left--;
+            }
+            return From(d, zone);
+        }
+
+        // [esta data, Other): negativo quando Other vem antes. Só as datas contam (não as horas).
+        public int BusinessDays(object Other, object Holidays)
+        {
+            HashSet<DateTime> holidays = HolidaySet(Holidays);
+            DateTime start = value.Date, end = Coerce(Other).value.Date;
+            int sign = 1;
+            if (end < start) { DateTime t = start; start = end; end = t; sign = -1; }
+            int count = 0;
+            for (DateTime d = start; d < end; d = d.AddDays(1))
+                if (IsBusinessDay(d, holidays)) count++;
+            return sign * count;
+        }
+
+        static bool IsBusinessDay(DateTime d, HashSet<DateTime> holidays)
+        {
+            return d.DayOfWeek != DayOfWeek.Saturday && d.DayOfWeek != DayOfWeek.Sunday && !holidays.Contains(d.Date);
+        }
+
+        static HashSet<DateTime> HolidaySet(object holidays)
+        {
+            HashSet<DateTime> set = new HashSet<DateTime>();
+            if (Interop.IsMissing(holidays) || holidays == null) return set;
+            object raw = Interop.Unwrap(holidays);
+            IEnumerable<object> items = raw is Array || holidays is ListS ? Interop.Items(holidays) : (IEnumerable<object>)new[] { holidays };
+            foreach (object h in items)
+                if (h != null && !(h is DBNull)) set.Add(Coerce(h).value.Date);
+            return set;
+        }
+
+        public DatetimeS EndOf(sgDateParts Part)
+        {
+            DateTime start = Trunc(Part).value, next;
+            switch (Part)
+            {
+                case sgDateParts.sgYear: next = start.AddYears(1); break;
+                case sgDateParts.sgQuarter: next = start.AddMonths(3); break;
+                case sgDateParts.sgMonth: next = start.AddMonths(1); break;
+                case sgDateParts.sgWeek: next = start.AddDays(7); break;
+                case sgDateParts.sgDay: next = start.AddDays(1); break;
+                case sgDateParts.sgHour: next = start.AddHours(1); break;
+                case sgDateParts.sgMinute: next = start.AddMinutes(1); break;
+                case sgDateParts.sgSecond: next = start.AddSeconds(1); break;
+                case sgDateParts.sgMillisecond: next = start.AddTicks(TimeSpan.TicksPerMillisecond); break;
+                default: return From(start, zone); // microssegundo: já é o último instante
+            }
+            return From(next.AddTicks(-10), zone); // 1 microssegundo antes do próximo período
+        }
 
         // ------------------------------------------------------------------
         // Fuso horário
@@ -506,7 +615,7 @@ namespace SageTypes
         public StringS TimeZone { get { return Wrap(zone == null ? "" : ZoneName(zone)); } }
 
         // Converte para outro fuso (padrão: o do Windows); sem fuso, a data é tida como local
-        public DateTimeS AsTimeZone(object TimeZone)
+        public DatetimeS AsTimeZone(object TimeZone)
         {
             TimeZoneInfo tz = Interop.IsMissing(TimeZone) ? TimeZoneInfo.Local : Zone(TimeZone);
             return From(TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(ToUtc(), DateTimeKind.Utc), tz), tz);

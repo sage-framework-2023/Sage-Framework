@@ -8,7 +8,6 @@ namespace SageTypes
     //
     //   Set d = Json.Loads(texto)            ' ou Sage.Json.Loads(texto)
     //   Set r = Requests.Get(url)
-    //   Set db = CreateEngine("mssql://servidor/banco")   ' create_engine do SQLAlchemy
     //
     // O install.ps1 marca a classe como "app object" no .tlb ([AppObject]): o VBA cria uma
     // instância por projeto na primeira vez que um membro é usado.
@@ -19,7 +18,6 @@ namespace SageTypes
     {
         [DispId(1)] Json Json { get; }
         [DispId(2)] Requests Requests { get; }
-        [DispId(3)] SqlEngine CreateEngine(string ConnectionString);
     }
 
     [ComVisible(true), Guid("3129D3A3-5535-4294-8923-083DAA4A6F75"), ProgId("Sage.Globals"), AppObject]
@@ -33,9 +31,6 @@ namespace SageTypes
 
         public Json Json { get { return json; } }
         public Requests Requests { get { return requests; } }
-
-        // create_engine(url) do SQLAlchemy: SqlEngine já conectado
-        public SqlEngine CreateEngine(string ConnectionString) { return new SqlEngine().Connect(ConnectionString); }
     }
 
     // Classe cujos membros ficam globais no VBA (TYPEFLAG_FAPPOBJECT, aplicado pelo install.ps1)

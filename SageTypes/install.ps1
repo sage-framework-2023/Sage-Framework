@@ -224,8 +224,8 @@ public static class SageTypeLib
         }
     }
 
-    // O .NET exporta os membros de um enum como "Enum_Membro" (SgArrayTypes_SgTuple);
-    // no VBA eles ficam só com o nome do membro (SgTuple)
+    // O .NET exporta os membros de um enum como "Enum_Membro" (sgArrayTypes_sgTuple);
+    // no VBA eles ficam só com o nome do membro (sgTuple)
     static void RemoveEnumPrefix(System.Runtime.InteropServices.ComTypes.ITypeInfo info, int vars)
     {
         string enumName, doc, helpFile;
@@ -282,7 +282,7 @@ $Classes = @(
     @{ Class = 'SageTypes.DictionaryS'; Clsid = '{4B8E6D21-9F3C-4A57-B1D0-E5C27A8F6B39}'; ProgId = 'Sage.DictionaryS' }
     @{ Class = 'SageTypes.ListS'; Clsid = '{E7A42C19-6D3B-4E85-8F1A-0C9B5D2E7A64}'; ProgId = 'Sage.ListS' }
     @{ Class = 'SageTypes.DataFrame'; Clsid = '{2F9C6E14-8B3A-4D71-A5E2-7C0D9B4F3A68}'; ProgId = 'Sage.DataFrame' }
-    @{ Class = 'SageTypes.DateTimeS'; Clsid = '{992489F3-7D1F-4D2F-B13A-05AB53F1A745}'; ProgId = 'Sage.DateTimeS' }
+    @{ Class = 'SageTypes.DatetimeS'; Clsid = '{992489F3-7D1F-4D2F-B13A-05AB53F1A745}'; ProgId = 'Sage.DatetimeS' }
     @{ Class = 'SageTypes.Json'; Clsid = '{F255D235-A52E-4362-9484-F344705B9DE7}'; ProgId = 'Sage.Json' }
     @{ Class = 'SageTypes.Requests'; Clsid = '{18A710C0-DD90-407E-92A8-56E2E1FBB35C}'; ProgId = 'Sage.Requests' }
     @{ Class = 'SageTypes.Session'; Clsid = '{FCB13B55-C345-4703-89B6-F4635B7C5A9A}'; ProgId = 'Sage.Session' }

@@ -12,7 +12,7 @@ Add-in .NET do editor do VBA (VBE), carregado dentro do Excel. Ele roda independ
   - strings em laranja e números em verde;
   - tipos (`As Long`, `As Sage.ListS`) em verde-água;
   - controle de fluxo (`If`, `For`, `Select Case`, `Exit`...) em roxo.
-- **Números de linha** à esquerda do código, com a linha atual em destaque (*Editor: Números de Linha* nas Configurações).
+- **Números de linha** à esquerda do código, com a linha atual em destaque (*Editor: Números de Linha* nas Configurações). Funcionam com qualquer tema; no *Padrão do VBE*, com as cores do Windows.
 - **Abas** das janelas abertas (módulos, classes e formulários) no topo da área de código, como no VS Code (*Editor: Mostrar Abas* nas Configurações). Funciona com qualquer tema, inclusive o *Padrão do VBE*:
   - clique ativa a janela; arrastar muda a aba de lugar; o `×` ou o botão do meio fecha;
   - o botão direito abre *Fechar*, *Fechar Outras*, *Fechar à Direita* e *Fechar Todas*;
@@ -42,6 +42,7 @@ Add-in .NET do editor do VBA (VBE), carregado dentro do Excel. Ele roda independ
 
 Para remover: `install.ps1 -Uninstall`.
 
+- **Tamanho da fonte do código** (*Editor: Tamanho da Fonte* nas Configurações): o mesmo valor de *Ferramentas > Opções > Formato do editor*, guardado onde o VBE o guarda; vale ao reabrir o Excel.
 - **Configurações:** `%APPDATA%\Sage\settings.json`, no formato do VS Code, por exemplo `"workbench.colorTheme": "Dark Modern"`, `"editor.lineNumbers": "off"` ou `"workbench.editor.showTabs": "none"`. Para forçar um idioma diferente do Office: `"locale": "en"` (ou `"pt-BR"`).
 - **Log:** `%APPDATA%\Sage\SageEditor.log`.
 

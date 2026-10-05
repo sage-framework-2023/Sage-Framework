@@ -397,6 +397,21 @@ namespace SageEditor
                             }
                     if (right < 0) { bmp.UnlockBits(data); return; }
 
+                    // Pixel a pixel: o fundo claro e o que está sobre ele (o texto do campo). Um
+                    // pixel escuro só é convertido se a vizinhança for clara; assim um campo já
+                    // escuro dentro da área (redesenhado com as cores do tema, depois de trocar o
+                    // tema com o Excel aberto) não é invertido de novo.
+                    int bw = right - left + 1, bh = bottom - top + 1;
+                    int[] lightSum = new int[(bw + 1) * (bh + 1)]; // soma acumulada de pixels claros
+                    for (int y = 0; y < bh; y++)
+                        for (int x = 0; x < bw; x++)
+                        {
+                            int c1 = px[(top + y) * w + left + x] & 0xFFFFFF;
+                            int isLight = ((c1 >> 16) & 0xFF) + ((c1 >> 8) & 0xFF) + (c1 & 0xFF) >= 576 && !fieldProduced.Contains(c1) ? 1 : 0;
+                            lightSum[(y + 1) * (bw + 1) + x + 1] = isLight + lightSum[y * (bw + 1) + x + 1] + lightSum[(y + 1) * (bw + 1) + x] - lightSum[y * (bw + 1) + x];
+                        }
+                    const int radius = 3;
+
                     Color back = FromRef(t.Window), text = FromRef(t.WindowText);
                     bool changed = false;
                     for (int y = top; y <= bottom; y++)
@@ -406,6 +421,13 @@ namespace SageEditor
                             if (fieldProduced.Contains(c)) continue;
                             int cr = (c >> 16) & 0xFF, cg = (c >> 8) & 0xFF, cb = c & 0xFF;
                             if (Math.Max(cr, Math.Max(cg, cb)) - Math.Min(cr, Math.Min(cg, cb)) >= 24) continue; // colorido
+                            if (cr + cg + cb < 576)
+                            {
+                                int x0 = Math.Max(0, x - left - radius), x1 = Math.Min(bw, x - left + radius + 1);
+                                int y0 = Math.Max(0, y - top - radius), y1 = Math.Min(bh, y - top + radius + 1);
+                                int lights = lightSum[y1 * (bw + 1) + x1] - lightSum[y0 * (bw + 1) + x1] - lightSum[y1 * (bw + 1) + x0] + lightSum[y0 * (bw + 1) + x0];
+                                if (lights * 2 < (x1 - x0) * (y1 - y0)) continue; // vizinhança escura: já convertido
+                            }
                             // 0 = fundo claro (#F0F0F0), 1 = texto; o Office escreve o campo em cinza médio: mais contraste
                             double k = Math.Max(0, Math.Min(1, ((1 - (cr + cg + cb) / 765.0) - 0.06) / 0.5));
                             int mapped = ((int)(back.R + (text.R - back.R) * k) << 16) | ((int)(back.G + (text.G - back.G) * k) << 8) |

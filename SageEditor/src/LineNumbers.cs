@@ -34,7 +34,7 @@ namespace SageEditor
         [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr hwnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
         const uint SWP_NOSIZE = 0x1, SWP_NOMOVE = 0x2, SWP_NOZORDER = 0x4, SWP_NOACTIVATE = 0x10, SWP_FRAMECHANGED = 0x20;
 
-        static bool Enabled { get { return Settings.LineNumbers && Vbe != null && ThemeEngine.Current != null; } }
+        static bool Enabled { get { return Settings.LineNumbers && Vbe != null; } }
 
         static Pane Get(IntPtr hwnd)
         {
@@ -196,7 +196,7 @@ namespace SageEditor
             {
                 // Sem a altura da linha (o código ainda não foi desenhado nesta janela): pede o desenho
                 if (p.LineHeight == 0 || p.TextTop == int.MaxValue) Native.InvalidateRect(hwnd, IntPtr.Zero, false);
-                Paint(hwnd, ThemeEngine.Current, (object)pane);
+                Paint(hwnd, ThemeEngine.Effective, (object)pane);
             }
         }
 

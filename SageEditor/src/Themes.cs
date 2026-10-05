@@ -108,6 +108,20 @@ namespace SageEditor
             return All[0];
         }
 
+        [System.Runtime.InteropServices.DllImport("user32.dll")] static extern int GetSysColor(int index);
+
+        // As cores do próprio Windows (as do VBE sem tema), para pintar o que o Sage acrescenta
+        // (números de linha) com o tema "Padrão do VBE". Não fica na lista de temas.
+        public static Theme FromSystem()
+        {
+            Theme t = CreateDefault();
+            t.Name = "Sistema";
+            t.SysColors = new Dictionary<int, int>();
+            foreach (int index in new[] { COLOR_WINDOW, COLOR_WINDOWTEXT, COLOR_BTNFACE, COLOR_ACTIVECAPTION, COLOR_CAPTIONTEXT, COLOR_WINDOWFRAME, COLOR_HIGHLIGHT })
+                t.SysColors[index] = GetSysColor(index);
+            return t;
+        }
+
         static Theme CreateDefault()
         {
             Theme t = new Theme();

@@ -295,8 +295,8 @@ namespace SageTypes
         {
             object v = Interop.Unwrap(value);
             if (v is bool) return (bool)v ? "True" : "False";
-            if (v is DateTime) return DateTimeS.From((DateTime)v, null).Iso8601("T", "auto");
-            DateTimeS d = v as DateTimeS;
+            if (v is DateTime) return DatetimeS.From((DateTime)v, null).Iso8601("T", "auto");
+            DatetimeS d = v as DatetimeS;
             if (d != null) return d.Iso8601("T", "auto");
             IFormattable f = v as IFormattable;
             if (f != null) return f.ToString(null, CultureInfo.InvariantCulture);

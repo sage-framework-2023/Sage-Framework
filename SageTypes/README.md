@@ -9,7 +9,7 @@ Por enquanto:
 - **DictionaryS**, com a API do `DictionaryS` do `Sage.xlam` e o comportamento e os métodos do dicionário do Python;
 - **ListS**, com a API do `ListS` do `Sage.xlam` e o comportamento e os métodos da lista do Python.
 - **DataFrame**, tabela no estilo do pandas sobre o DuckDB, para milhões de linhas;
-- **DateTimeS**, data e hora como o `datetime` do Python, com fuso horário;
+- **DatetimeS**, data e hora como o `datetime` do Python, com fuso horário;
 - **Json**, o módulo `json` do Python;
 - **Requests**, a biblioteca `requests` do Python, para chamar APIs (com **Response** e **Session**);
 - **SqlEngine**, conexão a bancos de dados (PostgreSQL, MySQL, SQLite, SQL Server, Access, ODBC), como o `Engine` do SQLAlchemy usado pelo pandas.
@@ -88,6 +88,8 @@ Next k
 | `d.setdefault(k[, v])`, `d.update(outro)` | `d.SetDefault(k[, v])`, `d.Update(outro)` |
 | `dict.fromkeys(chaves[, v])`, `d.copy()`, `d.clear()` | `d.FromKeys(chaves[, v])`, `d.Copy`, `d.Clear` |
 | `del d[k]` | `d.Remove k` (sem erro se não existir) |
+| `d | outro` (Python 3.9) | `d.Union(outro)` (dicionário novo; `Update` altera o próprio) |
+| `Scripting.Dictionary`: `Add`, `Exists`, `RemoveAll` | `d.Add k, v` (erro 457 se a chave já existir), `d.Exists(k)`, `d.RemoveAll` |
 | `repr(d)` | `d.ToString` |
 
 - **Chaves:** como no Python, números são comparados pelo valor (`1`, `1#` e `CLng(1)` são a mesma chave) e texto diferencia maiúsculas; `"1"` é outra chave. Um `StringS` como chave vira o texto dele. Arrays não podem ser chave (erro 13).
@@ -121,16 +123,19 @@ Debug.Print l.Join(", ")              ' 1, 2, 3, 4 (StringS)
 | `l.pop([i])`, `l.remove(x)`, `del l[i]`, `l.clear()` | `l.Pop([i])`, `l.RemoveValue x`, `l.Remove i`, `l.Clear` |
 | `l.index(x[, ini[, fim]])`, `l.count(x)` | `l.Index(x[, ini[, fim]])`, `l.CountOf(x)` |
 | `l.sort(reverse=True)`, `l.reverse()`, `l.copy()` | `l.Sort(True)`, `l.Reverse`, `l.Copy` |
+| `sorted(l)`, `list(reversed(l))` | `l.Sorted` / `l.Sorted(True)`, `l.Reversed` (listas novas; a original fica igual) |
+| `l.sort(key=lambda r: r[2])` (lista de linhas) | `l.SortBy(2)`; várias colunas: `l.SortBy(Array(2, 0))`; linhas que são dicionários: `l.SortBy("nome")` |
+| `list(dict.fromkeys(l))` (sem repetidos, na ordem) | `l.Unique` |
 | `l[ini:fim:passo]` | `l.Slice(ini, fim, passo)` (qualquer um pode ser omitido: `l.Slice(, , -1)`) |
 | `l1 + l2`, `l * n` | `l1.Concat(l2)`, `l.Repeat(n)` |
 | `sum(l)`, `min(l)`, `max(l)` | `l.Sum`, `l.Min`, `l.Max` |
-| `repr(l)`, `tuple(l)` | `l.ToString`, `l.ArrayType = SgTuple` |
+| `repr(l)`, `tuple(l)` | `l.ToString`, `l.ArrayType = sgTuple` |
 
 - **Métodos que alteram a lista** (`Append`, `Remove`, `Extend`, `Insert`, `RemoveValue`, `Clear`, `Sort`, `Reverse`) também a devolvem. Funciona tanto `l.Append x` quanto o encadeamento do `Sage.xlam`: `.Split(vbNewLine).Remove(-1).Join(vbNewLine)`.
 - **Iteráveis** aceitos por `l = ...`, `Extend` e `Concat`: array (2D: cada linha vira uma `ListS`), outro `ListS`, `DictionaryS` (as chaves), `Collection`, `Range` e texto (os caracteres).
 - **Comparação** (`Contains`, `Index`, `CountOf`, `RemoveValue`): números pelo valor (`21 = 21#`), texto diferenciando maiúsculas, objetos pela identidade.
 - **Ordenação** estável, como no Python: números pelo valor, texto pela ordem dos caracteres (maiúsculas antes das minúsculas); texto e número misturados geram erro 13.
-- **Tupla:** com `ArrayType = SgTuple`, qualquer alteração gera erro 13; `ToString` mostra `(1, 2)`.
+- **Tupla:** com `ArrayType = sgTuple`, qualquer alteração gera erro 13; `ToString` mostra `(1, 2)`.
 - `l.Value` sem índice (ou `l.ToArray`) devolve um array do VBA, para `UBound`, `Join` do VBA etc.
 
 ### Diferenças em relação ao ListS do Sage.xlam
@@ -189,10 +194,10 @@ Nas expressões (`Query`, `Eval`, `Select`, `GroupBy`), texto vai entre aspas du
 
 O tipo de uma coluna se alarga sozinho: um inteiro que recebe um decimal vira `DOUBLE`; um número que recebe texto vira `VARCHAR`.
 
-## DateTimeS
+## DatetimeS
 
 ```vb
-Dim d As New Sage.DateTimeS
+Dim d As New Sage.DatetimeS
 d = Now                                          ' ou Date, "2024-01-05T10:30:00Z", "15/03/2024"
 Debug.Print d.StrFTime("%d/%m/%Y %H:%M")         ' códigos do strftime do Python
 Debug.Print d.AddMonths(1).IsoFormat             ' 31/01 + 1 mês = 29/02
@@ -200,9 +205,9 @@ Debug.Print d.Add(Days:=7, Hours:=-2).ToString
 Debug.Print d.UtcNow.AsTimeZone("E. South America Standard Time").IsoFormat   ' ...-03:00
 ```
 
-Como no Python, uma data não muda: os métodos devolvem um `DateTimeS` novo (`Set d = d.AddMonths(1)`). O membro padrão (`Value`) é um `Date` do VBA, então `d > DateSerial(2024, 1, 1)`, `Format(d, ...)` e `Range("A1") = d.Value` funcionam.
+Como no Python, uma data não muda: os métodos devolvem um `DatetimeS` novo (`Set d = d.AddMonths(1)`). O membro padrão (`Value`) é um `Date` do VBA, então `d > DateSerial(2024, 1, 1)`, `Format(d, ...)` e `Range("A1") = d.Value` funcionam.
 
-| Python | DateTimeS |
+| Python | DatetimeS |
 |---|---|
 | `datetime.now()`, `date.today()`, `datetime.now(timezone.utc)` | `d.Now`, `d.Today`, `d.UtcNow` |
 | `datetime(2024, 1, 5, 10, 30)` | `d.Create(2024, 1, 5, 10, 30)` |
@@ -214,6 +219,10 @@ Como no Python, uma data não muda: os métodos devolvem um `DateTimeS` novo (`S
 | `d.replace(day=1)`, `d.astimezone(tz)`, `d.utcoffset()` | `d.Replace(Day:=1)`, `d.AsTimeZone(tz)`, `d.UtcOffset` (horas) |
 | `d.year`, `d.weekday()`, `d.isocalendar()` | `d.Year`, `d.Weekday` (segunda = 0), `d.IsoCalendar` |
 | pandas: `quarter`, `days_in_month`, `normalize()` | `d.Quarter`, `d.DaysInMonth`, `d.Normalize` |
+| `pd.offsets.MonthEnd` / `Period.end_time` | `d.EndOf(sgMonth)` (último instante do período: 2024-08-31 23:59:59.999999) |
+| Excel: `WORKDAY(d, n, feriados)`; numpy: `busday_offset` | `d.AddBusinessDays(n, Feriados)` (pula sábado, domingo e os feriados; `n` negativo volta) |
+| numpy: `busday_count(d, outra, holidays=...)` | `d.BusinessDays(outra, Feriados)` (dias úteis em [d, outra); negativo se outra vier antes) |
+| SQL Server: `DATETRUNC(month, d)`; DuckDB: `date_trunc('month', d)` | `d.Trunc(sgMonth)` (`sgYear`, `sgQuarter`, `sgMonth`, `sgWeek`, `sgDay`, `sgHour`, `sgMinute`, `sgSecond`, `sgMillisecond`, `sgMicrosecond`; a semana começa na segunda) |
 
 - **Fuso horário:** sem fuso (`TimeZone = ""`) a data é "ingênua", como no Python. Fusos aceitos: `"UTC"`, `"local"`, deslocamentos (`"-03:00"`) e nomes do Windows (`"E. South America Standard Time"`; lista com `tzutil /l`). Os nomes da IANA (`"America/Sao_Paulo"`) não existem no .NET Framework.
 - **Nomes de mês e dia** (`%b`, `%A`) seguem o idioma do Windows, ao escrever e ao ler.
@@ -239,7 +248,7 @@ Set d = Json.Load("C:\dados\saida.json")
 | número inteiro / decimal | `Long` (ou `LongLong`, se não couber) / `Double` |
 | `true`, `false`, `null` | `True`, `False`, `Empty` |
 
-`Dumps` aceita também `Scripting.Dictionary`, arrays (2D: lista de linhas), `Collection`, `Date` e `DateTimeS` (texto ISO 8601) e `DataFrame` (lista de linhas). Erros no texto geram `JSONDecodeError` com linha e coluna, como no Python. Diferença do Python: `EnsureAscii` é `False` por padrão (acentos ficam como estão); com `EnsureAscii:=True`, saem como `\u00e7`.
+`Dumps` aceita também `Scripting.Dictionary`, arrays (2D: lista de linhas), `Collection`, `Date` e `DatetimeS` (texto ISO 8601) e `DataFrame` (lista de linhas). Erros no texto geram `JSONDecodeError` com linha e coluna, como no Python. Diferença do Python: `EnsureAscii` é `False` por padrão (acentos ficam como estão); com `EnsureAscii:=True`, saem como `\u00e7`.
 
 ## Requests
 
@@ -328,14 +337,14 @@ Mantidos de propósito, como no original: ao atribuir um valor, `\n` vira quebra
 
 ## Para acrescentar membros
 
-Todos os nomes (tipos, membros, parâmetros, enums) seguem o PascalCase, sem sublinhado: `ReadCsv`, `SortValues`, `SgTuple`.
+Os nomes (classes, membros, parâmetros) seguem o PascalCase, sem sublinhado: `DatetimeS`, `ReadCsv`, `SortValues`. Os enums e seus membros seguem o camelCase com o prefixo `sg`, como as constantes do próprio VBA (`vbCrLf`, `xlUp`): `sgDateParts` (`sgMonth`...), `sgArrayTypes` (`sgList`, `sgTuple`).
 
-As interfaces (`_StringS`, `_DictionaryS`, `_ListS`, `_DataFrame`, `_DateTimeS`, `_Json`, `_Requests`, `_Session`, `_Response`, `_Globals`, `_SqlEngine`) são duais: o VBA as chama pela vtable. Acrescente membros **sempre no fim**, com o próximo `DispId`, e nunca reordene nem remova os existentes, senão o código VBA já compilado chama o método errado. Uma classe nova precisa de `[Guid]`, `[ProgId]`, interface própria e uma linha em `$Classes` no `install.ps1`.
+As interfaces (`_StringS`, `_DictionaryS`, `_ListS`, `_DataFrame`, `_DatetimeS`, `_Json`, `_Requests`, `_Session`, `_Response`, `_Globals`, `_SqlEngine`) são duais: o VBA as chama pela vtable. Acrescente membros **sempre no fim**, com o próximo `DispId`, e nunca reordene nem remova os existentes, senão o código VBA já compilado chama o método errado. Uma classe nova precisa de `[Guid]`, `[ProgId]`, interface própria e uma linha em `$Classes` no `install.ps1`.
 
 Limitações do exportador do .NET (`TypeLibConverter`) e como contorná-las:
 - **Propriedade Variant com `Let`:** o .NET exporta o setter só como `Property Set`. Declare também um método `LetNome(...)` com `[PropertyLet("Nome")]`, os mesmos parâmetros e mais o valor; o `install.ps1` o transforma no `Property Let` de `Nome` ao gerar o `.tlb`.
 - **Propriedade com parâmetros** (como `At(linha, coluna)`): o .NET só exporta o indexador. Declare um método `GetNome(...)` com `[PropertyGet("Nome")]`; no VBA ele é lido como `Nome(...)`.
 - **`ParamArray`:** o `params` do C# não é aceito pelo VBA; use parâmetros `[Optional]`.
-- **Membros de enum:** o .NET os exporta como `Enum_Membro` (`SgArrayTypes_SgTuple`); o `install.ps1` tira o prefixo, e o VBA vê `SgTuple`.
+- **Membros de enum:** o .NET os exporta como `Enum_Membro` (`sgArrayTypes_sgTuple`); o `install.ps1` tira o prefixo, e o VBA vê `sgTuple`.
 - **Membros globais** (`Json`, `Requests`): ficam na classe `Globals`, com `[AppObject]`; o `install.ps1` a marca como *app object* no `.tlb`, e o VBA a cria sozinho.
 - **Nome igual a algo da biblioteca VBA** (como `Strings`): o VBA acha o dele primeiro, por isso o prefixo `Sage.`.

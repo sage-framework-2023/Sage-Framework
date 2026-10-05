@@ -77,6 +77,11 @@ namespace SageEditor
 
         public static Theme Current { get { return current; } }
 
+        // Tema para pintar o que o Sage acrescenta (números de linha): o atual ou, no "Padrão do
+        // VBE", as cores do Windows
+        static Theme system;
+        public static Theme Effective { get { return current ?? (system ?? (system = Theme.FromSystem())); } }
+
         // Tema escuro ativo e pintura de uma janela do VBE em andamento
         public static Theme DarkPainting
         {
@@ -133,23 +138,33 @@ namespace SageEditor
             if (!initialized) return;
             Theme previous = current;
             current = theme.IsDefault ? null : theme;
-            if (previous == null && current == null) return; // tema padrão: não toca em nada
+            system = null; // cores do Windows lidas de novo (o usuário pode ter mudado)
 
-            if (current != null)
-            {
-                PatchModules();
-                if (cbtHook == IntPtr.Zero)
-                    cbtHook = Native.SetWindowsHookEx(Native.WH_CBT, cbtProc, IntPtr.Zero, Native.GetCurrentThreadId());
-            }
+            // Com qualquer tema, inclusive o "Padrão do VBE": os números de linha precisam das
+            // janelas de código (subclassing, inclusive as criadas depois) e da altura das linhas
+            // (desvio do desenho de texto). Sem tema, os desvios de cor devolvem as cores originais.
+            PatchModules();
+            if (cbtHook == IntPtr.Zero)
+                cbtHook = Native.SetWindowsHookEx(Native.WH_CBT, cbtProc, IntPtr.Zero, Native.GetCurrentThreadId());
             SubclassExisting();
 
             foreach (IntPtr hwnd in new List<IntPtr>(subclassed.Keys))
                 StyleWindow(hwnd);
 
             LineNumbers.RefreshFrames(new List<IntPtr>(subclassed.Keys));
+            if (previous != current)
+            {
+                // As barras do Office guardam pincéis e desenhos com as cores de antes (o campo
+                // "Ln, Col" ficava invertido ao voltar de "Padrão do VBE"): avisa que as cores
+                // mudaram, como o Windows faz, para elas refazerem tudo
+                foreach (KeyValuePair<IntPtr, string> w in new List<KeyValuePair<IntPtr, string>>(subclassed))
+                    if (w.Value == "MsoCommandBar") Native.SendMessage(w.Key, WM_SYSCOLORCHANGE, IntPtr.Zero, IntPtr.Zero);
+            }
             if (previous != null || current != null)
                 Refresh();
         }
+
+        const int WM_SYSCOLORCHANGE = 0x0015;
 
         public static void Shutdown()
         {
@@ -211,7 +226,7 @@ namespace SageEditor
 
         static IntPtr CbtProc(int code, IntPtr wParam, IntPtr lParam)
         {
-            if (code == Native.HCBT_CREATEWND && current != null)
+            if (code == Native.HCBT_CREATEWND)
             {
                 try
                 {
@@ -269,6 +284,35 @@ namespace SageEditor
             try
             {
                 Theme t = current;
+                if (t == null)
+                {
+                    // Sem tema: só os números de linha, com as cores do Windows
+                    string plain;
+                    subclassed.TryGetValue(hwnd, out plain);
+                    if (plain == "VbaWindow")
+                    {
+                        switch (msg)
+                        {
+                            case WM_NCCALCSIZE:
+                                if (LineNumbers.IsCodePane(hwnd))
+                                {
+                                    IntPtr calc = Native.DefSubclassProc(hwnd, msg, wParam, lParam);
+                                    LineNumbers.AdjustClient(hwnd, lParam);
+                                    return calc;
+                                }
+                                break;
+                            case Native.WM_NCPAINT:
+                            case Native.WM_PAINT:
+                            case WM_VSCROLL:
+                            case WM_MOUSEWHEEL:
+                            case WM_KEYDOWN:
+                            case WM_LBUTTONDOWN:
+                                IntPtr done = Native.DefSubclassProc(hwnd, msg, wParam, lParam);
+                                LineNumbers.Paint(hwnd, Effective);
+                                return done;
+                        }
+                    }
+                }
                 if (t != null)
                 {
                     string cls;

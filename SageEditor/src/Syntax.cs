@@ -91,8 +91,6 @@ namespace SageEditor
         {
             try
             {
-                Theme t = ThemeEngine.SyntaxTheme(hdc);
-                if (t == null) return false;
                 IntPtr hwnd = Native.WindowFromDC(hdc);
                 if (!IsCodePane(hwnd)) return false;
 
@@ -104,7 +102,8 @@ namespace SageEditor
                     if (GetCurrentPositionEx(hdc, out cp)) { px = cp.X; py = cp.Y; }
                 }
                 LineNumbers.Observe(hwnd, px, py);
-                if (t.Syntax == null) return false;
+                Theme t = ThemeEngine.SyntaxTheme(hdc);
+                if (t == null || t.Syntax == null) return false;
 
                 Kind kind;
                 int requested = requestedColor;

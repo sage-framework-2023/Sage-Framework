@@ -18,7 +18,7 @@ namespace SageTypes
     //
     // Objeto -> DictionaryS, lista -> ListS, texto -> StringS, número -> Long/LongLong/Double,
     // true/false -> Boolean, null -> Empty (None). Na volta (Dumps), também Scripting.Dictionary,
-    // arrays (2D: lista de linhas), Collection, Date/DateTimeS (texto ISO) e DataFrame (lista de linhas).
+    // arrays (2D: lista de linhas), Collection, Date/DatetimeS (texto ISO) e DataFrame (lista de linhas).
     //
     // Interface dual: acrescente membros só no fim, com o próximo DispId (ver StringS).
     [ComVisible(true), Guid("F9E2F586-295B-4A25-86CB-745578464E70"), InterfaceType(ComInterfaceType.InterfaceIsDual)]
@@ -282,8 +282,8 @@ namespace SageTypes
                 if (value is bool) { Output.Append((bool)value ? "true" : "false"); return; }
                 if (value is double || value is float) { Output.Append(Float(Convert.ToDouble(value, CultureInfo.InvariantCulture))); return; }
                 if (value is decimal || (value.GetType().IsPrimitive && !(value is char))) { Output.Append(((IFormattable)value).ToString(null, CultureInfo.InvariantCulture)); return; }
-                if (value is DateTime) { Quote(DateTimeS.From((DateTime)value, null).Iso8601("T", "auto")); return; }
-                DateTimeS date = value as DateTimeS;
+                if (value is DateTime) { Quote(DatetimeS.From((DateTime)value, null).Iso8601("T", "auto")); return; }
+                DatetimeS date = value as DatetimeS;
                 if (date != null) { Quote(date.Iso8601("T", "auto")); return; }
 
                 if (!open.Add(value)) throw Interop.Error(5, "ValueError: Circular reference detected");
@@ -363,7 +363,7 @@ namespace SageTypes
                 if (key is bool) return (bool)key ? "true" : "false";
                 if (key is double || key is float) return Float(Convert.ToDouble(key, CultureInfo.InvariantCulture));
                 if (key is decimal || key.GetType().IsPrimitive) return ((IFormattable)key).ToString(null, CultureInfo.InvariantCulture);
-                if (key is DateTime) return DateTimeS.From((DateTime)key, null).Iso8601("T", "auto");
+                if (key is DateTime) return DatetimeS.From((DateTime)key, null).Iso8601("T", "auto");
                 throw Interop.Error(13, "TypeError: keys must be str, int, float, bool or None, not " + Interop.TypeLabel(key));
             }
 

@@ -10,10 +10,10 @@ namespace SageTypes
 {
     // Tipo de ListS: lista (pode mudar) ou tupla (não pode), como no Sage.xlam
     [ComVisible(true), Guid("8D3F5A72-1E94-4C6B-A0D8-2F7B9E4C1A53")]
-    public enum SgArrayTypes
+    public enum sgArrayTypes
     {
-        SgList = 0,
-        SgTuple = 1,
+        sgList = 0,
+        sgTuple = 1,
     }
 
     // ListS: lista como a do Python, no lugar do ListS do Sage.xlam (mesma API, mais os
@@ -35,7 +35,7 @@ namespace SageTypes
         // l(i) lê; Set l(i) = objeto grava; l(i) = valor é o LetValue abaixo.
         // Sem índice: lê um array do VBA; l = Array(...) / outraLista substitui tudo.
         [DispId(0), IndexerName("Value")] object this[[Optional] object Index] { get; set; }
-        [DispId(1)] SgArrayTypes ArrayType { get; set; }
+        [DispId(1)] sgArrayTypes ArrayType { get; set; }
         [DispId(2)] StringS Join([Optional] object Delimiter);
         [DispId(3)] int Length();
         [DispId(4)] ListS Remove(object Index);
@@ -64,6 +64,14 @@ namespace SageTypes
 
         // Vira o Property Let de Value (DispId 0) na geração do .tlb (install.ps1).
         [DispId(1000), PropertyLet("Value")] void LetValue([Optional] object Index, object Value);
+
+        // sort(key=lambda r: r[chave]) para listas de linhas (listas ou dicionários); altera a própria lista
+        [DispId(26)] ListS SortBy(object Key, [Optional] object Reverse);
+        // list(dict.fromkeys(l)): sem repetidos, na ordem em que aparecem
+        [DispId(27)] ListS Unique();
+        // sorted(l) e list(reversed(l)): listas novas; a original fica igual
+        [DispId(28)] ListS Sorted([Optional] object Reverse);
+        [DispId(29)] ListS Reversed();
     }
 
     [ComVisible(true), Guid("E7A42C19-6D3B-4E85-8F1A-0C9B5D2E7A64"), ProgId("Sage.ListS")]
@@ -71,7 +79,7 @@ namespace SageTypes
     public sealed class ListS : _ListS, IEnumerable
     {
         readonly List<object> items = new List<object>();
-        SgArrayTypes type = SgArrayTypes.SgList;
+        sgArrayTypes type = sgArrayTypes.sgList;
 
         public ListS() { }
 
@@ -83,7 +91,7 @@ namespace SageTypes
         }
 
         internal IList<object> Items { get { return items; } }
-        internal bool IsTuple { get { return type == SgArrayTypes.SgTuple; } }
+        internal bool IsTuple { get { return type == sgArrayTypes.sgTuple; } }
 
         // ------------------------------------------------------------------
         // Valor (membro padrão)
@@ -112,7 +120,7 @@ namespace SageTypes
             else items[Position(index)] = Interop.Store(value);
         }
 
-        public SgArrayTypes ArrayType
+        public sgArrayTypes ArrayType
         {
             get { return type; }
             set { type = value; }
@@ -236,6 +244,77 @@ namespace SageTypes
             return this;
         }
 
+        // Linhas que são listas (Key = número da coluna, negativo conta do fim) ou dicionários
+        // (Key = chave); Key também pode ser Array(...) com várias, em ordem de prioridade.
+        // Estável, como o sort do Python.
+        public ListS SortBy(object Key, object Reverse)
+        {
+            Mutable();
+            object raw = Interop.Unwrap(Key);
+            List<object> keys = (raw is Array || Key is ListS) ? Interop.Items(Key).ToList() : new List<object> { Key };
+            if (keys.Count == 0) throw Interop.Error(5, "ValueError: informe a coluna (ou a chave) para ordenar.");
+            bool descending = !Interop.IsMissing(Reverse) && Convert.ToBoolean(Reverse, CultureInfo.InvariantCulture);
+            List<KeyValuePair<object[], object>> rows = items.Select(item => new KeyValuePair<object[], object>(keys.Select(k => Field(item, k)).ToArray(), item)).ToList();
+            IComparer<object[]> order = new RowOrder();
+            List<object> sorted = (descending ? rows.OrderByDescending(r => r.Key, order) : rows.OrderBy(r => r.Key, order)).Select(r => r.Value).ToList();
+            items.Clear();
+            items.AddRange(sorted);
+            return this;
+        }
+
+        static object Field(object row, object key)
+        {
+            ListS list = row as ListS;
+            if (list != null) return Interop.Unwrap(list[key]);
+            DictionaryS dict = row as DictionaryS;
+            if (dict != null) return Interop.Unwrap(dict[key]);
+            throw Interop.Error(13, "TypeError: SortBy ordena listas de linhas (listas ou dicionários), não " + Interop.TypeLabel(row) + ".");
+        }
+
+        sealed class RowOrder : IComparer<object[]>
+        {
+            public int Compare(object[] a, object[] b)
+            {
+                for (int i = 0; i < a.Length; i++)
+                {
+                    int c = PyOrder.Instance.Compare(a[i], b[i]);
+                    if (c != 0) return c;
+                }
+                return 0;
+            }
+        }
+
+        // Números iguais pelo valor (1 = 1.0), texto diferenciando maiúsculas, como no Python;
+        // listas e dicionários iguais pelo conteúdo
+        public ListS Unique()
+        {
+            HashSet<object> seen = new HashSet<object>(new UniqueKey());
+            List<object> result = new List<object>();
+            foreach (object item in items)
+            {
+                object key = item is ListS || item is DictionaryS ? (object)("\u0001" + Interop.Repr(item)) : (item ?? KeyComparer.Empty);
+                if (seen.Add(key)) result.Add(item);
+            }
+            return From(result);
+        }
+
+        sealed class UniqueKey : IEqualityComparer<object>
+        {
+            public new bool Equals(object a, object b) { return KeyComparer.Instance.Equals(a, b); }
+            public int GetHashCode(object o) { return KeyComparer.Instance.GetHashCode(o); }
+        }
+
+        public ListS Sorted(object Reverse) { return Copy().AsList().Sort(Reverse); }
+
+        public ListS Reversed() { return Copy().AsList().Reverse(); }
+
+        // Cópia que pode ser alterada (a de uma tupla também é tupla)
+        ListS AsList()
+        {
+            type = sgArrayTypes.sgList;
+            return this;
+        }
+
         public ListS Copy()
         {
             ListS copy = From(items);
@@ -336,7 +415,7 @@ namespace SageTypes
 
         void Mutable()
         {
-            if (type == SgArrayTypes.SgTuple) throw Interop.Error(13, "TypeError: 'tuple' object does not support item assignment");
+            if (type == sgArrayTypes.sgTuple) throw Interop.Error(13, "TypeError: 'tuple' object does not support item assignment");
         }
 
         // Índice válido (negativo conta do fim) ou IndexError

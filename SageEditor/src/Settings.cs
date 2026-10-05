@@ -51,6 +51,29 @@ namespace SageEditor
             set { Set(MultiCursorKey, value ? "on" : "off"); }
         }
 
+        // Tamanho da fonte do código, em pontos. Fica onde o próprio VBE guarda (Ferramentas >
+        // Opções > Formato do editor), e não no settings.json: as duas telas mostram o mesmo valor.
+        // O VBE lê ao iniciar, então a mudança vale ao reabrir o Excel.
+        const string VbeOptionsKey = @"Software\Microsoft\VBA\7.1\Common";
+        public const int DefaultFontSize = 10;
+
+        public static int FontSize
+        {
+            get
+            {
+                using (Microsoft.Win32.RegistryKey k = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(VbeOptionsKey))
+                {
+                    object v = k == null ? null : k.GetValue("FontHeight");
+                    return v is int && (int)v > 0 ? (int)v : DefaultFontSize;
+                }
+            }
+            set
+            {
+                using (Microsoft.Win32.RegistryKey k = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(VbeOptionsKey))
+                    k.SetValue("FontHeight", value, Microsoft.Win32.RegistryValueKind.DWord);
+            }
+        }
+
         // "multiple" (padrão) ou "none", como no VS Code
         public static bool EditorTabs
         {

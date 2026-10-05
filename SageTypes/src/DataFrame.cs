@@ -120,8 +120,6 @@ namespace SageTypes
 
         // Banco de dados (df.to_sql do pandas): IfExists = "fail" (padrão), "replace" ou "append"
         [DispId(82)] void ToSql(string Name, SqlEngine Engine, [Optional] object IfExists);
-        // pd.read_sql(consulta, engine, params=[...]): Engine é um SqlEngine ou o texto de conexão
-        [DispId(83)] DataFrame ReadSql(string Query, object Engine, [Optional] object Params);
     }
 
     [ComVisible(true), Guid("2F9C6E14-8B3A-4D71-A5E2-7C0D9B4F3A68"), ProgId("Sage.DataFrame")]
@@ -587,7 +585,7 @@ namespace SageTypes
             get
             {
                 ListS shape = ListS.From(new object[] { Count, (long)Schema().Count });
-                shape.ArrayType = SgArrayTypes.SgTuple;
+                shape.ArrayType = sgArrayTypes.sgTuple;
                 return shape;
             }
         }
@@ -768,28 +766,6 @@ namespace SageTypes
             if (mode != "fail" && mode != "replace" && mode != "append")
                 throw Interop.Error(5, "ValueError: IfExists deve ser \"fail\", \"replace\" ou \"append\".");
             Engine.WriteTable(this, Name, mode);
-        }
-
-        // Carrega o resultado da consulta neste DataFrame, como o ReadCsv. Com o texto de conexão no
-        // lugar do SqlEngine, conecta, lê e fecha.
-        public DataFrame ReadSql(string Query, object Engine, object Params)
-        {
-            SqlEngine engine = Engine as SqlEngine;
-            bool own = false;
-            if (engine == null)
-            {
-                object text = Interop.Unwrap(Engine);
-                if (!(text is string)) throw Interop.Error(13, "TypeError: Engine deve ser um SqlEngine (CreateEngine(...)) ou o texto de conexão.");
-                engine = new SqlEngine().Connect((string)text);
-                own = true;
-            }
-            try
-            {
-                DataFrame result = engine.ReadSql(Query, Params);
-                Reset(result.sql, result.deps, result.own);
-                return this;
-            }
-            finally { if (own) engine.Close(); }
         }
 
         // Consulta do DataFrame (com as alterações pendentes gravadas), para ler as linhas em outro lugar

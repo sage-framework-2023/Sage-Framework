@@ -146,6 +146,17 @@ namespace SageEditor
             AddOnOff(Strings.AutoReference, Strings.AutoReferenceDescription, Strings.AutoReferenceKeywords, Settings.AutoReference,
                 delegate(bool on) { Settings.AutoReference = on; });
 
+            // Os tamanhos que o VBE oferece em Ferramentas > Opções (e o atual, se for outro)
+            List<string> sizes = new List<string> { "8", "9", "10", "11", "12", "14", "16", "18", "20", "22", "24" };
+            string currentSize = Settings.FontSize.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            if (!sizes.Contains(currentSize)) sizes.Add(currentSize);
+            sizes.Sort((a, b) => int.Parse(a).CompareTo(int.Parse(b)));
+            SettingItem fontItem = new SettingItem(Strings.EditorCategory, Strings.FontSize, Strings.FontSizeDescription,
+                sizes.ToArray(), currentSize, Strings.FontSizeKeywords);
+            fontItem.ValueChanged += delegate(string selected) { Settings.FontSize = int.Parse(selected); };
+            editorItems.Add(fontItem);
+            content.Controls.Add(fontItem);
+
             noResults.Text = Strings.NoResults;
             noResults.AutoSize = true;
             noResults.Visible = false;

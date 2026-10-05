@@ -72,9 +72,9 @@ namespace SageSetup
         public static string Title { get { return "Sage Framework " + BuildInfo.Version; } }
         public static string Description { get { return T(
             "Ferramentas para o editor do VBA no Excel: temas de cores, números de linha, abas, vários cursores, " +
-            "atalhos de teclado e tipos no estilo do Python (StringS, ListS, DictionaryS, DataFrame, DateTimeS, Json, Requests e SqlEngine).",
+            "atalhos de teclado e tipos no estilo do Python (StringS, ListS, DictionaryS, DataFrame, DatetimeS, Json, Requests e SqlEngine).",
             "Tools for the Excel VBA editor: color themes, line numbers, tabs, multiple cursors, keyboard shortcuts " +
-            "and Python-style types (StringS, ListS, DictionaryS, DataFrame, DateTimeS, Json, Requests and SqlEngine)."); } }
+            "and Python-style types (StringS, ListS, DictionaryS, DataFrame, DatetimeS, Json, Requests and SqlEngine)."); } }
         public static string Folder { get { return T("Pasta de instalação:", "Install folder:"); } }
         public static string Requirements { get { return T("Requer o Excel de 64 bits e o .NET Framework 4.8 (já vem no Windows 10 e 11).",
             "Requires 64-bit Excel and .NET Framework 4.8 (included in Windows 10 and 11)."); } }
