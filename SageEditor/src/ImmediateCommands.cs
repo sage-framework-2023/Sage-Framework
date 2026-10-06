@@ -4,11 +4,9 @@ using System.Text;
 
 namespace SageEditor
 {
-    // Comandos digitados na Verificação imediata, como num terminal:
+    // Comando digitado na Verificação imediata, como num terminal:
     //   Clear + Enter   apaga tudo na Verificação imediata
-    //   Exit + Enter    apaga tudo e fecha a Verificação imediata
-    // (sem diferenciar maiúsculas; "Exit" é palavra reservada do VBA, então não daria
-    // para ser uma função: o Enter é interceptado antes de o VBE executar a linha).
+    // (sem diferenciar maiúsculas; o Enter é interceptado antes de o VBE executar a linha).
     //
     // O VBE não dá acesso ao texto da janela, então a linha é acompanhada pelo que é
     // digitado desde o começo dela (cursor na primeira coluna). Se o cursor for movido
@@ -28,7 +26,7 @@ namespace SageEditor
         const int WM_KEYDOWN = 0x0100, WM_CHAR = 0x0102, WM_LBUTTONDOWN = 0x0201, WM_RUN = 0x8000 + 0x5A71;
         const int VK_BACK = 0x08, VK_RETURN = 0x0D, VK_DELETE = 0x2E;
         const int vbext_wt_Immediate = 5, SelectAllId = 756, ClearId = 478; // Editar > Selecionar tudo / Limpar
-        const int CommandClear = 1, CommandExit = 2;
+        const int CommandClear = 1;
 
         [StructLayout(LayoutKind.Sequential)] struct POINT { public int X, Y; }
         [DllImport("user32.dll")] static extern bool GetCaretPos(out POINT p);
@@ -151,7 +149,6 @@ namespace SageEditor
             switch (line.Trim().ToLowerInvariant())
             {
                 case "clear": return CommandClear;
-                case "exit": return CommandExit;
             }
             return 0;
         }
@@ -162,10 +159,6 @@ namespace SageEditor
             // Verificação imediata ativa
             Execute(SelectAllId);
             Execute(ClearId);
-            if (command != CommandExit) return;
-            // Exit: depois de apagar, fecha (reabre vazia)
-            foreach (dynamic w in Vbe.Windows)
-                if ((int)w.Type == vbext_wt_Immediate) { w.Visible = false; break; }
         }
 
         static void Execute(int id)

@@ -25,7 +25,6 @@ namespace SageEditor
         public static string EditorCategory, LineNumbers, LineNumbersDescription, LineNumbersKeywords;
         public static string ShowTabs, ShowTabsDescription, ShowTabsKeywords;
         public static string AutoReference, AutoReferenceDescription, AutoReferenceKeywords;
-        public static string FontSize, FontSizeDescription, FontSizeKeywords;
         public static string MultiCursor, MultiCursorDescription, MultiCursorKeywords;
         public static string DefaultTheme;
 
@@ -103,10 +102,6 @@ namespace SageEditor
                 "marcada em Ferramentas > Referências. Arquivos já salvos não são alterados: para não usar o Sage num arquivo, " +
                 "desmarque a referência e salve.";
             AutoReferenceKeywords = "referência referências biblioteca sage framework stringS tipos references library";
-            FontSize = "Tamanho da Fonte";
-            FontSizeDescription = "Tamanho do texto do código, em pontos (o mesmo de Ferramentas > Opções > Formato do editor). " +
-                "Vale ao reabrir o Excel.";
-            FontSizeKeywords = "fonte tamanho texto letra zoom código font size editor";
             MultiCursor = "Vários Cursores";
             MultiCursorDescription = "Edita várias linhas ao mesmo tempo, como no VS Code: Alt+Clique acrescenta um cursor, " +
                 "Ctrl+Alt+Seta para Cima/Baixo acrescenta na linha de cima/de baixo, Shift+Alt+arrastar seleciona em coluna " +
@@ -155,10 +150,6 @@ namespace SageEditor
                 "checked in Tools > References. Saved files are not changed: to not use Sage in a file, " +
                 "uncheck the reference and save.";
             AutoReferenceKeywords = "reference references library sage framework strings types";
-            FontSize = "Font Size";
-            FontSizeDescription = "Size of the code text, in points (the same as Tools > Options > Editor Format). " +
-                "Takes effect when Excel is reopened.";
-            FontSizeKeywords = "font size text zoom code editor";
             MultiCursor = "Multiple Cursors";
             MultiCursorDescription = "Edits several lines at once, like VS Code: Alt+Click adds a cursor, " +
                 "Ctrl+Alt+Up/Down adds one on the line above/below, Shift+Alt+drag selects a column " +

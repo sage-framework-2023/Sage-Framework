@@ -6,7 +6,7 @@
 //   - Temas de cores para todo o VBE (ThemeEngine)
 //   - Abas das janelas abertas no topo da área de código (EditorTabs)
 //   - Vários cursores na janela de código (MultiCursor)
-//   - Comandos Clear e Exit na Verificação imediata (ImmediateCommands)
+//   - Comando Clear na Verificação imediata (ImmediateCommands)
 
 using System;
 using System.Runtime.InteropServices;

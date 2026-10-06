@@ -11,10 +11,12 @@ namespace SageEditor
     //   Alt+Clique                  acrescenta um cursor (ou tira, se já houver um ali)
     //   Ctrl+Alt+Seta Cima/Baixo    acrescenta um cursor na linha de cima/de baixo
     //   Shift+Alt+arrastar          seleção em coluna (um cursor por linha)
+    //   Ctrl+F2                     seleciona todas as ocorrências da seleção (ou da palavra
+    //                               no cursor), uma seleção por ocorrência
     //   Esc                         volta a um cursor
-    // Com mais de um cursor, digitar, Backspace, Delete, Tab, setas (com Shift, seleção na
-    // linha), Home e End valem para todos. Outras teclas (Enter, Ctrl+...) e cliques sem
-    // Alt voltam a um cursor e seguem para o VBE.
+    // Com mais de um cursor, digitar, Backspace, Delete, Tab, setas, Ctrl+Seta (de palavra
+    // em palavra), Home e End valem para todos, e com Shift selecionam na linha. Outras
+    // teclas (Enter, Ctrl+...) e cliques sem Alt voltam a um cursor e seguem para o VBE.
     //
     // As edições são feitas pelo CodeModule (ReplaceLine; sem Desfazer). O VBE reformata a
     // linha gravada ("x=1" vira "x = 1"), então a coluna de cada cursor é recalculada pelos
@@ -50,7 +52,8 @@ namespace SageEditor
         const int WM_KEYDOWN = 0x0100, WM_SYSKEYDOWN = 0x0104, WM_CHAR = 0x0102, WM_SYSCHAR = 0x0106,
             WM_KILLFOCUS = 0x0008, WM_MOUSEMOVE = 0x0200, WM_LBUTTONDOWN = 0x0201, WM_LBUTTONUP = 0x0202;
         const int VK_BACK = 0x08, VK_TAB = 0x09, VK_SHIFT = 0x10, VK_CONTROL = 0x11, VK_MENU = 0x12, VK_ESCAPE = 0x1B,
-            VK_END = 0x23, VK_HOME = 0x24, VK_LEFT = 0x25, VK_UP = 0x26, VK_RIGHT = 0x27, VK_DOWN = 0x28, VK_DELETE = 0x2E;
+            VK_END = 0x23, VK_HOME = 0x24, VK_LEFT = 0x25, VK_UP = 0x26, VK_RIGHT = 0x27, VK_DOWN = 0x28, VK_DELETE = 0x2E,
+            VK_F2 = 0x71;
         const uint DSTINVERT = 0x00550009, PATINVERT = 0x005A0049;
         const int COLOR_WINDOW = 5, COLOR_HIGHLIGHT = 13;
         [DllImport("user32.dll")] static extern uint GetSysColor(int index);
@@ -84,7 +87,37 @@ namespace SageEditor
         // Ciclo de vida (thread de interface do Excel)
         // ------------------------------------------------------------------
 
-        public static void Start(IntPtr vbe) { vbeWindow = vbe; }
+        public static void Start(IntPtr vbe)
+        {
+            vbeWindow = vbe;
+            keyboardHook = Native.SetWindowsHookEx(WH_KEYBOARD, keyboardProc, IntPtr.Zero, Native.GetCurrentThreadId());
+        }
+
+        // Ctrl+F2 é atalho do próprio VBE (caixa de objeto), tratado antes de a tecla chegar
+        // à janela de código: por isso vem por um hook de teclado da thread, que a vê antes
+        const int WH_KEYBOARD = 2, HC_ACTION = 0;
+        static readonly Native.HookProc keyboardProc = KeyboardProc;
+        static IntPtr keyboardHook;
+        [DllImport("user32.dll")] static extern IntPtr GetFocus();
+
+        static IntPtr KeyboardProc(int code, IntPtr wParam, IntPtr lParam)
+        {
+            try
+            {
+                if (code == HC_ACTION && (int)wParam == VK_F2 && Settings.MultiCursor &&
+                    IsDown(VK_CONTROL) && !IsDown(VK_MENU) && !IsDown(VK_SHIFT))
+                {
+                    IntPtr focus = GetFocus();
+                    if (attached.Contains(focus))
+                    {
+                        if (((long)lParam & 0x80000000L) == 0) SelectOccurrences(focus); // ao pressionar
+                        return (IntPtr)1; // o VBE não vê a tecla (nem ao soltar)
+                    }
+                }
+            }
+            catch (Exception ex) { Log.Error(ex); }
+            return Native.CallNextHookEx(keyboardHook, code, wParam, lParam);
+        }
 
         // Subclassifica as janelas de código novas (verificação periódica)
         public static void Poll()
@@ -102,6 +135,7 @@ namespace SageEditor
         public static void Shutdown()
         {
             Exit();
+            if (keyboardHook != IntPtr.Zero) { Native.UnhookWindowsHookEx(keyboardHook); keyboardHook = IntPtr.Zero; }
             foreach (IntPtr h in attached) Native.RemoveWindowSubclass(h, subclassProc, SubclassId);
             attached.Clear();
         }
@@ -383,9 +417,21 @@ namespace SageEditor
             if (key == VK_ESCAPE) { Exit(); return true; }
             // Digitação (inclusive AltGr, que chega como Ctrl+Alt): fica com vários cursores
             if (IsTypingKey(key) && ctrl == alt) return true;
-            if (ctrl || alt) return false;
             dynamic pane = Vbe.ActiveCodePane;
             dynamic module = pane.CodeModule;
+            if (ctrl && !alt && (key == VK_LEFT || key == VK_RIGHT))
+            {
+                // De palavra em palavra, como o Ctrl+Seta do VS Code (sem passar da linha)
+                foreach (Caret c in carets)
+                {
+                    c.Col = WordStop(LineText(module, c.Line), c.Col, key == VK_RIGHT);
+                    if (!shift) c.Anchor = c.Col;
+                }
+                Dedupe();
+                Refresh(pane);
+                return true;
+            }
+            if (ctrl || alt) return false;
             switch (key)
             {
                 case VK_BACK: Edit(pane, Op.Backspace, null); return true;
@@ -430,6 +476,91 @@ namespace SageEditor
             Dedupe();
             Refresh(pane);
             return true;
+        }
+
+        // Classe do caractere para o Ctrl+Seta: espaço, palavra (letras, dígitos, _) ou
+        // pontuação (uma sequência dela conta como uma palavra, como no VS Code)
+        static int CharClass(char ch)
+        {
+            if (char.IsWhiteSpace(ch)) return 0;
+            return IsWordChar(ch) ? 1 : 2;
+        }
+
+        static bool IsWordChar(char ch) { return char.IsLetterOrDigit(ch) || ch == '_'; }
+
+        // Coluna (base 1) depois de pular os espaços e uma palavra, à direita ou à esquerda
+        static int WordStop(string s, int col, bool right)
+        {
+            int i = Clamp(col - 1, 0, s.Length);
+            if (right)
+            {
+                while (i < s.Length && CharClass(s[i]) == 0) i++;
+                if (i < s.Length) { int k = CharClass(s[i]); while (i < s.Length && CharClass(s[i]) == k) i++; }
+            }
+            else
+            {
+                while (i > 0 && CharClass(s[i - 1]) == 0) i--;
+                if (i > 0) { int k = CharClass(s[i - 1]); while (i > 0 && CharClass(s[i - 1]) == k) i--; }
+            }
+            return i + 1;
+        }
+
+        // ------------------------------------------------------------------
+        // Ctrl+F2: todas as ocorrências
+        // ------------------------------------------------------------------
+
+        // Seleciona todas as ocorrências do texto selecionado (numa linha) ou, sem seleção,
+        // da palavra no cursor (só palavras inteiras), sem diferenciar maiúsculas, como o VBA.
+        // Cada ocorrência vira um cursor com seleção; a do cursor atual fica como principal.
+        static void SelectOccurrences(IntPtr hwnd)
+        {
+            if (window != IntPtr.Zero && window != hwnd) Exit();
+            dynamic pane = Vbe.ActiveCodePane;
+            dynamic module = pane.CodeModule;
+            int sl = 0, sc = 0, el = 0, ec = 0;
+            pane.GetSelection(ref sl, ref sc, ref el, ref ec);
+            if (sl != el) return; // seleção de várias linhas: nada a procurar
+            string current = LineText(module, sl);
+            int start = Math.Min(sc, ec), end = Math.Max(sc, ec);
+            bool wholeWord = start == end;
+            if (wholeWord)
+            {
+                int a = Clamp(start - 1, 0, current.Length), b = a;
+                while (a > 0 && IsWordChar(current[a - 1])) a--;
+                while (b < current.Length && IsWordChar(current[b])) b++;
+                start = a + 1; end = b + 1;
+            }
+            end = Math.Min(end, current.Length + 1);
+            if (end <= start) return;
+            string needle = current.Substring(start - 1, end - start);
+            if (needle.Trim().Length == 0) return;
+
+            int total = module.CountOfLines;
+            string[] lines = ((string)module.Lines(1, total) ?? "").Split(new string[] { "\r\n" }, StringSplitOptions.None);
+            List<Caret> found = new List<Caret>();
+            Caret primary = null;
+            for (int l = 0; l < lines.Length && l < total; l++)
+            {
+                string s = lines[l];
+                for (int i = s.IndexOf(needle, StringComparison.OrdinalIgnoreCase); i >= 0;
+                     i = i + needle.Length <= s.Length ? s.IndexOf(needle, i + needle.Length, StringComparison.OrdinalIgnoreCase) : -1)
+                {
+                    if (wholeWord && ((i > 0 && IsWordChar(s[i - 1])) ||
+                                      (i + needle.Length < s.Length && IsWordChar(s[i + needle.Length])))) continue;
+                    Caret c = new Caret(l + 1, i + 1 + needle.Length, i + 1);
+                    if (l + 1 == sl && i + 1 == start) primary = c;
+                    else found.Add(c);
+                }
+            }
+            if (primary == null) return;
+            found.Add(primary); // o principal é o último
+
+            Exit();
+            if (found.Count == 1) { pane.SetSelection(sl, start, sl, end); return; }
+            window = hwnd;
+            carets.AddRange(found);
+            Calibrate(pane);
+            Refresh(pane);
         }
 
         enum Op { Insert, Backspace, Delete }
