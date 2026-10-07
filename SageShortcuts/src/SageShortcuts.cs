@@ -210,7 +210,7 @@ namespace SageShortcuts
     // ------------------------------------------------------------------------
     // Atalhos (keybindings.txt)
     // ------------------------------------------------------------------------
-    enum ActionKind { VbeCommand, Macro, Comment, Uncomment, CopyLinesUp, CopyLinesDown, MoveLinesUp, MoveLinesDown, ToggleImmediate, ToggleWatch, ToggleLocals, SendKeys }
+    enum ActionKind { VbeCommand, Macro, Comment, Uncomment, CopyLinesUp, CopyLinesDown, MoveLinesUp, MoveLinesDown, ToggleImmediate, ToggleWatch, ToggleLocals, ToggleExplorer, SendKeys }
 
     sealed class Binding
     {
@@ -306,6 +306,7 @@ namespace SageShortcuts
                 case "toggleimmediate": { Binding ti = new Binding(); ti.Kind = ActionKind.ToggleImmediate; return ti; }
                 case "togglewatch": { Binding tw = new Binding(); tw.Kind = ActionKind.ToggleWatch; return tw; }
                 case "togglelocals": { Binding tl = new Binding(); tl.Kind = ActionKind.ToggleLocals; return tl; }
+                case "toggleexplorer": { Binding te = new Binding(); te.Kind = ActionKind.ToggleExplorer; return te; }
             }
             int colon = text.IndexOf(':');
             string kind = colon < 0 ? "" : text.Substring(0, colon).Trim().ToLowerInvariant();
@@ -661,10 +662,14 @@ namespace SageShortcuts
                     if (!Terminal(app.VBE, -1)) ToggleWindow(app.VBE, vbext_wt_Immediate, 2554);
                     break;
                 case ActionKind.ToggleWatch:
-                    if (!Terminal(app.VBE, 1)) ToggleWindow(app.VBE, vbext_wt_Watch, 2556);
+                    if (!Terminal(app.VBE, 2)) ToggleWindow(app.VBE, vbext_wt_Watch, 2556);
+                    break;
+                case ActionKind.ToggleExplorer:
+                    // A janela Projeto do SageEditor (com as Propriedades dentro); sem ele, a do VBE
+                    if (!Explorer(app.VBE)) ToggleWindow(app.VBE, vbext_wt_Project, 2557);
                     break;
                 case ActionKind.ToggleLocals:
-                    ToggleWindow(app.VBE, vbext_wt_Locals, 2555);
+                    if (!Terminal(app.VBE, 1)) ToggleWindow(app.VBE, vbext_wt_Locals, 2555);
                     break;
             }
         }
@@ -672,8 +677,22 @@ namespace SageShortcuts
         const int vbext_wt_Watch = 3, vbext_wt_Locals = 4, vbext_wt_Immediate = 5;
 
         // Abre ou fecha a janela Terminal do SageEditor (tab -1: a janela; senão a aba: 0 Imediata,
-        // 1 Inspeção de Variáveis, 2 Terminal). false: o SageEditor não está carregado ou não
+        // 1 Variáveis Locais, 2 Inspeção de Variáveis, 3 Terminal, 4 Resultado DataFrame). false: o SageEditor não está carregado ou não
         // tem a janela, e quem chamou usa a janela do VBE.
+        const int vbext_wt_Project = 6;
+
+        static bool Explorer(dynamic vbe)
+        {
+            try
+            {
+                dynamic addin = vbe.Addins.Item("Sage.Editor");
+                if (!(bool)addin.Connect) return false;
+                dynamic editor = addin.Object;
+                return editor != null && (bool)editor.ToggleExplorer();
+            }
+            catch (Exception) { return false; } // versão antiga do SageEditor
+        }
+
         static bool Terminal(dynamic vbe, int tab)
         {
             try

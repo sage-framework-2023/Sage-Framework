@@ -699,6 +699,18 @@ namespace SageSetup
                     k.SetValue("FriendlyName", "Sage");
                     k.SetValue("Description", "Menu Sage e temas de cores para o editor do VBA");
                 }
+                // Fonte do código: Consolas (Ocidental) no lugar da padrão do VBE, Courier New. Quem
+                // escolheu outra em Ferramentas > Opções > Formato do editor fica com a sua.
+                using (RegistryKey vba = user.CreateSubKey(@"Software\Microsoft\VBA\7.1\Common"))
+                {
+                    string face = vba.GetValue("FontFace") as string;
+                    if (string.IsNullOrEmpty(face) || string.Equals(face, "Courier New", StringComparison.OrdinalIgnoreCase))
+                    {
+                        vba.SetValue("FontFace", "Consolas");
+                        vba.SetValue("FontCharSet", 0, RegistryValueKind.DWord); // 0 = Ocidental
+                        Log.Write("Fonte do VBE: Consolas");
+                    }
+                }
             });
             foreach (string tlb in Directory.GetFiles(dir, "*.tlb", SearchOption.AllDirectories))
             {

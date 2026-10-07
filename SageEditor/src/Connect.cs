@@ -7,6 +7,8 @@
 //   - Abas das janelas abertas no topo da área de código (EditorTabs)
 //   - Vários cursores na janela de código (MultiCursor)
 //   - Comando Clear na Verificação imediata (ImmediateCommands)
+//   - Ícones do vscode-icons na janela Projeto e nas abas (ProjectIcons)
+//   - Propriedades dentro da janela Projeto, numa seção que recolhe (UnifiedExplorer)
 //   - Janela Terminal: Imediata, Inspeção de Variáveis e PowerShell em abas (TerminalWindow)
 
 using System;
@@ -81,6 +83,9 @@ namespace SageEditor
             catch (Exception ex) { Log.Error(ex); }
             MultiCursor.Vbe = vbe;
             MultiCursor.Start(main);
+            ProjectIcons.Start(main);
+            UnifiedExplorer.Vbe = vbe;
+            UnifiedExplorer.Start(main);
             ImmediateCommands.Vbe = vbe;
             ImmediateCommands.Start(main);
             TerminalWindow.Vbe = vbe;
@@ -96,7 +101,7 @@ namespace SageEditor
             {
                 try { LineNumbers.Poll(); }
                 catch (Exception) { } // VBE ocupado (ex.: executando código)
-                try { EditorTabs.Poll(); ThemeEngine.PollForms(); MultiCursor.Poll(); }
+                try { EditorTabs.Poll(); ThemeEngine.PollForms(); MultiCursor.Poll(); ProjectIcons.Poll(); UnifiedExplorer.Poll(); }
                 catch (Exception ex) { Log.Error(ex); }
                 try { TerminalWindow.Poll(); }
                 catch (Exception ex) { Log.Error(ex); }
@@ -116,6 +121,9 @@ namespace SageEditor
                 if (lineTimer != null) { lineTimer.Dispose(); lineTimer = null; }
                 LineNumbers.Vbe = null;
                 MultiCursor.Shutdown();
+                ProjectIcons.Shutdown();
+                UnifiedExplorer.Shutdown();
+                UnifiedExplorer.Vbe = null;
                 MultiCursor.Vbe = null;
                 ImmediateCommands.Shutdown();
                 TerminalWindow.Shutdown();
@@ -151,8 +159,9 @@ namespace SageEditor
 
         public string Diagnostics() { return ThemeEngine.Diagnostics(); }
 
+
         // Janela Terminal (o Ctrl+J e o Ctrl+I do SageShortcuts chamam por aqui).
-        // Abas: 0 Imediata, 1 Inspeção de Variáveis, 2 Terminal.
+        // Abas: 0 Imediata, 1 Variáveis Locais, 2 Inspeção de Variáveis, 3 Terminal, 4 Resultado DataFrame.
         public bool ToggleTerminal()
         {
             return OnUi(delegate { TerminalWindow.Toggle(); });
@@ -166,6 +175,21 @@ namespace SageEditor
         public bool ShowTerminal(int tab)
         {
             return OnUi(delegate { TerminalWindow.Show(tab); });
+        }
+
+        // Ctrl+R do SageShortcuts: abre e fecha a janela Projeto (com as Propriedades dentro)
+        public bool ToggleExplorer()
+        {
+            Control target = ui;
+            if (target == null) return false;
+            MethodInvoker toggle = delegate
+            {
+                try { UnifiedExplorer.Toggle(); }
+                catch (Exception ex) { Log.Error(ex); }
+            };
+            if (target.InvokeRequired) target.Invoke(toggle);
+            else toggle();
+            return true;
         }
 
         // false: a janela não existe (ex.: controle não registrado); quem chamou usa o VBE
@@ -202,6 +226,7 @@ namespace SageEditor
             ThemeEngine.Apply(theme);
             EditorTabs.Refresh(); // o tema padrão não passa pelo ThemeEngine
             TerminalWindow.ApplyTheme();
+            UnifiedExplorer.ApplyTheme();
         }
 
         // Chamado pela thread da tela de Configurações

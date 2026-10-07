@@ -16,11 +16,15 @@
 #         copyLinesDown  duplica a linha (ou as linhas selecionadas) para baixo (idem)
 #         moveLinesUp    troca a linha (ou as linhas selecionadas) com a de cima (idem)
 #         moveLinesDown  troca a linha (ou as linhas selecionadas) com a de baixo (idem)
-#         toggleTerminal abre a janela Terminal (Imediata, Inspeção de Variáveis e
-#                        PowerShell), ou fecha se estiver aberta (toggleImmediate faz o mesmo)
+#         toggleTerminal abre a janela Terminal (Imediata, Variáveis Locais, Inspeção de
+#                        Variáveis, PowerShell e Resultado DataFrame), ou fecha se estiver
+#                        aberta (toggleImmediate faz o mesmo)
 #         toggleWatch    abre a aba Inspeção de Variáveis do Terminal, ou fecha se ela já
 #                        estiver à vista
-#         toggleLocals   abre a janela Variáveis locais, ou fecha se estiver aberta
+#         toggleLocals   abre a aba Variáveis Locais do Terminal, ou fecha se ela já
+#                        estiver à vista
+#         toggleExplorer abre a janela Projeto (com as Propriedades dentro), ou fecha se
+#                        estiver aberta
 #         vbe:<id>       executa o controle do VBE com esse Id (CommandBars.FindControl)
 #         macro:<nome>   executa Application.Run "<nome>" (ex.: macro:'Sage.xlam'!Modulo.Proc)
 #         keys:<tecla>   envia outra combinação ao VBE, como se fosse digitada (ex.: keys:Shift+F2)
@@ -31,7 +35,7 @@
 Ctrl+K, Ctrl+C = comment      # Comentar bloco
 Ctrl+K, Ctrl+U = uncomment    # Remover comentário do bloco
 Ctrl+J         = toggleTerminal   # Abrir/fechar a janela Terminal (substitui "Listar propriedades/métodos")
-Ctrl+I         = toggleWatch      # Abrir/fechar a aba Inspeção de Variáveis (substitui "Informações rápidas")
+Ctrl+R         = toggleExplorer   # Abrir/fechar a janela Projeto, com as Propriedades
 F12            = keys:Shift+F2    # Ir para a definição (como o F12 do VS Code)
 Shift+Alt+Up   = copyLinesUp    # Duplicar linha para cima
 Shift+Alt+Down = copyLinesDown  # Duplicar linha para baixo

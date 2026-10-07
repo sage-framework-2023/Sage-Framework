@@ -466,6 +466,7 @@ namespace SageEditor
         }
 
         static int S(int px) { return (int)Math.Round(px * dpi / 96.0); }
+        static int IconSize { get { return S(16); } } // ícone do componente antes do nome (ProjectIcons)
 
         static Point ScreenPoint(IntPtr lParam)
         {
@@ -527,6 +528,7 @@ namespace SageEditor
             {
                 int text = Measure(tabs[i].Name);
                 if (tabs[i].Detail.Length > 0) text += gap + Measure(tabs[i].Detail);
+                if (Settings.Icons) text += IconSize + gap;
                 w[i] = padL + text + gap + closeSize + padR;
                 total += w[i];
                 if (tabs[i].Hwnd == active) activeIndex = i;
@@ -610,6 +612,12 @@ namespace SageEditor
                 if (on) using (SolidBrush b = new SolidBrush(t.Accent)) g.FillRectangle(b, r.Left, 0, r.Width - 1, Math.Max(1, S(1)));
 
                 int x = r.Left + padL, right = tab.Close.Left - gap;
+                if (Settings.Icons && right - x > IconSize)
+                {
+                    Bitmap icon = ProjectIcons.Image(ProjectIcons.ForTab(tab.Name, tab.Kind), IconSize);
+                    if (icon != null) g.DrawImage(icon, x, (height - IconSize) / 2, IconSize, IconSize);
+                    x += IconSize + gap;
+                }
                 if (right > x)
                 {
                     int nameWidth = Math.Min(Measure(tab.Name), right - x);

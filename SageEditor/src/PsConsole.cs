@@ -170,6 +170,7 @@ namespace SageEditor
                     rs.Open();
                     rs.SessionStateProxy.SetVariable("Excel", excel);
                     rs.SessionStateProxy.SetVariable("SageBridge", bridge);
+                    rs.SessionStateProxy.SetVariable("SageNative", new NativeLauncher());
                     rs.SessionStateProxy.SetVariable("SageStartFolders", folders);
                     using (PowerShell ps = PowerShell.Create())
                     {
@@ -207,6 +208,28 @@ Register-ArgumentCompleter -CommandName VBA -ParameterName Name -ScriptBlock {
     $SageBridge.Procedures() | Where-Object { $_ -like ""$word*"" } | ForEach-Object {
         [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
     }
+}
+# Programas de console (ping, git, python): iniciados pelo terminal, sem janela e com a
+# saída decodificada linha a linha (NativeProcess.cs)
+$ExecutionContext.InvokeCommand.PostCommandLookupAction = {
+    param($name, $e)
+    $cmd = $e.Command
+    if ($cmd.CommandType -ne 'Application' -or -not $SageNative.IsConsole($cmd.Path)) { return }
+    $path = $cmd.Path
+    $e.CommandScriptBlock = {
+        $p = $SageNative.Start($path, [object[]]$args, (Get-Location -PSProvider FileSystem).ProviderPath)
+        try {
+            if ($MyInvocation.ExpectingInput) { foreach ($item in $input) { $p.WriteInput([string]$item) } }
+            $p.CloseInput()
+            while ($true) {
+                $line = $p.Next(200)
+                if ($null -eq $line) { if ($p.Done) { break } else { continue } }
+                if ($line.IsError) { Write-Information -MessageData $line.Text -Tags 'sage-stderr' } else { $line.Text }
+            }
+        }
+        finally { $p.Stop() }
+        $global:LASTEXITCODE = $p.ExitCode
+    }.GetNewClosure()
 }
 $start = @($SageStartFolders) + $HOME | Where-Object { $_ -and (Test-Path -LiteralPath $_ -PathType Container) } | Select-Object -First 1
 Set-Location -LiteralPath $start
@@ -252,7 +275,12 @@ Remove-Variable start, SageStartFolders
             results.DataAdded += delegate(object s, DataAddedEventArgs e) { WriteLine(Convert.ToString(results[e.Index]), null); };
             ps.Streams.Error.DataAdded += delegate(object s, DataAddedEventArgs e) { WriteLine(ErrorText(ps.Streams.Error[e.Index]), errorColor); };
             ps.Streams.Warning.DataAdded += delegate(object s, DataAddedEventArgs e) { WriteLine(Strings.ConsoleWarning + ps.Streams.Warning[e.Index].Message, warningColor); };
-            ps.Streams.Information.DataAdded += delegate(object s, DataAddedEventArgs e) { WriteLine(Convert.ToString(ps.Streams.Information[e.Index].MessageData), null); };
+            ps.Streams.Information.DataAdded += delegate(object s, DataAddedEventArgs e)
+            {
+                InformationRecord info = ps.Streams.Information[e.Index];
+                bool stderr = info.Tags != null && info.Tags.Contains("sage-stderr");
+                WriteLine(Convert.ToString(info.MessageData), stderr ? errorColor : (Color?)null);
+            };
 
             running = ps;
             SetBusy(true);

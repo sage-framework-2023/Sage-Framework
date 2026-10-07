@@ -26,13 +26,15 @@ namespace SageEditor
         public static string ShowTabs, ShowTabsDescription, ShowTabsKeywords;
         public static string AutoReference, AutoReferenceDescription, AutoReferenceKeywords;
         public static string MultiCursor, MultiCursorDescription, MultiCursorKeywords;
+        public static string Icons, IconsDescription, IconsKeywords;
+        public static string Explorer, ExplorerDescription, ExplorerKeywords, ExplorerProperties;
         public static string DefaultTheme;
 
         // Abas
         public static string Close, CloseOthers, CloseToRight, CloseAll;
 
         // Janela Terminal
-        public static string TerminalTitle, TerminalImmediate, TerminalWatch, TerminalConsole, TerminalResults;
+        public static string TerminalTitle, TerminalImmediate, TerminalLocals, TerminalWatch, TerminalConsole, TerminalResults;
         public static string ResultsEmpty, ResultsRow, ResultsRows, ResultsColumn, ResultsColumns;
         public static string ConsoleWarning, ConsoleNoWorkbook;
 
@@ -107,6 +109,15 @@ namespace SageEditor
                 "marcada em Ferramentas > Referências. Arquivos já salvos não são alterados: para não usar o Sage num arquivo, " +
                 "desmarque a referência e salve.";
             AutoReferenceKeywords = "referência referências biblioteca sage framework stringS tipos references library";
+            Explorer = "Explorador Unificado";
+            ExplorerDescription = "A janela Propriedades fica dentro da janela Projeto, embaixo da árvore, numa seção que " +
+                "recolhe e abre com um clique; arraste a faixa da seção para mudar a altura.";
+            ExplorerKeywords = "explorador projeto propriedades seção recolher unificado explorer project properties";
+            ExplorerProperties = "Propriedades";
+            Icons = "Ícones";
+            IconsDescription = "Ícones coloridos (vscode-icons) na janela Projeto e nas abas do código: módulos, classes, " +
+                "formulários, planilhas e as pastas de cada tipo.";
+            IconsKeywords = "ícones icones projeto explorador árvore abas vscode-icons icons explorer tree";
             MultiCursor = "Vários Cursores";
             MultiCursorDescription = "Edita várias linhas ao mesmo tempo, como no VS Code: Alt+Clique acrescenta um cursor, " +
                 "Ctrl+Alt+Seta para Cima/Baixo acrescenta na linha de cima/de baixo, Shift+Alt+arrastar seleciona em coluna " +
@@ -121,6 +132,7 @@ namespace SageEditor
             CloseAll = "Fechar Todas";
             TerminalTitle = "Terminal";
             TerminalImmediate = "Imediata";
+            TerminalLocals = "Variáveis Locais";
             TerminalWatch = "Inspeção de Variáveis";
             TerminalConsole = "Terminal";
             TerminalResults = "Resultado DataFrame";
@@ -167,6 +179,15 @@ namespace SageEditor
                 "checked in Tools > References. Saved files are not changed: to not use Sage in a file, " +
                 "uncheck the reference and save.";
             AutoReferenceKeywords = "reference references library sage framework strings types";
+            Explorer = "Unified Explorer";
+            ExplorerDescription = "The Properties window goes inside the Project window, below the tree, in a section " +
+                "that collapses and expands with a click; drag the section bar to change its height.";
+            ExplorerKeywords = "explorer project properties section collapse unified";
+            ExplorerProperties = "Properties";
+            Icons = "Icons";
+            IconsDescription = "Colored icons (vscode-icons) in the Project window and the code tabs: modules, classes, " +
+                "forms, sheets and a folder for each kind.";
+            IconsKeywords = "icons project explorer tree tabs vscode-icons";
             MultiCursor = "Multiple Cursors";
             MultiCursorDescription = "Edits several lines at once, like VS Code: Alt+Click adds a cursor, " +
                 "Ctrl+Alt+Up/Down adds one on the line above/below, Shift+Alt+drag selects a column " +
@@ -181,6 +202,7 @@ namespace SageEditor
             CloseAll = "Close All";
             TerminalTitle = "Terminal";
             TerminalImmediate = "Immediate";
+            TerminalLocals = "Locals";
             TerminalWatch = "Watches";
             TerminalConsole = "Terminal";
             TerminalResults = "DataFrame Results";

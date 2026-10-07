@@ -10,6 +10,7 @@ namespace SageEditor
 {
     // Janela "Terminal": uma janela acoplável do VBE (Windows.CreateToolWindow) com três abas:
     //   Imediata                a Verificação imediata de verdade, trazida para dentro da aba
+    //   Variáveis Locais        a janela Variáveis locais de verdade, idem
     //   Inspeção de Variáveis   a Inspeção de variáveis de verdade, idem
     //   Terminal                um PowerShell dentro do Excel (PsConsole)
     //   DataFrame Results       o df.Show do VBA, como o Query Results do SQL (ResultsView)
@@ -27,9 +28,10 @@ namespace SageEditor
     {
         public const string HostProgId = "Sage.TerminalHost";
         const string PositionGuid = "{DF6B0202-ED1E-4931-B770-80AF9A506B4D}"; // o VBE guarda a posição por ele
-        public const int TabImmediate = 0, TabWatch = 1, TabConsole = 2, TabResults = 3;
-        const int vbext_wt_Watch = 3, vbext_wt_Immediate = 5;
-        const int ImmediateId = 2554, WatchId = 2556; // Exibir > Verificação imediata / Inspeção de variáveis
+        public const int TabImmediate = 0, TabLocals = 1, TabWatch = 2, TabConsole = 3, TabResults = 4;
+        const int vbext_wt_Watch = 3, vbext_wt_Locals = 4, vbext_wt_Immediate = 5;
+        // Exibir > Verificação imediata / Variáveis locais / Inspeção de variáveis
+        const int ImmediateId = 2554, LocalsId = 2555, WatchId = 2556;
 
         public static dynamic Vbe;
         static object addIn;
@@ -50,7 +52,7 @@ namespace SageEditor
             public Borrowed(int type, int tab) { Type = type; Tab = tab; }
         }
 
-        static readonly Borrowed[] borrowed = { new Borrowed(vbext_wt_Immediate, TabImmediate), new Borrowed(vbext_wt_Watch, TabWatch) };
+        static readonly Borrowed[] borrowed = { new Borrowed(vbext_wt_Immediate, TabImmediate), new Borrowed(vbext_wt_Locals, TabLocals), new Borrowed(vbext_wt_Watch, TabWatch) };
         static readonly Native.SubclassProc borrowedProc = BorrowedProc;
         static readonly UIntPtr SubclassId = (UIntPtr)0x5A72;
 
@@ -287,9 +289,9 @@ namespace SageEditor
         // barras): abrem a aba, no lugar da janela solta do VBE
         static void InterceptMenus()
         {
-            foreach (int id in new int[] { ImmediateId, WatchId })
+            foreach (int id in new int[] { ImmediateId, LocalsId, WatchId })
             {
-                int tab = id == ImmediateId ? TabImmediate : TabWatch;
+                int tab = id == ImmediateId ? TabImmediate : id == LocalsId ? TabLocals : TabWatch;
                 dynamic controls = Vbe.CommandBars.FindControls(Type.Missing, id);
                 if (controls == null) continue;
                 foreach (dynamic control in controls)
@@ -587,7 +589,7 @@ namespace SageEditor
         public event Action<int> TabChanged;
         public int ActiveTab { get; private set; }
 
-        readonly Rectangle[] tabs = new Rectangle[4];
+        readonly Rectangle[] tabs = new Rectangle[5];
         int hot = -1;
         float scale = 1;
 
@@ -605,7 +607,7 @@ namespace SageEditor
             ApplyTheme();
         }
 
-        string[] Titles { get { return new string[] { Strings.TerminalImmediate, Strings.TerminalWatch, Strings.TerminalConsole, Strings.TerminalResults }; } }
+        string[] Titles { get { return new string[] { Strings.TerminalImmediate, Strings.TerminalLocals, Strings.TerminalWatch, Strings.TerminalConsole, Strings.TerminalResults }; } }
 
         int StripHeight { get { return (int)Math.Round(26 * scale); } }
 

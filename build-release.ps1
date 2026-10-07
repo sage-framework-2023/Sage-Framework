@@ -46,6 +46,9 @@ Copy-Item (Join-Path $root 'SageTypes\README.md') (Join-Path $docs 'SageTypes.md
 Copy-Item (Join-Path $root 'SageShortcuts\keybindings.txt') (Join-Path $docs 'SageShortcuts - atalhos.txt')
 Copy-Item (Join-Path $root 'SageTypes\THIRD-PARTY-NOTICES.txt') $docs
 Copy-Item (Join-Path $root 'SageTypes\THIRD-PARTY-NOTICES.txt') (Join-Path $stage 'Types')
+# Ícones do vscode-icons no SageEditor (MIT)
+Copy-Item (Join-Path $root 'SageEditor\THIRD-PARTY-NOTICES.txt') (Join-Path $docs 'SageEditor - THIRD-PARTY-NOTICES.txt')
+Copy-Item (Join-Path $root 'SageEditor\THIRD-PARTY-NOTICES.txt') (Join-Path $stage 'Editor')
 
 # Zip embutido
 Add-Type -AssemblyName System.IO.Compression.FileSystem

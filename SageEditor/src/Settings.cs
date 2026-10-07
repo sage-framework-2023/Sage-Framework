@@ -19,6 +19,8 @@ namespace SageEditor
         public const string EditorTabsKey = "workbench.editor.showTabs";
         public const string AutoReferenceKey = "sage.autoReference";
         public const string MultiCursorKey = "sage.multiCursor";
+        public const string IconsKey = "sage.icons";
+        public const string ExplorerKey = "sage.explorer";
         public const string LocaleKey = "locale"; // opcional: força o idioma ("pt-BR", "en"); senão, o do Office
 
         static readonly object sync = new object();
@@ -49,6 +51,20 @@ namespace SageEditor
         {
             get { return !string.Equals(Get(MultiCursorKey, "on"), "off", StringComparison.OrdinalIgnoreCase); }
             set { Set(MultiCursorKey, value ? "on" : "off"); }
+        }
+
+        // Ícones do vscode-icons na janela Projeto e nas abas: "on" (padrão) ou "off"
+        public static bool Icons
+        {
+            get { return !string.Equals(Get(IconsKey, "on"), "off", StringComparison.OrdinalIgnoreCase); }
+            set { Set(IconsKey, value ? "on" : "off"); }
+        }
+
+        // Propriedades dentro da janela Projeto, numa seção que recolhe: "on" (padrão) ou "off"
+        public static bool UnifiedExplorer
+        {
+            get { return !string.Equals(Get(ExplorerKey, "on"), "off", StringComparison.OrdinalIgnoreCase); }
+            set { Set(ExplorerKey, value ? "on" : "off"); }
         }
 
         // "multiple" (padrão) ou "none", como no VS Code
