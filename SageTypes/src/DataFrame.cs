@@ -198,8 +198,10 @@ namespace SageTypes
         // Carregar
         // ------------------------------------------------------------------
 
+        // Os Read aceitam caminho relativo: parte da pasta da pasta de trabalho ativa (Excel.ResolvePath)
         public DataFrame ReadCsv(string Path, object Header, object Delimiter, object DecimalSeparator, object Encoding)
         {
+            Path = Excel.ResolvePath(Path);
             List<string> options = new List<string> { Engine.Literal(Path), "header = " + (Flag(Header, true) ? "true" : "false") };
             if (!Interop.IsMissing(Delimiter)) options.Add("delim = " + Engine.Literal(Interop.Text(Delimiter)));
             if (!Interop.IsMissing(DecimalSeparator)) options.Add("decimal_separator = " + Engine.Literal(Interop.Text(DecimalSeparator)));
@@ -209,12 +211,13 @@ namespace SageTypes
 
         public DataFrame ReadParquet(string Path)
         {
-            return Materialize("SELECT * FROM read_parquet(" + Engine.Literal(Path) + ")");
+            return Materialize("SELECT * FROM read_parquet(" + Engine.Literal(Excel.ResolvePath(Path)) + ")");
         }
 
         // Pelo Excel: abre o arquivo só para leitura, lê a área usada da aba e fecha
         public DataFrame ReadExcel(string Path, object Sheet, object Header)
         {
+            Path = Excel.ResolvePath(Path); // antes de abrir: abrir muda a pasta de trabalho ativa
             dynamic app = Excel.Application(null);
             dynamic book = app.Workbooks.Open(Path, 0, true);
             try
@@ -514,7 +517,7 @@ namespace SageTypes
 
         internal static string Display(object value, string type)
         {
-            if (value == null) return IsNumeric(type) ? "NaN" : type == "DATE" || type.StartsWith("TIMESTAMP") ? "NaT" : "None";
+            if (value == null) return "Empty"; // o vazio do VBA, de qualquer tipo de coluna
             if (value is DateTime)
             {
                 DateTime d = (DateTime)value;
@@ -533,7 +536,12 @@ namespace SageTypes
         {
             if (sql == null) throw Empty();
             EnsureTable();
-            DataFrameView.ShowDialog(this, Interop.IsMissing(Title) ? "DataFrame" : Interop.Text(Title));
+            string title = Interop.IsMissing(Title) ? "" : Interop.Text(Title);
+            // Na aba "DataFrame Results" da janela Terminal do editor do VBA (sem título, a
+            // barra de baixo fica só com colunas e linhas); sem o SageEditor carregado, numa
+            // janela própria
+            if (DataFrameView.ShowInEditor(this, title)) return;
+            DataFrameView.ShowDialog(this, title.Length == 0 ? "DataFrame" : title);
         }
 
         // Para a janela: as colunas e um intervalo de linhas (pela posição na tabela própria)
@@ -1454,7 +1462,42 @@ namespace SageTypes
         [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern IntPtr FindWindowEx(IntPtr parent, IntPtr after, string cls, string title);
         [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint pid);
 
+        // Caminho para os Read: completo (C:\..., \\servidor\...) ou endereço (https://, s3://)
+        // fica como está; relativo ("vendas.csv", "dados\vendas.csv") parte da pasta da pasta de
+        // trabalho ativa, como o Python parte da pasta atual. Pasta de trabalho não salva (ou fora
+        // do Excel): a pasta atual do processo.
+        public static string ResolvePath(string path)
+        {
+            if (string.IsNullOrEmpty(path) || path.Contains("://") || System.IO.Path.IsPathRooted(path)) return path;
+            return System.IO.Path.Combine(LocalFolder(), path);
+        }
+
+        static string LocalFolder()
+        {
+            try
+            {
+                object app = InProcess();
+                if (app != null)
+                {
+                    dynamic book = ((dynamic)app).ActiveWorkbook;
+                    string folder = book == null ? "" : (string)book.Path;
+                    if (!string.IsNullOrEmpty(folder) && !folder.Contains("://")) return folder;
+                }
+            }
+            catch (Exception) { } // Excel ocupado (ex.: editando uma célula): a pasta atual
+            return Environment.CurrentDirectory;
+        }
+
         public static object Application(object fallback)
+        {
+            object app = InProcess();
+            if (app != null) return app;
+            if (fallback != null) return fallback;
+            return Marshal.GetActiveObject("Excel.Application");
+        }
+
+        // O Excel deste processo (null fora do Excel)
+        static object InProcess()
         {
             uint me = (uint)System.Diagnostics.Process.GetCurrentProcess().Id;
             for (IntPtr main = FindWindowEx(IntPtr.Zero, IntPtr.Zero, "XLMAIN", null); main != IntPtr.Zero; main = FindWindowEx(IntPtr.Zero, main, "XLMAIN", null))
@@ -1469,8 +1512,7 @@ namespace SageTypes
                 object window;
                 if (AccessibleObjectFromWindow(sheet, 0xFFFFFFF0, ref iid, out window) == 0 && window != null) return ((dynamic)window).Application;
             }
-            if (fallback != null) return fallback;
-            return Marshal.GetActiveObject("Excel.Application");
+            return null;
         }
     }
 }

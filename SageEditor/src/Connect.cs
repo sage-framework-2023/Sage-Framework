@@ -7,6 +7,7 @@
 //   - Abas das janelas abertas no topo da área de código (EditorTabs)
 //   - Vários cursores na janela de código (MultiCursor)
 //   - Comando Clear na Verificação imediata (ImmediateCommands)
+//   - Janela Terminal: Imediata, Inspeção de Variáveis e PowerShell em abas (TerminalWindow)
 
 using System;
 using System.Runtime.InteropServices;
@@ -31,6 +32,7 @@ namespace SageEditor
         const int ext_cm_Startup = 1;
 
         dynamic vbe;
+        object addIn;
         Control ui; // criado na thread do Excel, para voltar a ela com BeginInvoke
         SageMenu menu;
         Timer lineTimer; // números de linha: acompanha a linha atual e a rolagem
@@ -41,6 +43,7 @@ namespace SageEditor
             try
             {
                 vbe = application;
+                addIn = addInInst;
                 ((dynamic)addInInst).Object = this;
                 ui = new Control();
                 ui.CreateControl();
@@ -80,6 +83,8 @@ namespace SageEditor
             MultiCursor.Start(main);
             ImmediateCommands.Vbe = vbe;
             ImmediateCommands.Start(main);
+            TerminalWindow.Vbe = vbe;
+            TerminalWindow.Start(main, addIn);
 
             menu = new SageMenu((object)vbe, new Action(OpenSettings));
             try { Syntax.Scan(vbe); }
@@ -92,6 +97,8 @@ namespace SageEditor
                 try { LineNumbers.Poll(); }
                 catch (Exception) { } // VBE ocupado (ex.: executando código)
                 try { EditorTabs.Poll(); ThemeEngine.PollForms(); MultiCursor.Poll(); }
+                catch (Exception ex) { Log.Error(ex); }
+                try { TerminalWindow.Poll(); }
                 catch (Exception ex) { Log.Error(ex); }
                 try { AutoReference.Poll(vbe); ImmediateCommands.Poll(); }
                 catch (Exception) { } // VBE ocupado; tenta no próximo ciclo
@@ -111,6 +118,9 @@ namespace SageEditor
                 MultiCursor.Shutdown();
                 MultiCursor.Vbe = null;
                 ImmediateCommands.Shutdown();
+                TerminalWindow.Shutdown();
+                TerminalWindow.Vbe = null;
+                addIn = null;
                 AutoReference.Shutdown();
                 ImmediateCommands.Vbe = null;
                 EditorTabs.Shutdown();
@@ -141,6 +151,38 @@ namespace SageEditor
 
         public string Diagnostics() { return ThemeEngine.Diagnostics(); }
 
+        // Janela Terminal (o Ctrl+J e o Ctrl+I do SageShortcuts chamam por aqui).
+        // Abas: 0 Imediata, 1 Inspeção de Variáveis, 2 Terminal.
+        public bool ToggleTerminal()
+        {
+            return OnUi(delegate { TerminalWindow.Toggle(); });
+        }
+
+        public bool ToggleTerminalTab(int tab)
+        {
+            return OnUi(delegate { TerminalWindow.ToggleTab(tab); });
+        }
+
+        public bool ShowTerminal(int tab)
+        {
+            return OnUi(delegate { TerminalWindow.Show(tab); });
+        }
+
+        // false: a janela não existe (ex.: controle não registrado); quem chamou usa o VBE
+        bool OnUi(MethodInvoker action)
+        {
+            Control target = ui;
+            if (target == null || !TerminalWindow.Ready) return false;
+            MethodInvoker safe = delegate
+            {
+                try { action(); }
+                catch (Exception ex) { Log.Error(ex); }
+            };
+            if (target.InvokeRequired) target.Invoke(safe);
+            else safe();
+            return true;
+        }
+
         public string SetTheme(string name)
         {
             Theme theme = Theme.Find(name);
@@ -159,6 +201,7 @@ namespace SageEditor
         {
             ThemeEngine.Apply(theme);
             EditorTabs.Refresh(); // o tema padrão não passa pelo ThemeEngine
+            TerminalWindow.ApplyTheme();
         }
 
         // Chamado pela thread da tela de Configurações

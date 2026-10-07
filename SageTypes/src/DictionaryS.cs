@@ -308,7 +308,7 @@ namespace SageTypes
         public static readonly KeyComparer Instance = new KeyComparer();
         public static readonly object Empty = new EmptyKey(); // chave Empty/Nothing
 
-        sealed class EmptyKey { public override string ToString() { return "None"; } }
+        sealed class EmptyKey { public override string ToString() { return "Empty"; } }
 
         static bool IsNumber(object o) { return PyOrder.IsNumber(o); }
 

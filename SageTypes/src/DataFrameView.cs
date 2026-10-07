@@ -23,6 +23,36 @@ namespace SageTypes
             using (DataFrameView view = new DataFrameView(frame, title)) view.ShowDialog();
         }
 
+        // A aba "DataFrame Results" da janela Terminal do SageEditor. Os dois rodam no mesmo
+        // processo (e AppDomain) do Excel, mas um não referencia o outro: o SageEditor publica
+        // no AppDomain uma função só com tipos do .NET, que recebe o título, os nomes e os tipos
+        // das colunas, a quantidade de linhas e uma função que busca um trecho de linhas já
+        // formatadas (null: a célula é NULL, e a aba a mostra como Empty, destacada). A função
+        // guarda o DataFrame, e com ele a tabela no DuckDB, enquanto a aba o mostrar.
+        public const string EditorSlot = "Sage.DataFrameResults";
+
+        public static bool ShowInEditor(DataFrame frame, string title)
+        {
+            Func<string, string[], string[], long, Func<long, int, string[][]>, bool> show =
+                AppDomain.CurrentDomain.GetData(EditorSlot) as Func<string, string[], string[], long, Func<long, int, string[][]>, bool>;
+            if (show == null) return false;
+            List<string> types = frame.ColumnTypes;
+            Func<long, int, string[][]> fetch = delegate(long start, int count)
+            {
+                List<object[]> rows = frame.Rows(start, count);
+                string[][] text = new string[rows.Count][];
+                for (int r = 0; r < rows.Count; r++)
+                {
+                    text[r] = new string[types.Count];
+                    for (int c = 0; c < types.Count; c++)
+                        text[r][c] = rows[r][c] == null ? null : DataFrame.Display(rows[r][c], types[c]);
+                }
+                return text;
+            };
+            try { return show(title, frame.ColumnNames.ToArray(), types.ToArray(), frame.Count, fetch); }
+            catch (Exception) { return false; } // SageEditor de outra versão ou descarregado: a janela própria
+        }
+
         DataFrameView(DataFrame frame, string title)
         {
             this.frame = frame;

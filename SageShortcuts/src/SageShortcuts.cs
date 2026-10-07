@@ -302,6 +302,7 @@ namespace SageShortcuts
                 case "copylinesdown": { Binding down = new Binding(); down.Kind = ActionKind.CopyLinesDown; return down; }
                 case "movelinesup": { Binding mu = new Binding(); mu.Kind = ActionKind.MoveLinesUp; return mu; }
                 case "movelinesdown": { Binding md = new Binding(); md.Kind = ActionKind.MoveLinesDown; return md; }
+                case "toggleterminal":
                 case "toggleimmediate": { Binding ti = new Binding(); ti.Kind = ActionKind.ToggleImmediate; return ti; }
                 case "togglewatch": { Binding tw = new Binding(); tw.Kind = ActionKind.ToggleWatch; return tw; }
                 case "togglelocals": { Binding tl = new Binding(); tl.Kind = ActionKind.ToggleLocals; return tl; }
@@ -656,10 +657,11 @@ namespace SageShortcuts
                     MoveLines(app.VBE.ActiveCodePane, binding.Kind == ActionKind.MoveLinesDown);
                     break;
                 case ActionKind.ToggleImmediate:
-                    ToggleWindow(app.VBE, vbext_wt_Immediate, 2554);
+                    // A janela Terminal do SageEditor (a Verificação imediata fica dentro dela)
+                    if (!Terminal(app.VBE, -1)) ToggleWindow(app.VBE, vbext_wt_Immediate, 2554);
                     break;
                 case ActionKind.ToggleWatch:
-                    ToggleWindow(app.VBE, vbext_wt_Watch, 2556);
+                    if (!Terminal(app.VBE, 1)) ToggleWindow(app.VBE, vbext_wt_Watch, 2556);
                     break;
                 case ActionKind.ToggleLocals:
                     ToggleWindow(app.VBE, vbext_wt_Locals, 2555);
@@ -668,6 +670,22 @@ namespace SageShortcuts
         }
 
         const int vbext_wt_Watch = 3, vbext_wt_Locals = 4, vbext_wt_Immediate = 5;
+
+        // Abre ou fecha a janela Terminal do SageEditor (tab -1: a janela; senão a aba: 0 Imediata,
+        // 1 Inspeção de Variáveis, 2 Terminal). false: o SageEditor não está carregado ou não
+        // tem a janela, e quem chamou usa a janela do VBE.
+        static bool Terminal(dynamic vbe, int tab)
+        {
+            try
+            {
+                dynamic addin = vbe.Addins.Item("Sage.Editor");
+                if (!(bool)addin.Connect) return false;
+                dynamic editor = addin.Object;
+                if (editor == null) return false;
+                return tab < 0 ? (bool)editor.ToggleTerminal() : (bool)editor.ToggleTerminalTab(tab);
+            }
+            catch (Exception) { return false; } // versão antiga do SageEditor, sem a janela
+        }
 
         // Fecha a janela (Verificação imediata, Inspeção de variáveis, Variáveis locais) se
         // estiver aberta; senão abre e põe o foco nela, como Ctrl+J no VS Code (que alterna o

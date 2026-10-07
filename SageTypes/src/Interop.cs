@@ -154,7 +154,7 @@ namespace SageTypes
 
         static void Repr(object value, StringBuilder sb, HashSet<object> open)
         {
-            if (value == null || value == KeyComparer.Empty) { sb.Append("None"); return; }
+            if (value == null || value == KeyComparer.Empty) { sb.Append("Empty"); return; } // o vazio do VBA
             if (value is DBNull) { sb.Append("Null"); return; }
             string s = value as string;
             if (s != null) { Quote(s, sb); return; }

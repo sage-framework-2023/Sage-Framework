@@ -31,6 +31,11 @@ namespace SageEditor
         // Abas
         public static string Close, CloseOthers, CloseToRight, CloseAll;
 
+        // Janela Terminal
+        public static string TerminalTitle, TerminalImmediate, TerminalWatch, TerminalConsole, TerminalResults;
+        public static string ResultsEmpty, ResultsRow, ResultsRows, ResultsColumn, ResultsColumns;
+        public static string ConsoleWarning, ConsoleNoWorkbook;
+
         public static void Load()
         {
             Language = Detect();
@@ -114,6 +119,18 @@ namespace SageEditor
             CloseOthers = "Fechar Outras";
             CloseToRight = "Fechar à Direita";
             CloseAll = "Fechar Todas";
+            TerminalTitle = "Terminal";
+            TerminalImmediate = "Imediata";
+            TerminalWatch = "Inspeção de Variáveis";
+            TerminalConsole = "Terminal";
+            TerminalResults = "Resultado DataFrame";
+            ResultsEmpty = "Use df.Show no VBA para ver um DataFrame aqui.";
+            ResultsRow = "{0:N0} linha";
+            ResultsRows = "{0:N0} linhas";
+            ResultsColumn = "{0:N0} coluna";
+            ResultsColumns = "{0:N0} colunas";
+            ConsoleWarning = "AVISO: ";
+            ConsoleNoWorkbook = "Nenhuma pasta de trabalho aberta no Excel.";
         }
 
         static void English()
@@ -162,6 +179,18 @@ namespace SageEditor
             CloseOthers = "Close Others";
             CloseToRight = "Close to the Right";
             CloseAll = "Close All";
+            TerminalTitle = "Terminal";
+            TerminalImmediate = "Immediate";
+            TerminalWatch = "Watches";
+            TerminalConsole = "Terminal";
+            TerminalResults = "DataFrame Results";
+            ResultsEmpty = "Use df.Show in VBA to see a DataFrame here.";
+            ResultsRow = "{0:N0} row";
+            ResultsRows = "{0:N0} rows";
+            ResultsColumn = "{0:N0} column";
+            ResultsColumns = "{0:N0} columns";
+            ConsoleWarning = "WARNING: ";
+            ConsoleNoWorkbook = "No workbook is open in Excel.";
         }
     }
 }

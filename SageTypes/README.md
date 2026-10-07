@@ -169,9 +169,9 @@ Do Until df.EOF
 Loop
 ```
 
-**Carregar:** `ReadCsv(Caminho, [Cabeçalho], [Delimitador], [SeparadorDecimal], [Codificação])`, `ReadParquet`, `ReadExcel(Caminho, [Planilha], [Cabeçalho])`, `FromRange`, `FromArray` (2D ou array de linhas), `FromRecords` (lista de `DictionaryS`), `Sql("SELECT ... FROM {0} JOIN {1} ...", outroDf)`.
+**Carregar:** `ReadCsv(Caminho, [Cabeçalho], [Delimitador], [SeparadorDecimal], [Codificação])`, `ReadParquet`, `ReadExcel(Caminho, [Planilha], [Cabeçalho])`, `FromRange`, `FromArray` (2D ou array de linhas), `FromRecords` (lista de `DictionaryS`), `Sql("SELECT ... FROM {0} JOIN {1} ...", outroDf)`. Os `Read` aceitam caminho relativo (`ReadCsv "vendas.csv"`, `"dados\vendas.csv"`), a partir da pasta da pasta de trabalho ativa (se ela não foi salva, da pasta atual do Excel).
 
-**Gravar e ver:** `ToCsv`, `ToParquet`, `ToExcel` (formato pela extensão), `ToSql` (banco de dados, pelo `SqlEngine`), `ToRange`, `ToArray`, `ToString` / `Debug.Print df`, `Show` (janela com grade, lida aos poucos: abre na hora mesmo com milhões de linhas).
+**Gravar e ver:** `ToCsv`, `ToParquet`, `ToExcel` (formato pela extensão), `ToSql` (banco de dados, pelo `SqlEngine`), `ToRange`, `ToArray`, `ToString` / `Debug.Print df`, `Show` (mostra o DataFrame na aba *Resultado DataFrame* da janela Terminal do editor, numa grade lida aos poucos: abre na hora mesmo com milhões de linhas, e a macro continua; sem o SageEditor, abre uma janela própria).
 
 **Explorar:** `Count`, `Columns`, `DTypes`, `Shape`, `Info`, `Describe`, `Head`, `Tail`, `Slice`, `Sample`, `Col`, `Unique`, `ValueCounts`, `Sum`, `Mean`, `Min`, `Max`, `Median`, `Std`, `NUnique`.
 
@@ -286,6 +286,17 @@ Set r = Requests.Post("https://httpbin.org/post", Json:=dados, _
 - **Downloads:** `r.Save "C:\arquivo.pdf"`.
 - Usa TLS 1.2/1.3 e o proxy do Windows (com o usuário logado), como o navegador. A chamada é síncrona: o Excel espera a resposta.
 
+## Funções globais: GetUser e Sleep
+
+Como o `Json` e o `Requests`, usadas sem `Dim` (ou com o prefixo `Sage.`):
+
+| Python | Sage |
+|---|---|
+| `getpass.getuser()` | `GetUser()`: o usuário logado no Windows, pela API do sistema (não lê a variável `USERNAME`). `GetUser(True)` devolve também o domínio: `EMPRESA\rodrigo` (fora de domínio, o nome do computador). Devolve `StringS` |
+| `time.sleep(1.5)` | `Sleep 1.5`: espera em segundos, com frações. O Excel continua redesenhando a tela e não aparece como "Não respondendo"; cliques e teclas esperam o fim da macro, como em qualquer macro ocupada. Valor negativo: `ValueError` (erro 5) |
+
+Um `Declare ... Sleep Lib "kernel32"` no próprio módulo tem prioridade sobre o `Sleep` do Sage.
+
 ## SqlEngine
 
 Conexão a um banco de dados, como o `Engine` do SQLAlchemy que o pandas usa em `pd.read_sql(consulta, engine)` e `df.to_sql("tabela", engine)`. As consultas vão no SQL do próprio banco; os parâmetros, com `?`, num `Array`.
@@ -346,5 +357,5 @@ Limitações do exportador do .NET (`TypeLibConverter`) e como contorná-las:
 - **Propriedade com parâmetros** (como `At(linha, coluna)`): o .NET só exporta o indexador. Declare um método `GetNome(...)` com `[PropertyGet("Nome")]`; no VBA ele é lido como `Nome(...)`.
 - **`ParamArray`:** o `params` do C# não é aceito pelo VBA; use parâmetros `[Optional]`.
 - **Membros de enum:** o .NET os exporta como `Enum_Membro` (`sgArrayTypes_sgTuple`); o `install.ps1` tira o prefixo, e o VBA vê `sgTuple`.
-- **Membros globais** (`Json`, `Requests`): ficam na classe `Globals`, com `[AppObject]`; o `install.ps1` a marca como *app object* no `.tlb`, e o VBA a cria sozinho.
+- **Membros globais** (`Json`, `Requests`, `GetUser`, `Sleep`): ficam na classe `Globals`, com `[AppObject]`; o `install.ps1` a marca como *app object* no `.tlb`, e o VBA a cria sozinho.
 - **Nome igual a algo da biblioteca VBA** (como `Strings`): o VBA acha o dele primeiro, por isso o prefixo `Sage.`.

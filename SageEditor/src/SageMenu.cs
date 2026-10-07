@@ -74,12 +74,17 @@ namespace SageEditor
     public sealed class ButtonClick : ICommandBarButtonEvents, IDisposable
     {
         readonly Action action;
+        readonly bool cancel;
         IConnectionPoint point;
         int cookie;
 
-        internal ButtonClick(object button, Action action)
+        internal ButtonClick(object button, Action action) : this(button, action, false) { }
+
+        // cancel: o comando original do VBE não roda (o Sage o substitui)
+        internal ButtonClick(object button, Action action, bool cancel)
         {
             this.action = action;
+            this.cancel = cancel;
             Guid iid = typeof(ICommandBarButtonEvents).GUID;
             ((IConnectionPointContainer)button).FindConnectionPoint(ref iid, out point);
             point.Advise(this, out cookie);
@@ -89,6 +94,7 @@ namespace SageEditor
         {
             try { action(); }
             catch (Exception ex) { Log.Error(ex); }
+            if (cancel) cancelDefault = true;
         }
 
         public void Dispose()
