@@ -151,6 +151,10 @@ namespace SageEditor
         [DllImport("user32.dll")]
         public static extern bool IsWindow(IntPtr hwnd);
         [DllImport("user32.dll")]
+        public static extern IntPtr GetWindowLongPtr(IntPtr hwnd, int index);
+        [DllImport("user32.dll")]
+        public static extern IntPtr SetWindowLongPtr(IntPtr hwnd, int index, IntPtr value);
+        [DllImport("user32.dll")]
         public static extern bool IsWindowVisible(IntPtr hwnd);
         [DllImport("user32.dll")]
         public static extern bool InvalidateRect(IntPtr hwnd, IntPtr rect, bool erase);

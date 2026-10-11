@@ -362,7 +362,7 @@ Private Sub gridVendas_DblClick()
 End Sub
 ```
 
-**Paginação automática** (`AutoPaging`, padrão `True`): a grade calcula quantas linhas cabem na altura do controle. Se todas couberem, mostra todas; senão, mostra uma página por vez, com a barra *◀ ▶ Página 1 de N · linhas 1–20 de 1.234* embaixo, e refaz a conta quando o controle muda de tamanho. Com `AutoPaging = False`, a grade rola.
+**Paginação automática** (`AutoPaging`, padrão `True`): a grade calcula quantas linhas cabem na altura do controle. Se todas couberem, mostra todas; senão, mostra uma página por vez, com a barra *linhas 1–20 de 1.234  ◀ Página 1 de 62 ▶* embaixo, à direita, e refaz a conta quando o controle muda de tamanho. Com `AutoPaging = False`, a grade rola.
 
 | Membro | |
 |---|---|
@@ -375,7 +375,7 @@ End Sub
 | `ShowIndex`, `FontName`, `FontSize`, `BackColor`, `ForeColor`, `BorderColor`, `HeaderBackColor`, `SelectionColor` | Aparência (`SelectionColor`: a cor da seleção, padrão `RGB(204, 228, 247)`; sem o foco, a mesma cor acinzentada) |
 | Eventos | `Click`, `DblClick`, `SelChange`, `PageChange` |
 
-**Seleção**, como no `st.dataframe` do Streamlit: clique numa célula (a célula ativa fica com contorno azul); arraste ou Shift+clique para um retângulo (o Shift+clique vale entre páginas); clique no cabeçalho para a coluna inteira e no índice para a linha inteira (com Shift, estende). Teclado: setas movem a célula ativa e Shift+setas estendem; Ctrl+setas vão à borda; Home/End, à primeira/última coluna; Ctrl+Home/End, à primeira/última célula; Page Up/Down, uma página; Ctrl+A, tudo. **Ctrl+C** copia a seleção separada por tabulações (cola em planilhas), com os `ColumnFormats`; NULL vira vazio; seleções grandes (uma coluna inteira) são lidas do DuckDB em blocos. Tab, Enter e Esc passam ao form.
+**Seleção**: clique numa célula (a célula ativa fica com contorno azul); arraste ou Shift+clique para um retângulo (o Shift+clique vale entre páginas); clique no cabeçalho para a coluna inteira e no índice para a linha inteira (com Shift, estende). Teclado: setas movem a célula ativa e Shift+setas estendem; Ctrl+setas vão à borda; Home/End, à primeira/última coluna; Ctrl+Home/End, à primeira/última célula; Page Up/Down, uma página; Ctrl+A, tudo. **Ctrl+C** copia a seleção separada por tabulações (cola em planilhas), com os `ColumnFormats`; NULL vira vazio; seleções grandes (uma coluna inteira) são lidas do DuckDB em blocos. Tab, Enter e Esc passam ao form.
 
 Valores nulos aparecem como **Vazio** (português) ou **Empty** (outros idiomas), em roxo; números alinhados à direita.
 

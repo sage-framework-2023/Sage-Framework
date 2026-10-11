@@ -16,6 +16,10 @@ namespace SageEditor
     // meio fecha; o botão direito abre o menu (Fechar, Fechar Outras...). A lista vem dos filhos do MDIClient (Win32,
     // sem COM), então funciona também com o VBA ocupado. Independe do ThemeEngine:
     // funciona com o tema Padrão do VBE.
+    //
+    // Com as abas, as janelas ocupam a área de código inteira, sem barra de título e sem os botões
+    // nativos de minimizar, restaurar e fechar (Fill): as abas trocam e fecham as janelas. Sem as
+    // abas, a moldura volta.
     static class EditorTabs
     {
         sealed class Tab
@@ -100,6 +104,7 @@ namespace SageEditor
         {
             if (menu != null) { menu.Dispose(); menu = null; }
             if (mdi == IntPtr.Zero) return;
+            RestoreFrames();
             IntPtr h = mdi;
             mdi = IntPtr.Zero;
             Native.RemoveWindowSubclass(h, subclassProc, SubclassId);
@@ -110,8 +115,9 @@ namespace SageEditor
         public static void Poll()
         {
             Attach();
-            if (!Shown) return;
+            if (!Shown) { RestoreFrames(); return; }
             string sig = Collect();
+            Fill();
             if (sig != signature)
             {
                 signature = sig;
@@ -184,6 +190,14 @@ namespace SageEditor
                             return result;
                         }
 
+                        case WM_SIZE:
+                        {
+                            // As janelas acompanham a área de código na hora, sem esperar a verificação
+                            IntPtr result = Native.DefSubclassProc(hwnd, msg, wParam, lParam);
+                            Fill();
+                            return result;
+                        }
+
                         case WM_NCHITTEST:
                             if (InStrip(lParam)) return (IntPtr)HTBORDER;
                             break;
@@ -238,6 +252,74 @@ namespace SageEditor
             }
             catch (Exception ex) { Log.Error(ex); }
             return Native.DefSubclassProc(hwnd, msg, wParam, lParam);
+        }
+
+        // ------------------------------------------------------------------
+        // Janelas ocupando a área toda, sem os botões nativos
+        // ------------------------------------------------------------------
+
+        // O "maximizar" do MDI põe os botões de minimizar, restaurar e fechar da janela na barra de
+        // menus do VBE (que é uma CommandBar do Office e não olha o estilo da janela). Então a janela
+        // fica restaurada, sem barra de título e sem borda, do tamanho da área de código: parece
+        // maximizada e não tem botões. O estilo original volta quando as abas são desligadas.
+        const long WS_CAPTION = 0xC00000, WS_THICKFRAME = 0x40000, WS_SYSMENU = 0x80000,
+            WS_MINIMIZEBOX = 0x20000, WS_MAXIMIZEBOX = 0x10000, WS_MAXIMIZE = 0x1000000, WS_MINIMIZE = 0x20000000;
+        const long Frame = WS_CAPTION | WS_THICKFRAME | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX;
+        const long WS_EX_WINDOWEDGE = 0x100, WS_EX_CLIENTEDGE = 0x200;
+        const int GWL_STYLE = -16, GWL_EXSTYLE = -20;
+        static readonly Dictionary<IntPtr, long[]> original = new Dictionary<IntPtr, long[]>(); // estilo e estilo estendido
+
+        static void Fill()
+        {
+            foreach (IntPtr h in new List<IntPtr>(original.Keys))
+                if (!Native.IsWindow(h)) original.Remove(h);
+
+            // A janela ativa pode ser uma que o VBE só escondeu ao fechar: ativa a última aba
+            if (tabs.Count > 0 && !tabs.Exists(t => t.Hwnd == active))
+            {
+                active = order[order.Count - 1];
+                Native.SendMessage(mdi, WM_MDIACTIVATE, active, IntPtr.Zero);
+            }
+
+            Native.RECT c;
+            Native.GetClientRect(mdi, out c);
+            foreach (Tab t in tabs)
+            {
+                IntPtr h = t.Hwnd;
+                long style = Native.GetWindowLongPtr(h, GWL_STYLE).ToInt64();
+                if ((style & (WS_MAXIMIZE | WS_MINIMIZE)) != 0)
+                {
+                    Native.SendMessage(mdi, WM_MDIRESTORE, h, IntPtr.Zero); // sem os botões na barra de menus
+                    style = Native.GetWindowLongPtr(h, GWL_STYLE).ToInt64();
+                }
+                long ex = Native.GetWindowLongPtr(h, GWL_EXSTYLE).ToInt64();
+                bool restyle = (style & Frame) != 0 || (ex & (WS_EX_WINDOWEDGE | WS_EX_CLIENTEDGE)) != 0;
+                if (restyle)
+                {
+                    if (!original.ContainsKey(h)) original[h] = new[] { style, ex };
+                    Native.SetWindowLongPtr(h, GWL_STYLE, new IntPtr(style & ~Frame));
+                    Native.SetWindowLongPtr(h, GWL_EXSTYLE, new IntPtr(ex & ~(WS_EX_WINDOWEDGE | WS_EX_CLIENTEDGE)));
+                }
+                Native.RECT r;
+                Native.GetWindowRect(h, out r);
+                POINT o = new POINT();
+                ClientToScreen(mdi, ref o);
+                if (restyle || r.Left != o.X || r.Top != o.Y || r.Right - r.Left != c.Right || r.Bottom - r.Top != c.Bottom)
+                    SetWindowPos(h, IntPtr.Zero, 0, 0, c.Right, c.Bottom, SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+            }
+        }
+
+        static void RestoreFrames()
+        {
+            if (original.Count == 0) return;
+            foreach (KeyValuePair<IntPtr, long[]> p in original)
+            {
+                if (!Native.IsWindow(p.Key)) continue;
+                Native.SetWindowLongPtr(p.Key, GWL_STYLE, new IntPtr(p.Value[0] & ~(WS_MAXIMIZE | WS_MINIMIZE)));
+                Native.SetWindowLongPtr(p.Key, GWL_EXSTYLE, new IntPtr(p.Value[1]));
+                SetWindowPos(p.Key, IntPtr.Zero, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+            }
+            original.Clear();
         }
 
         static void TrackLeave()
