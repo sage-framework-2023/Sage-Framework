@@ -25,7 +25,7 @@ namespace SageEditor
     // colidiria com o da biblioteca.
     static class AutoReference
     {
-        const string LibId = "{3F8E2A61-7C4B-4E9D-A215-6B0C9D8E7F14}"; // SageTypes\src\AssemblyInfo.cs
+        internal const string LibId = "{3F8E2A61-7C4B-4E9D-A215-6B0C9D8E7F14}"; // SageTypes\src\AssemblyInfo.cs
         const string LibraryName = "Sage";
         const int vbext_pp_locked = 1, vbext_vm_Design = 2, vbext_ct_Document = 100;
         const int PollEvery = 7; // ticks do timer de 150 ms: ~1 s
@@ -43,7 +43,7 @@ namespace SageEditor
         static bool errorLogged;
 
         // Instalada pelo instalador (para todos os usuários) ou pelo install.ps1 (só o usuário atual)
-        static bool Installed
+        internal static bool Installed
         {
             get
             {

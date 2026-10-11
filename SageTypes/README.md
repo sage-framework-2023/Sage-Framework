@@ -286,7 +286,7 @@ Set r = Requests.Post("https://httpbin.org/post", Json:=dados, _
 - **Downloads:** `r.Save "C:\arquivo.pdf"`.
 - Usa TLS 1.2/1.3 e o proxy do Windows (com o usuário logado), como o navegador. A chamada é síncrona: o Excel espera a resposta.
 
-## Funções globais: GetUser e Sleep
+## Funções globais: GetUser, Sleep, OfficeTheme e Resizable
 
 Como o `Json` e o `Requests`, usadas sem `Dim` (ou com o prefixo `Sage.`):
 
@@ -294,8 +294,104 @@ Como o `Json` e o `Requests`, usadas sem `Dim` (ou com o prefixo `Sage.`):
 |---|---|
 | `getpass.getuser()` | `GetUser()`: o usuário logado no Windows, pela API do sistema (não lê a variável `USERNAME`). `GetUser(True)` devolve também o domínio: `EMPRESA\rodrigo` (fora de domínio, o nome do computador). Devolve `StringS` |
 | `time.sleep(1.5)` | `Sleep 1.5`: espera em segundos, com frações. O Excel continua redesenhando a tela e não aparece como "Não respondendo"; cliques e teclas esperam o fim da macro, como em qualquer macro ocupada. Valor negativo: `ValueError` (erro 5) |
+| — | `OfficeTheme()`: o tema do Office em uso (*Arquivo > Conta > Tema do Office*), em nomes fixos em inglês, para comparar no código sem depender do idioma: `"Colorful"` (Colorido), `"Dark Gray"` (Cinza-Escuro), `"Black"` (Preto) ou `"White"` (Branco). Com *Usar configuração do sistema*, devolve o tema que o Office aplica: `"White"` com o Windows no modo claro e `"Black"` no escuro. Devolve `StringS` |
 
 Um `Declare ... Sleep Lib "kernel32"` no próprio módulo tem prioridade sobre o `Sleep` do Sage.
+
+### Resizable: UserForm redimensionável
+
+```vb
+Private Sub UserForm_Initialize()
+    Resizable Me, Anchors:=Array( _
+        "gridDados", "Fill", _          ' cresce para os dois lados
+        "lblInfo", "Width", _           ' acompanha a largura
+        "btnFechar", "Bottom Right")    ' fica no canto de baixo à direita
+End Sub
+```
+
+O form ganha borda para redimensionar e os botões de maximizar e minimizar; os controles ancorados acompanham o tamanho, a partir das posições do designer:
+
+| Âncora | |
+|---|---|
+| `Left`, `Top` | Ficam onde estão (o padrão) |
+| `Right`, `Bottom` | Acompanham a borda direita / de baixo (o controle se move) |
+| `Width`, `Height` | Esticam junto com o form |
+| `Fill` | `Width Height` |
+
+Separe as âncoras com espaço (`"Bottom Right"`). `Anchors` aceita `Array("controle", "âncora", ...)` ou um `DictionaryS`; controle que não existe no form: `KeyError` (erro 9). `MinWidth` e `MinHeight` (em pontos, como `Width`/`Height` do form) limitam o tamanho mínimo, que por padrão é o do designer; `MaxButton:=False` e `MinButton:=False` tiram os botões. Funciona com qualquer controle (do MSForms ou do Sage); o `UserForm_Resize` continua disparando. A janela é a do próprio form (não procurada pelo título); tudo é solto quando o form fecha.
+
+## TextBox (controle para UserForms)
+
+Caixa de texto com correção ortográfica, para colocar em UserForms: no designer, o **Sage TextBox** já aparece na Caixa de ferramentas (o SageShortcuts o põe uma vez por usuário, com o Excel fechado). Se tiver sido desmarcado: clique direito na Caixa de ferramentas > *Controles adicionais* > marque **Sage Framework TextBox**. As palavras erradas ficam sublinhadas em vermelho enquanto se digita; o clique direito mostra as sugestões, *Ignorar* e *Adicionar ao dicionário*. A correção é a do Windows (a do Edge e do Bloco de Notas): os idiomas são os instalados em *Configurações > Hora e idioma*, e as palavras adicionadas valem para todos os programas.
+
+```vb
+Private Sub txtObs_Change()
+    lblTamanho.Caption = Len(txtObs.Value)
+End Sub
+
+txtObs.Language = "en-US"                    ' padrão: o idioma do Windows
+Debug.Print txtObs.Misspellings.Join(", ")   ' ListS com as palavras erradas
+```
+
+| Membro | |
+|---|---|
+| `Value` (padrão), `Text` | O texto |
+| `SpellCheck`, `Language` | Liga a correção (padrão: ligada) e o idioma (`"pt-BR"`; vazio = o do Windows). Idioma não instalado: `ValueError` (erro 5) |
+| `Misspellings()` | `ListS` com as palavras erradas, sem repetir |
+| `Placeholder` | Texto de dica, em cinza, enquanto a caixa está vazia |
+| `MultiLine`, `WordWrap`, `ScrollBars`, `MaxLength`, `PasswordChar`, `Locked`, `Enabled`, `TextAlign` | Como no TextBox do MSForms (`sgScrollBars`, `sgTextAlign`). Com `PasswordChar`, sem correção |
+| `BackColor`, `ForeColor`, `BorderColor`, `BorderStyle` | Cores e borda (`sgBorderStyleSingle`, fina; com o foco, azul) |
+| `FontName`, `FontSize`, `FontBold`, `FontItalic` | A fonte (padrão: Segoe UI 9) |
+| `SelStart`, `SelLength`, `SelText`, `TextLength`, `Copy`, `Cut`, `Paste`, `SelectAll` | Seleção e área de transferência |
+| Eventos | `Change`, `KeyDown(KeyCode, Shift)`, `KeyUp`, `KeyPress(KeyAscii)` (zerar o código cancela a tecla), `DblClick`; `Enter`, `Exit`, `BeforeUpdate`, `AfterUpdate` vêm do UserForm |
+
+`Left`, `Top`, `Width`, `Height`, `Visible`, `TabIndex`, `TabStop`, `Tag`, `ControlTipText` e `SetFocus` também vêm do UserForm. Tab, Shift+Tab, Enter (numa linha só) e Esc passam ao form, como nos controles do MSForms; Ctrl+A seleciona tudo.
+
+**Configuração do Office:** o Microsoft 365 passou a vir com *Desabilitar todos os controles sem notificação* (Arquivo > Opções > Central de Confiabilidade > Configurações > Configurações do ActiveX), que bloqueia qualquer controle ActiveX que não seja da Microsoft, inclusive este. Com a opção *Avisar-me antes de habilitar controles UFI com restrições adicionais e controles SFI com restrições mínimas* (o padrão antigo), o Sage TextBox funciona sem aviso: ele é marcado como seguro para inicialização e para scripts. A pasta de trabalho com o controle só abre o form em computadores com o Sage instalado.
+
+## DataGrid (controle para UserForms)
+
+Mostra um `DataFrame` num UserForm (*Sage Framework DataGrid* na Caixa de ferramentas). Só as linhas à vista são lidas do DuckDB, então funciona com milhões de linhas.
+
+```vb
+Set gridVendas.DataFrame = df
+gridVendas.ColumnFormats = Array("valor", """R$"" #,##0.00", "percentual", "0.0%", "data_cadastro", "dd/mm/yyyy")
+
+Private Sub gridVendas_DblClick()
+    MsgBox gridVendas.Cell(gridVendas.SelectedRow, "Cliente")
+End Sub
+```
+
+**Paginação automática** (`AutoPaging`, padrão `True`): a grade calcula quantas linhas cabem na altura do controle. Se todas couberem, mostra todas; senão, mostra uma página por vez, com a barra *◀ ▶ Página 1 de N · linhas 1–20 de 1.234* embaixo, e refaz a conta quando o controle muda de tamanho. Com `AutoPaging = False`, a grade rola.
+
+| Membro | |
+|---|---|
+| `DataFrame` | O DataFrame mostrado (`Set`); `Nothing` limpa |
+| `AutoPaging` | Paginação automática (padrão) ou barra de rolagem |
+| `Page`, `PageCount`, `RowsPerPage`, `NextPage`, `PreviousPage` | Página atual (a partir de 1), quantas há, quantas linhas cabem |
+| `SelectedRow`, `SelectedColumn`, `RowCount`, `Cell(Linha, Coluna)` | Linha e coluna da célula ativa (linha a partir de 0, como o índice; `-1` e `""` sem seleção; atribuir `SelectedRow` seleciona a linha inteira), total de linhas e o valor de uma célula (coluna pelo nome ou pela posição; índices negativos contam do fim) |
+| `Copy` | Copia a seleção, como o Ctrl+C |
+| `ColumnFormats` | Formato de colunas, com os formatos da função `Format` do VBA (o mesmo motor, com as configurações regionais do Windows): um `DictionaryS` ou `Array("coluna", "formato", ...)`, como o `DictionaryS` recebe. Os nomes têm que ser colunas do DataFrame (senão, `KeyError`, erro 9). Vale para a grade e o Ctrl+C; `Cell` devolve o valor original. Fica só no código, não no form |
+| `ShowIndex`, `FontName`, `FontSize`, `BackColor`, `ForeColor`, `BorderColor`, `HeaderBackColor`, `SelectionColor` | Aparência (`SelectionColor`: a cor da seleção, padrão `RGB(204, 228, 247)`; sem o foco, a mesma cor acinzentada) |
+| Eventos | `Click`, `DblClick`, `SelChange`, `PageChange` |
+
+**Seleção**, como no `st.dataframe` do Streamlit: clique numa célula (a célula ativa fica com contorno azul); arraste ou Shift+clique para um retângulo (o Shift+clique vale entre páginas); clique no cabeçalho para a coluna inteira e no índice para a linha inteira (com Shift, estende). Teclado: setas movem a célula ativa e Shift+setas estendem; Ctrl+setas vão à borda; Home/End, à primeira/última coluna; Ctrl+Home/End, à primeira/última célula; Page Up/Down, uma página; Ctrl+A, tudo. **Ctrl+C** copia a seleção separada por tabulações (cola em planilhas), com os `ColumnFormats`; NULL vira vazio; seleções grandes (uma coluna inteira) são lidas do DuckDB em blocos. Tab, Enter e Esc passam ao form.
+
+Valores nulos aparecem como **Vazio** (português) ou **Empty** (outros idiomas), em roxo; números alinhados à direita.
+
+### Como é feito
+
+A classe (`TextBox.cs`; o `DataGrid.cs` segue o mesmo molde) deriva de `OleControl` (`OleControl.cs`), que implementa à mão o protocolo ActiveX (`IOleObject`, `IOleInPlaceObject`, `IOleInPlaceActiveObject`, `IOleControl`, `IViewObject2`, `IPersistStreamInit`, `IObjectSafety`), como o ATL do C++. O `Control` do WinForms, que traz esse suporte pronto, derruba o `FM20.DLL` ao ser inserido. Quando o form ativa o controle, ele cria uma janela filha (`OleHost`) com uma caixa `EDIT` do Windows dentro; sem janela (no designer), desenha pelo `IViewObject::Draw`. A correção ortográfica é a API `ISpellChecker` do Windows (`Spelling.cs`), com o sublinhado desenhado por cima da caixa.
+
+Pontos que fazem a diferença no UserForm:
+- O stream recebido em `IPersistStreamInit::Save`/`Load` é liberado na hora (`Marshal.FinalReleaseComObject`). O .NET o manteria aberto até o coletor de lixo, e o form, ao rodar, abre o mesmo stream (`o`) em modo exclusivo: daria *Erro de acesso a caminho/arquivo*.
+- `IMarshal` e `IAgileObject` são recusados (`ICustomQueryInterface`): o UserForm embrulha o controle (extender) e repassaria a pergunta ao .NET, que responderia com o empacotador livre de threads; pela automação (outro processo) chegaria o controle sem o embrulho, e o `FM20.DLL` cai.
+- O tamanho do controle vai junto com as propriedades gravadas (o form o pede com `GetExtent` depois de carregar).
+- As propriedades são gravadas com nome e tipo (`SaveProperties`/`LoadProperties`); as desconhecidas são ignoradas ao ler, então versões novas podem acrescentar propriedades. Não mude os nomes.
+- O `install.ps1` marca a classe com `[control]` no `.tlb` e tira a interface `_Object` do .NET; o registro leva as chaves de controle (`Control`, `MiscStatus`, `TypeLib`, `Version`, `ToolboxBitmap32`, categorias de controle, seguro para scripts e para inicialização, `PersistsToStreamInit`). No `com.txt`, a linha do controle termina em `|control`.
+- A Caixa de ferramentas (`Microsoft\Forms\EXCEL.box`, no perfil do usuário) recebe o controle pelo SageShortcuts (`ToolboxSetup`), uma vez por usuário (os já postos ficam em `%APPDATA%\Sage\toolbox.txt`), e só com o Excel fechado: o VBE mantém o arquivo aberto e o regrava ao fechar.
+- O ícone da Caixa de ferramentas é o BITMAP 1 do `SageToolbox.dll` (`res\toolbox.res`, 16x16, compilado pelo `build.cmd`).
+- O MSForms guarda um cache (`.exd`) da biblioteca de tipos de cada controle, em `%TEMP%\VBE` e em `Microsoft\Forms` no perfil (`%APPDATA%` ou a pasta `Application Data` do perfil, que pode ser uma pasta de verdade em vez do atalho); o instalador apaga os do Sage, para não ficar um cache de uma versão anterior.
 
 ## SqlEngine
 

@@ -29,6 +29,15 @@ function Export-Component([string]$Script, [string]$Target) {
 }
 Write-Host 'Compilando o SageEditor...'
 Export-Component 'SageEditor\install.ps1' (Join-Path $stage 'Editor')
+# A versão do SageTypes (SageTypes\src\AssemblyInfo.cs) é a da release: vai na biblioteca de
+# tipos e no nome em Ferramentas > Referências
+$typesInfo = [IO.File]::ReadAllText((Join-Path $root 'SageTypes\src\AssemblyInfo.cs'))
+$typesVersion = [regex]::Match($typesInfo, 'AssemblyVersion\("(\d+\.\d+\.\d+)').Groups[1].Value
+$releaseVersion = (@([regex]::Matches($Version, '\d+') | Select-Object -First 3 | ForEach-Object { $_.Value })) -join '.'
+if ($typesVersion -ne $releaseVersion) {
+    throw "A versão do SageTypes ($typesVersion, em SageTypes\src\AssemblyInfo.cs) não é a da release ($releaseVersion)."
+}
+
 Write-Host 'Compilando o SageTypes e gerando a biblioteca de tipos...'
 Export-Component 'SageTypes\install.ps1' (Join-Path $stage 'Types')
 
@@ -76,7 +85,7 @@ $exe = Join-Path $dist "SageFramework-Setup-$Version.exe"
 if (Test-Path $exe) { Remove-Item $exe }
 Write-Host 'Compilando o instalador...'
 & $csc -nologo -target:winexe -platform:anycpu -optimize+ -codepage:65001 `
-    "-win32icon:$(Join-Path $root 'SageInstaller\sage.ico')" `
+    "-win32icon:$(Join-Path $root 'SageSetup\sage.ico')" `
     "-win32manifest:$(Join-Path $root 'SageSetup\app.manifest')" `
     "-resource:$payload,payload.zip" `
     -r:System.dll -r:System.Core.dll -r:System.Drawing.dll -r:System.Windows.Forms.dll `

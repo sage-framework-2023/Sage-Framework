@@ -45,6 +45,8 @@ public static class SageTypeLib
         void SetTypeDescAlias(); void DefineFuncAsDllEntry(); void SetFuncDocString(); void SetVarDocString();
         void SetFuncHelpContext(); void SetVarHelpContext(); void SetMops(); void SetTypeIdldesc(); void LayOut();
         void DeleteFuncDesc(int index);
+        void DeleteFuncDescByMemId(); void DeleteVarDesc(); void DeleteVarDescByMemId();
+        void DeleteImplType(int index);
     }
 
     sealed class Sink : ITypeLibExporterNotifySink
@@ -71,11 +73,11 @@ public static class SageTypeLib
         ICreateTypeLib lib = (ICreateTypeLib)new TypeLibConverter().ConvertAssemblyToTypeLib(
             assembly, tlb, TypeLibExporterFlags.ExportAs64Bit, new Sink());
         lib.SetName(libraryName);
-        // Nome em Ferramentas > Referências: a descrição do assembly com a versão ("Sage Framework 1.0")
+        // Nome em Ferramentas > Referências: a descrição do assembly com a versão ("Sage Framework 1.1.0")
         Version version = assembly.GetName().Version;
         AssemblyDescriptionAttribute description = (AssemblyDescriptionAttribute)Attribute.GetCustomAttribute(assembly, typeof(AssemblyDescriptionAttribute));
-        lib.SetDocString((description != null ? description.Description : libraryName) + " " + version.Major + "." + version.Minor);
-        ApplyProperties((System.Runtime.InteropServices.ComTypes.ITypeLib)lib, PropertyMethods(assembly), AppObjects(assembly));
+        lib.SetDocString((description != null ? description.Description : libraryName) + " " + version.Major + "." + version.Minor + "." + version.Build);
+        ApplyProperties((System.Runtime.InteropServices.ComTypes.ITypeLib)lib, PropertyMethods(assembly), AppObjects(assembly), Controls(assembly));
         lib.SaveAllChanges();
     }
 
@@ -86,6 +88,18 @@ public static class SageTypeLib
         foreach (Type type in assembly.GetTypes())
             foreach (CustomAttributeData data in CustomAttributeData.GetCustomAttributes(type))
                 if (data.Constructor.DeclaringType.Name == "AppObjectAttribute") result[type.Name] = true;
+        return result;
+    }
+
+    // Controles para UserForms (derivados de OleControl): a classe ganha a marca de controle
+    // ([control], como os controles nativos) e perde a interface _Object do .NET, que o
+    // UserForm não usa
+    static Dictionary<string, bool> Controls(Assembly assembly)
+    {
+        var result = new Dictionary<string, bool>();
+        foreach (Type type in assembly.GetTypes())
+            for (Type b = type.BaseType; b != null; b = b.BaseType)
+                if (b.Name == "OleControl") { result[type.Name] = true; break; }
         return result;
     }
 
@@ -118,7 +132,7 @@ public static class SageTypeLib
     //   mesmo DispId de X, mesma posição na vtable (onde o .NET o implementou),
     //   parâmetros iguais.
     static void ApplyProperties(System.Runtime.InteropServices.ComTypes.ITypeLib lib, Dictionary<string, KeyValuePair<bool, string>> methods,
-        Dictionary<string, bool> appObjects)
+        Dictionary<string, bool> appObjects, Dictionary<string, bool> controls)
     {
         for (int i = 0; i < lib.GetTypeInfoCount(); i++)
         {
@@ -140,6 +154,21 @@ public static class SageTypeLib
                 info.GetDocumentation(-1, out name, out doc, out helpContext, out helpFile);
                 if (appObjects.ContainsKey(name))
                     ((ICreateTypeInfo2)info).SetTypeFlags((int)attr.wTypeFlags | 0x1 /* TYPEFLAG_FAPPOBJECT */);
+                if (controls.ContainsKey(name))
+                {
+                    ((ICreateTypeInfo2)info).SetTypeFlags((int)attr.wTypeFlags | 0x20 /* TYPEFLAG_FCONTROL */);
+                    for (int k = attr.cImplTypes - 1; k >= 0; k--)
+                    {
+                        int implRef;
+                        info.GetRefTypeOfImplType(k, out implRef);
+                        System.Runtime.InteropServices.ComTypes.ITypeInfo impl;
+                        info.GetRefTypeInfo(implRef, out impl);
+                        string implName, implDoc, implHelp;
+                        int implContext;
+                        impl.GetDocumentation(-1, out implName, out implDoc, out implContext, out implHelp);
+                        if (implName == "_Object") ((ICreateTypeInfo2)info).DeleteImplType(k);
+                    }
+                }
                 continue;
             }
             if (attr.typekind != System.Runtime.InteropServices.ComTypes.TYPEKIND.TKIND_DISPATCH ||
@@ -290,6 +319,9 @@ $Classes = @(
     @{ Class = 'SageTypes.SqlEngine'; Clsid = '{6795C777-D195-4CBE-9E32-3DADA65AE733}'; ProgId = 'Sage.SqlEngine' }
     # Membros globais (Json, Requests): o VBA cria esta classe sozinho
     @{ Class = 'SageTypes.Globals'; Clsid = '{3129D3A3-5535-4294-8923-083DAA4A6F75}'; ProgId = 'Sage.Globals' }
+    # Controles para UserForms (Caixa de ferramentas > Controles adicionais)
+    @{ Class = 'SageTypes.TextBox'; Clsid = '{0AD72DAF-5E3F-47CA-8C4C-3E5050C6DFC5}'; ProgId = 'Sage.TextBox'; Control = $true; Icon = 1 }
+    @{ Class = 'SageTypes.DataGrid'; Clsid = '{116738F7-D352-40B2-8E87-2B0294450F9E}'; ProgId = 'Sage.DataGrid'; Control = $true; Icon = 2 }
 )
 
 # DuckDB (motor do DataFrame). No pacote da release vem em lib\; num clone do git é
@@ -352,6 +384,21 @@ function Get-DuckDB {
     return $dll
 }
 
+# Chaves de um controle ActiveX (o mesmo que o instalador grava): aparece em Controles
+# adicionais, com a biblioteca de tipos para os eventos e as propriedades
+function Register-Control([string]$key, [int]$icon) {
+    New-Item "$key\Control" -Force | Out-Null
+    New-Item "$key\MiscStatus" -Force | Out-Null; Set-Item "$key\MiscStatus" '131473'
+    New-Item "$key\TypeLib" -Force | Out-Null; Set-Item "$key\TypeLib" $LibId.ToString('B').ToUpper()
+    $v = [Reflection.AssemblyName]::GetAssemblyName($Dll).Version
+    New-Item "$key\Version" -Force | Out-Null; Set-Item "$key\Version" ("$($v.Major).$($v.Minor)")
+    New-Item "$key\ToolboxBitmap32" -Force | Out-Null; Set-Item "$key\ToolboxBitmap32" ((Join-Path $Target 'SageToolbox.dll') + ", $icon")
+    # Controle; seguro para scripts; seguro para inicialização; grava em IPersistStreamInit
+    foreach ($cat in '{40FC6ED4-2438-11CF-A3DB-080036F12502}', '{7DD95801-9882-11CF-9FA9-00AA006C42C4}', '{7DD95802-9882-11CF-9FA9-00AA006C42C4}', '{0DE86A53-2BAA-11CF-A229-00AA003D7352}') {
+        New-Item "$key\Implemented Categories\$cat" -Force | Out-Null
+    }
+}
+
 function Remove-Registration {
     [SageTypeLib]::Unregister($LibId)
     foreach ($c in $Classes) {
@@ -373,10 +420,11 @@ if ($ExportTo) {
     Copy-Item (Join-Path $extensions '*') (Join-Path $ExportTo 'extensions') -Recurse -Force
     $exportDll = Join-Path $ExportTo 'SageTypes.dll'
     Copy-Item (Join-Path $PSScriptRoot 'bin\SageTypes.dll') $exportDll -Force
+    Copy-Item (Join-Path $PSScriptRoot 'bin\SageToolbox.dll') $ExportTo -Force
     Copy-Item $duckdbDll (Join-Path $ExportTo 'duckdb.dll') -Force
     [SageTypeLib]::Export($exportDll, (Join-Path $ExportTo 'SageTypes.tlb'), $LibraryName)
-    # dll|classe|CLSID|ProgId
-    $lines = foreach ($c in $Classes) { "SageTypes.dll|$($c.Class)|$($c.Clsid)|$($c.ProgId)" }
+    # dll|classe|CLSID|ProgId[|control:<ícone em SageToolbox.dll>]
+    $lines = foreach ($c in $Classes) { "SageTypes.dll|$($c.Class)|$($c.Clsid)|$($c.ProgId)" + $(if ($c.Control) { "|control:$($c.Icon)" } else { '' }) }
     Set-Content (Join-Path $ExportTo 'com.txt') $lines -Encoding UTF8
     return
 }
@@ -403,6 +451,7 @@ Copy-Item (Join-Path $extensions '*') (Join-Path $Target 'extensions') -Recurse 
 try
 {
     Copy-Item (Join-Path $PSScriptRoot 'bin\SageTypes.dll') $Dll -Force
+    Copy-Item (Join-Path $PSScriptRoot 'bin\SageToolbox.dll') $Target -Force
     $installedDuckDB = Join-Path $Target 'duckdb.dll'
     if (-not (Test-Path $installedDuckDB) -or (Get-FileHash $installedDuckDB -Algorithm SHA256).Hash -ne $DuckDB.DllHash) {
         Copy-Item $duckdbDll $installedDuckDB -Force
@@ -421,17 +470,18 @@ foreach ($c in $Classes) {
     $key = "HKCU:\Software\Classes\CLSID\$($c.Clsid)"
     New-Item "$key\ProgId" -Force | Out-Null
     Set-Item "$key\ProgId" $c.ProgId
-    Set-Item $key $c.Class
+    Set-Item $key $(if ($c.Control) { 'Sage Framework ' + $c.ProgId.Split('.')[-1] } else { $c.Class })
     $inproc = "$key\InprocServer32"
     New-Item $inproc -Force | Out-Null
     Set-Item $inproc 'mscoree.dll'
-    Set-ItemProperty $inproc ThreadingModel 'Both'
+    Set-ItemProperty $inproc ThreadingModel $(if ($c.Control) { 'Apartment' } else { 'Both' })
     Set-ItemProperty $inproc Class $c.Class
     Set-ItemProperty $inproc Assembly $assemblyName
     Set-ItemProperty $inproc RuntimeVersion 'v4.0.30319'
     Set-ItemProperty $inproc CodeBase ('file:///' + ($Dll -replace '\\', '/'))
     New-Item "HKCU:\Software\Classes\$($c.ProgId)\CLSID" -Force | Out-Null
     Set-Item "HKCU:\Software\Classes\$($c.ProgId)\CLSID" $c.Clsid
+    if ($c.Control) { Register-Control $key $c.Icon }
 }
 
 "Instalado em $Dll"

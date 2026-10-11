@@ -1,4 +1,5 @@
 using System;
+using Microsoft.Win32;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -741,10 +742,48 @@ namespace SageEditor
             int r = color & 0xFF, g = (color >> 8) & 0xFF, b = (color >> 16) & 0xFF;
             if (Math.Max(r, Math.Max(g, b)) - Math.Min(r, Math.Min(g, b)) >= 30) return OfficeColor(color, true);
             double light = (r + g + b) / 765.0;
-            // O Office escreve itens habilitados em preto ou cinza-escuro, desabilitados
-            // em cinza-claro e o item pressionado/selecionado em quase branco.
+            if (OfficeDark)
+            {
+                // Office no tema escuro (Cinza-Escuro, Preto): itens habilitados em cinza bem claro
+                // (#D5D5D5), desabilitados em cinza médio (#777777)
+                if (light >= 0.70 || light <= 0.20) return t.WindowText;
+                return Lerp(t.WindowText, t.Face, 0.55); // desabilitado
+            }
+            // Office no tema claro: itens habilitados em preto ou cinza-escuro, desabilitados em
+            // cinza-claro e o item pressionado/selecionado em quase branco
             if (light <= 0.55 || light > 0.85) return t.WindowText;
             return Lerp(t.WindowText, t.Face, 0.55); // desabilitado
+        }
+
+        // Tema do Office (Arquivo > Conta > Tema do Office): 3 = Cinza-Escuro, 4 = Preto, 6 = o do
+        // Windows. Relido a cada 5 s, para acompanhar a troca com o Excel aberto.
+        static bool officeDark;
+        static long officeDarkRead;
+        static bool OfficeDark
+        {
+            get
+            {
+                long now = Environment.TickCount;
+                if (officeDarkRead != 0 && now - officeDarkRead < 5000) return officeDark;
+                officeDarkRead = now == 0 ? 1 : now;
+                try
+                {
+                    using (RegistryKey k = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Office\16.0\Common"))
+                    {
+                        object v = k == null ? null : k.GetValue("UI Theme");
+                        int theme = v is int ? (int)v : 0;
+                        if (theme == 6)
+                            using (RegistryKey w = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"))
+                            {
+                                object light = w == null ? null : w.GetValue("AppsUseLightTheme");
+                                officeDark = light is int && (int)light == 0;
+                            }
+                        else officeDark = theme == 3 || theme == 4;
+                    }
+                }
+                catch (Exception) { officeDark = false; }
+                return officeDark;
+            }
         }
 
         static int OfficeColor(int color, bool active)

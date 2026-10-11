@@ -36,6 +36,16 @@ namespace SageEditor
         dynamic vbe;
         object addIn;
         Control ui; // criado na thread do Excel, para voltar a ela com BeginInvoke
+        static Connect current;
+
+        // Roda na thread do Excel (os objetos do VBE só podem ser usados nela) e espera o resultado;
+        // para quem está em outra thread, como a janela de Configurações
+        internal static T OnExcel<T>(Func<dynamic, T> action)
+        {
+            Connect c = current;
+            if (c == null || c.vbe == null || c.ui == null || !c.ui.IsHandleCreated) return default(T);
+            return (T)c.ui.Invoke((Func<T>)delegate { return action(c.vbe); });
+        }
         SageMenu menu;
         Timer lineTimer; // números de linha: acompanha a linha atual e a rolagem
         bool started;
@@ -46,6 +56,7 @@ namespace SageEditor
             {
                 vbe = application;
                 addIn = addInInst;
+                current = this;
                 ((dynamic)addInInst).Object = this;
                 ui = new Control();
                 ui.CreateControl();
@@ -137,6 +148,7 @@ namespace SageEditor
                 started = false;
 
                 // Referências COM presas impedem o Excel de fechar
+                if (current == this) current = null;
                 vbe = null;
                 GC.Collect();
                 GC.WaitForPendingFinalizers();

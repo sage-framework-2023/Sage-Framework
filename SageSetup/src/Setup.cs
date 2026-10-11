@@ -321,6 +321,8 @@ namespace SageSetup
     sealed class ComClass
     {
         public string Dll, Class, Clsid, ProgId;
+        public bool Control; // controle para UserForms (Caixa de ferramentas > Controles adicionais)
+        public int Icon = 1; // o BITMAP do controle em SageToolbox.dll
     }
 
     static class Payload
@@ -332,7 +334,7 @@ namespace SageSetup
             return new ZipArchive(s, ZipArchiveMode.Read);
         }
 
-        // Linhas "dll|classe|CLSID|ProgId" dos com.txt de cada componente; dll relativo à pasta do com.txt
+        // Linhas "dll|classe|CLSID|ProgId[|control[:ícone]]" dos com.txt de cada componente; dll relativo à pasta do com.txt
         public static List<ComClass> Classes()
         {
             List<ComClass> result = new List<ComClass>();
@@ -347,8 +349,15 @@ namespace SageSetup
                         while ((line = r.ReadLine()) != null)
                         {
                             string[] p = line.Trim().Split('|');
-                            if (p.Length != 4) continue;
-                            result.Add(new ComClass { Dll = Path.Combine(folder, p[0]), Class = p[1], Clsid = p[2], ProgId = p[3] });
+                            if (p.Length < 4) continue;
+                            ComClass c = new ComClass { Dll = Path.Combine(folder, p[0]), Class = p[1], Clsid = p[2], ProgId = p[3] };
+                            if (p.Length > 4 && p[4].StartsWith("control"))
+                            {
+                                c.Control = true;
+                                int icon;
+                                if (p[4].StartsWith("control:") && int.TryParse(p[4].Substring(8), out icon)) c.Icon = icon;
+                            }
+                            result.Add(c);
                         }
                     }
                 }
@@ -611,6 +620,21 @@ namespace SageSetup
         }
 
         public static void Unregister(string tlb) { Remove(tlb, false); }
+
+        public static Guid LibId(string tlb)
+        {
+            ITypeLib lib;
+            LoadTypeLibEx(tlb, 2, out lib);
+            try
+            {
+                IntPtr pa;
+                lib.GetLibAttr(out pa);
+                TYPELIBATTR a = (TYPELIBATTR)Marshal.PtrToStructure(pa, typeof(TYPELIBATTR));
+                lib.ReleaseTLibAttr(pa);
+                return a.guid;
+            }
+            finally { Marshal.FinalReleaseComObject(lib); }
+        }
         public static void UnregisterUser(string tlb) { Remove(tlb, true); }
 
         // O LIBID e a versão vêm do próprio .tlb
@@ -681,6 +705,7 @@ namespace SageSetup
             // Instalação por usuário (install.ps1 do repositório): depois da cópia, porque o LIBID
             // da biblioteca de tipos é lido do .tlb que acabou de ser instalado
             Common.RemoveUserInstall(classes);
+            DeleteFormsCache();
 
             progress(55, Texts.StepRegister);
             using (RegistryKey machine = Common.Machine)
@@ -743,12 +768,13 @@ namespace SageSetup
             string assembly = AssemblyName.GetAssemblyName(dll).FullName;
             using (RegistryKey key = machine.CreateSubKey(@"Software\Classes\CLSID\" + c.Clsid))
             {
-                key.SetValue("", c.Class);
+                // Controles: o nome que aparece em Controles adicionais ("Sage Framework TextBox")
+                key.SetValue("", c.Control ? "Sage Framework " + c.ProgId.Substring(c.ProgId.LastIndexOf('.') + 1) : c.Class);
                 using (RegistryKey p = key.CreateSubKey("ProgId")) p.SetValue("", c.ProgId);
                 using (RegistryKey inproc = key.CreateSubKey("InprocServer32"))
                 {
                     inproc.SetValue("", "mscoree.dll");
-                    inproc.SetValue("ThreadingModel", "Both");
+                    inproc.SetValue("ThreadingModel", c.Control ? "Apartment" : "Both");
                     inproc.SetValue("Class", c.Class);
                     inproc.SetValue("Assembly", assembly);
                     inproc.SetValue("RuntimeVersion", "v4.0.30319");
@@ -758,6 +784,7 @@ namespace SageSetup
                 }
                 // Categoria "componentes .NET"
                 key.CreateSubKey(@"Implemented Categories\{62C8FE65-4EBB-45e7-B440-6E39B2CDBF29}").Close();
+                if (c.Control) RegisterControl(key, dll, c.Icon);
             }
             using (RegistryKey key = machine.CreateSubKey(@"Software\Classes\" + c.ProgId))
             {
@@ -765,6 +792,45 @@ namespace SageSetup
                 using (RegistryKey id = key.CreateSubKey("CLSID")) id.SetValue("", c.Clsid);
             }
             Log.Write("Classe " + c.ProgId + " " + c.Clsid);
+        }
+
+        // Chaves de um controle ActiveX: aparece em Controles adicionais, com a biblioteca de tipos
+        // (eventos e propriedades na janela Propriedades) e o ícone da Caixa de ferramentas
+        static void RegisterControl(RegistryKey key, string dll, int icon)
+        {
+            string folder = Path.GetDirectoryName(dll);
+            key.CreateSubKey("Control").Close();
+            // RECOMPOSEONRESIZE | CANTLINKINSIDE | INSIDEOUT | ACTIVATEWHENVISIBLE | SETCLIENTSITEFIRST
+            using (RegistryKey k = key.CreateSubKey("MiscStatus")) k.SetValue("", "131473");
+            string tlb = Directory.GetFiles(folder, "*.tlb").FirstOrDefault();
+            if (tlb != null)
+                using (RegistryKey k = key.CreateSubKey("TypeLib")) k.SetValue("", TypeLibs.LibId(tlb).ToString("B").ToUpperInvariant());
+            // A versão da biblioteca de tipos (principal.secundária), a mesma do assembly
+            Version v = AssemblyName.GetAssemblyName(dll).Version;
+            using (RegistryKey k = key.CreateSubKey("Version")) k.SetValue("", v.Major + "." + v.Minor);
+            string icons = Path.Combine(folder, "SageToolbox.dll");
+            if (File.Exists(icons))
+                using (RegistryKey k = key.CreateSubKey("ToolboxBitmap32")) k.SetValue("", icons + ", " + icon);
+            // Controle; seguro para scripts; seguro para inicialização; grava em IPersistStreamInit
+            foreach (string cat in new[] { "{40FC6ED4-2438-11CF-A3DB-080036F12502}", "{7DD95801-9882-11CF-9FA9-00AA006C42C4}",
+                "{7DD95802-9882-11CF-9FA9-00AA006C42C4}", "{0DE86A53-2BAA-11CF-A229-00AA003D7352}" })
+                key.CreateSubKey(@"Implemented Categories\" + cat).Close();
+        }
+
+        // O MSForms guarda um cache (.exd) da biblioteca de tipos de cada controle. Depois de uma
+        // atualização, um cache antigo pode não bater com a biblioteca nova; apagando, o MSForms o
+        // refaz. Só os do Sage, do usuário que instala.
+        public static void DeleteFormsCache()
+        {
+            // O MSForms monta o caminho a partir do perfil ("Application Data", normalmente um atalho
+            // para AppData\Roaming, mas pode ser uma pasta de verdade)
+            foreach (string folder in new[] { Path.Combine(Path.GetTempPath(), "VBE"),
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), @"Microsoft\Forms"),
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), @"Application Data\Microsoft\Forms") })
+            {
+                if (!Directory.Exists(folder)) continue;
+                foreach (string f in Directory.GetFiles(folder, "Sage*.exd")) Common.DeleteFile(f);
+            }
         }
 
         // Aparece em Configurações > Aplicativos (e no Painel de Controle)
@@ -863,6 +929,7 @@ namespace SageSetup
             Common.DeleteDir(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Sage"));
             Common.DeleteDir(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Sage"));
             Common.DeleteDir(Path.Combine(Path.GetTempPath(), "SageDuckDB"));
+            Installer.DeleteFormsCache();
             Log.Write("Desinstalado");
         }
 

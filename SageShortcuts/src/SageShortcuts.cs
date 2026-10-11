@@ -83,6 +83,7 @@ namespace SageShortcuts
         readonly ShortcutEngine engine;
         readonly FileSystemWatcher watcher;
         readonly System.Windows.Forms.Timer reloadTimer;
+        readonly System.Windows.Forms.Timer toolboxTimer;
         readonly string configPath;
         RegisteredWaitHandle stopWait;
         Process parent;
@@ -126,6 +127,14 @@ namespace SageShortcuts
             watcher.Created += delegate { reloadTimer.Stop(); reloadTimer.Start(); };
             watcher.Renamed += delegate { reloadTimer.Stop(); reloadTimer.Start(); };
             watcher.EnableRaisingEvents = true;
+
+            // Controles do Sage na Caixa de ferramentas: aplicados com o Excel fechado (os pedidos
+            // das Configurações chegam a qualquer momento, então confere sempre)
+            toolboxTimer = new System.Windows.Forms.Timer();
+            toolboxTimer.Interval = 10000;
+            toolboxTimer.Tick += delegate { ToolboxSetup.Run(); };
+            ToolboxSetup.Run();
+            toolboxTimer.Start();
 
             // Encerramento: "SageShortcuts.exe --stop" ou fim do processo do Excel
             stopWait = ThreadPool.RegisterWaitForSingleObject(stopEvent,
@@ -1013,6 +1022,237 @@ namespace SageShortcuts
             IntPtr root = GetAncestor(fg, GA_ROOTOWNER);
             if (root != IntPtr.Zero && ClassName(root) == VbeClass) { vbe = root; return true; }
             return false;
+        }
+    }
+
+    // ------------------------------------------------------------------------
+    // Controles do Sage na Caixa de ferramentas dos UserForms
+    // ------------------------------------------------------------------------
+    // Põe os controles do Sage (Sage TextBox, Sage DataGrid) na página Controles da Caixa de ferramentas uma vez
+    // por usuário (quem desmarcar em Controles adicionais não os vê voltar) e aplica a opção
+    // "Controles na Caixa de Ferramentas" das Configurações do Sage. Tudo fica em
+    // %APPDATA%\Sage\toolbox.txt:
+    //   offered=<CLSIDs>   controles já postos uma vez
+    //   state=on|off       o último estado aplicado
+    //   request=add|remove pedido das Configurações, ainda não aplicado
+    //
+    // A Caixa fica em Microsoft\Forms\EXCEL.box, um arquivo composto do OLE que o VBE mantém
+    // aberto (exclusivo) enquanto o Excel roda e regrava ao fechar: por isso é feito aqui, com o
+    // Excel fechado (conferido a cada poucos segundos). A lista de controles da página é o
+    // stream i01\i01\i04\pr:
+    //   cabeçalho (24 bytes): ... [8] próximo índice ... [16] quantidade ...
+    //   um registro de 32 bytes por controle: índice, 8 bytes zerados, tamanho do nome (em
+    //     caracteres), CLSID
+    //   os nomes (a dica do botão), em UTF-16, um depois do outro, na ordem dos registros
+    // Qualquer coisa fora desse formato: o arquivo fica como está.
+    static class ToolboxSetup
+    {
+        static readonly string[][] controls =
+        {
+            new[] { "0AD72DAF-5E3F-47CA-8C4C-3E5050C6DFC5", "Sage TextBox" },
+            new[] { "116738F7-D352-40B2-8E87-2B0294450F9E", "Sage DataGrid" },
+        };
+
+        static string FilePath { get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), @"Sage\toolbox.txt"); } }
+
+        public static void Run()
+        {
+            try
+            {
+                Dictionary<string, string> v = Read();
+                string request, offeredText;
+                v.TryGetValue("request", out request);
+                List<string> offered = new List<string>();
+                if (v.TryGetValue("offered", out offeredText))
+                    foreach (string id in offeredText.Split(',')) if (id.Trim().Length > 0) offered.Add(id.Trim().ToUpperInvariant());
+
+                List<string[]> installed = new List<string[]>();
+                foreach (string[] c in controls)
+                    using (Microsoft.Win32.RegistryKey k = Microsoft.Win32.Registry.ClassesRoot.OpenSubKey(@"CLSID\{" + c[0] + @"}\Control"))
+                        if (k != null) installed.Add(c);
+
+                List<string[]> add = new List<string[]>(), remove = new List<string[]>();
+                if (request == "remove") remove.AddRange(controls);
+                else if (request == "add") add.AddRange(installed);
+                else
+                {
+                    string state;
+                    v.TryGetValue("state", out state);
+                    foreach (string[] c in installed)
+                    {
+                        if (offered.Contains(c[0])) continue;
+                        if (state == "off") offered.Add(c[0]); // desligados nas Configurações: os novos também não entram
+                        else add.Add(c);
+                    }
+                    if (state == "off" && add.Count == 0) { v["offered"] = string.Join(",", offered.ToArray()); Write(v); return; }
+                }
+                if (add.Count == 0 && remove.Count == 0) { if (request != null) { v.Remove("request"); Write(v); } return; }
+                if (Process.GetProcessesByName("EXCEL").Length > 0) return;
+
+                // O FM20 monta o caminho a partir do perfil ("Application Data", normalmente um atalho
+                // para AppData\Roaming, mas pode ser uma pasta de verdade): confere os dois. Sem o
+                // arquivo, o VBE ainda não criou a Caixa: fica para depois.
+                string[] boxes =
+                {
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), @"Application Data\Microsoft\Forms\EXCEL.box"),
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), @"Microsoft\Forms\EXCEL.box"),
+                };
+                bool done = false;
+                foreach (string box in boxes)
+                    if (File.Exists(box) && Change(box, add, remove)) done = true;
+                if (!done) return;
+
+                foreach (string[] c in add) if (!offered.Contains(c[0])) offered.Add(c[0]);
+                foreach (string[] c in remove) if (!offered.Contains(c[0])) offered.Add(c[0]); // não voltam sozinhos
+                v["offered"] = string.Join(",", offered.ToArray());
+                v["state"] = remove.Count > 0 ? "off" : "on";
+                v.Remove("request");
+                Write(v);
+            }
+            catch (Exception) { }
+        }
+
+        static Dictionary<string, string> Read()
+        {
+            Dictionary<string, string> v = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            if (File.Exists(FilePath))
+                foreach (string line in File.ReadAllLines(FilePath))
+                {
+                    int i = line.IndexOf('=');
+                    if (i > 0) v[line.Substring(0, i).Trim()] = line.Substring(i + 1).Trim();
+                }
+            return v;
+        }
+
+        static void Write(Dictionary<string, string> v)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(FilePath));
+            List<string> lines = new List<string>();
+            foreach (KeyValuePair<string, string> kv in v) lines.Add(kv.Key + "=" + kv.Value);
+            File.WriteAllLines(FilePath, lines.ToArray());
+        }
+
+        // Acrescenta e tira controles da página; true se o arquivo está no formato esperado
+        static bool Change(string box, List<string[]> add, List<string[]> remove)
+        {
+            IStorage root;
+            if (StgOpenStorage(box, IntPtr.Zero, STGM_READWRITE | STGM_SHARE_EXCLUSIVE, IntPtr.Zero, 0, out root) != 0) return false;
+            IStorage s1 = null, s2 = null, s3 = null;
+            System.Runtime.InteropServices.ComTypes.IStream pr = null;
+            try
+            {
+                s1 = Open(root, "i01");
+                s2 = s1 == null ? null : Open(s1, "i01");
+                s3 = s2 == null ? null : Open(s2, "i04");
+                if (s3 == null || s3.OpenStream("pr", IntPtr.Zero, STGM_READWRITE | STGM_SHARE_EXCLUSIVE, 0, out pr) != 0) return false;
+                byte[] data = ReadAll(pr);
+
+                // Confere o formato e separa os registros e os nomes
+                if (data.Length < 24 || BitConverter.ToInt32(data, 0) != 0x00080200) return false;
+                int count = BitConverter.ToInt32(data, 16), next = BitConverter.ToInt32(data, 8);
+                if (count <= 0 || count > 200 || 24 + count * 32 > data.Length) return false;
+                List<byte[]> records = new List<byte[]>();
+                List<string> names = new List<string>();
+                int pos = 24 + count * 32;
+                for (int i = 0; i < count; i++)
+                {
+                    byte[] r = new byte[32];
+                    Array.Copy(data, 24 + i * 32, r, 0, 32);
+                    int chars = BitConverter.ToInt32(r, 12);
+                    if (chars < 0 || pos + chars * 2 > data.Length) return false;
+                    records.Add(r);
+                    names.Add(Encoding.Unicode.GetString(data, pos, chars * 2));
+                    pos += chars * 2;
+                }
+                if (pos != data.Length) return false;
+
+                bool changed = false;
+                foreach (string[] c in remove)
+                {
+                    byte[] id = new Guid(c[0]).ToByteArray();
+                    for (int i = records.Count - 1; i >= 0; i--)
+                        if (Same(records[i], 16, id)) { records.RemoveAt(i); names.RemoveAt(i); changed = true; }
+                }
+                foreach (string[] c in add)
+                {
+                    byte[] id = new Guid(c[0]).ToByteArray();
+                    bool present = false;
+                    foreach (byte[] r in records) if (Same(r, 16, id)) present = true;
+                    if (present) continue;
+                    byte[] rec = new byte[32];
+                    Array.Copy(BitConverter.GetBytes(next++), 0, rec, 0, 4);
+                    Array.Copy(BitConverter.GetBytes(c[1].Length), 0, rec, 12, 4);
+                    Array.Copy(id, 0, rec, 16, 16);
+                    records.Add(rec);
+                    names.Add(c[1]);
+                    changed = true;
+                }
+                if (!changed) return true;
+
+                // Índices em sequência (1..N) e o próximo em N + 1, como o VBE grava: o diálogo
+                // Controles adicionais percorre os índices até o próximo e deixa de abrir se faltar um
+                for (int i = 0; i < records.Count; i++) Array.Copy(BitConverter.GetBytes(i + 1), 0, records[i], 0, 4);
+                next = records.Count + 1;
+
+                MemoryStream m = new MemoryStream();
+                m.Write(data, 0, 24);
+                foreach (byte[] r in records) m.Write(r, 0, 32);
+                foreach (string n in names) { byte[] b = Encoding.Unicode.GetBytes(n); m.Write(b, 0, b.Length); }
+                byte[] updated = m.ToArray();
+                Array.Copy(BitConverter.GetBytes(next), 0, updated, 8, 4);
+                Array.Copy(BitConverter.GetBytes(records.Count), 0, updated, 16, 4);
+
+                pr.Seek(0, 0, IntPtr.Zero);
+                pr.SetSize(updated.Length);
+                pr.Write(updated, updated.Length, IntPtr.Zero);
+                pr.Commit(0);
+                s3.Commit(0); s2.Commit(0); s1.Commit(0); root.Commit(0);
+                return true;
+            }
+            finally
+            {
+                foreach (object o in new object[] { pr, s3, s2, s1, root })
+                    if (o != null) Marshal.ReleaseComObject(o);
+            }
+        }
+
+        static bool Same(byte[] a, int offset, byte[] b)
+        {
+            for (int i = 0; i < b.Length; i++) if (a[offset + i] != b[i]) return false;
+            return true;
+        }
+
+        static IStorage Open(IStorage parent, string name)
+        {
+            IStorage child;
+            return parent.OpenStorage(name, null, STGM_READWRITE | STGM_SHARE_EXCLUSIVE, IntPtr.Zero, 0, out child) == 0 ? child : null;
+        }
+
+        static byte[] ReadAll(System.Runtime.InteropServices.ComTypes.IStream stream)
+        {
+            System.Runtime.InteropServices.ComTypes.STATSTG stat;
+            stream.Stat(out stat, 1);
+            byte[] data = new byte[stat.cbSize];
+            IntPtr read = Marshal.AllocCoTaskMem(4);
+            try { stream.Read(data, data.Length, read); }
+            finally { Marshal.FreeCoTaskMem(read); }
+            return data;
+        }
+
+        const int STGM_READWRITE = 0x2, STGM_SHARE_EXCLUSIVE = 0x10;
+
+        [DllImport("ole32.dll", CharSet = CharSet.Unicode)]
+        static extern int StgOpenStorage(string name, IntPtr priority, int mode, IntPtr exclude, int reserved, out IStorage storage);
+
+        [ComImport, Guid("0000000B-0000-0000-C000-000000000046"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        interface IStorage
+        {
+            [PreserveSig] int CreateStream([MarshalAs(UnmanagedType.LPWStr)] string name, int mode, int r1, int r2, out System.Runtime.InteropServices.ComTypes.IStream stream);
+            [PreserveSig] int OpenStream([MarshalAs(UnmanagedType.LPWStr)] string name, IntPtr r1, int mode, int r2, out System.Runtime.InteropServices.ComTypes.IStream stream);
+            [PreserveSig] int CreateStorage([MarshalAs(UnmanagedType.LPWStr)] string name, int mode, int r1, int r2, out IStorage storage);
+            [PreserveSig] int OpenStorage([MarshalAs(UnmanagedType.LPWStr)] string name, IStorage priority, int mode, IntPtr exclude, int reserved, out IStorage storage);
+            void CopyTo(); void MoveElementTo();
+            [PreserveSig] int Commit(int flags);
         }
     }
 }

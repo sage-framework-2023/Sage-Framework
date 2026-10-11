@@ -174,15 +174,15 @@ namespace SageEditor
             if (rows != null && i < rows.Length && e.ColumnIndex < rows[i].Length) e.Value = rows[i][e.ColumnIndex] ?? (object)Null;
         }
 
-        // Célula NULL: "Empty" (o vazio do VBA) num fundo roxo, como o NULL do Azure Data Studio
+        // Célula NULL: "Vazio"/"Empty" (o vazio do VBA) num fundo roxo, como o NULL do Azure Data Studio
         static readonly object Null = new NullCell();
-        sealed class NullCell { public override string ToString() { return "Empty"; } }
+        sealed class NullCell { public override string ToString() { return Strings.NullCell; } }
         Color nullBack, nullFore;
 
         void FormatNull(object sender, DataGridViewCellFormattingEventArgs e)
         {
             if (e.Value != Null) return;
-            e.Value = "Empty";
+            e.Value = Strings.NullCell;
             e.CellStyle.BackColor = nullBack;
             e.CellStyle.ForeColor = nullFore;
             e.CellStyle.Alignment = DataGridViewContentAlignment.MiddleLeft;
@@ -190,7 +190,7 @@ namespace SageEditor
         }
 
         // Ctrl+C: as células selecionadas, separadas por tabulação (como o Excel cola), com o
-        // NULL em branco (e não o texto "Empty")
+        // NULL em branco (e não o texto "Vazio"/"Empty")
         void Copy()
         {
             if (grid.SelectedCells.Count == 0) return;

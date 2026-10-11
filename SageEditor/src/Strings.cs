@@ -25,6 +25,9 @@ namespace SageEditor
         public static string EditorCategory, LineNumbers, LineNumbersDescription, LineNumbersKeywords;
         public static string ShowTabs, ShowTabsDescription, ShowTabsKeywords;
         public static string AutoReference, AutoReferenceDescription, AutoReferenceKeywords;
+        public static string SageReference, SageReferenceDescription, SageReferenceNone, SageReferenceKeywords;
+        public static string SageReferenceNotInstalled, SageReferenceNoProject, SageReferenceLocked, SageReferenceRunning;
+        public static string ToolboxControls, ToolboxControlsDescription, ToolboxControlsKeywords;
         public static string MultiCursor, MultiCursorDescription, MultiCursorKeywords;
         public static string Icons, IconsDescription, IconsKeywords;
         public static string Explorer, ExplorerDescription, ExplorerKeywords, ExplorerProperties;
@@ -35,7 +38,7 @@ namespace SageEditor
 
         // Janela Terminal
         public static string TerminalTitle, TerminalImmediate, TerminalLocals, TerminalWatch, TerminalConsole, TerminalResults;
-        public static string ResultsEmpty, ResultsRow, ResultsRows, ResultsColumn, ResultsColumns;
+        public static string ResultsEmpty, ResultsRow, ResultsRows, ResultsColumn, ResultsColumns, NullCell;
         public static string ConsoleWarning, ConsoleNoWorkbook;
 
         public static void Load()
@@ -109,6 +112,19 @@ namespace SageEditor
                 "marcada em Ferramentas > Referências. Arquivos já salvos não são alterados: para não usar o Sage num arquivo, " +
                 "desmarque a referência e salve.";
             AutoReferenceKeywords = "referência referências biblioteca sage framework stringS tipos references library";
+            SageReference = "Referência no Projeto Ativo";
+            SageReferenceDescription = "A biblioteca Sage Framework em Ferramentas > Referências do projeto ativo no editor ({0}). " +
+                "Desativado remove a referência: o código que usa os tipos do Sage deixa de compilar.";
+            SageReferenceNone = "nenhum projeto ativo";
+            SageReferenceKeywords = "referência referências biblioteca projeto ativo adicionar remover sage framework reference library project";
+            SageReferenceNotInstalled = "A biblioteca Sage Framework não está instalada.";
+            SageReferenceNoProject = "Nenhum projeto ativo no editor do VBA: selecione um na janela Projeto.";
+            SageReferenceLocked = "O projeto está protegido por senha: desbloqueie-o para mudar as referências.";
+            SageReferenceRunning = "O código está rodando ou em modo de interrupção: pare a execução para mudar as referências.";
+            ToolboxControls = "Controles na Caixa de Ferramentas";
+            ToolboxControlsDescription = "Os controles do Sage (Sage TextBox, Sage DataGrid) na página Controles da Caixa de ferramentas dos UserForms. " +
+                "O Excel mantém a Caixa de ferramentas aberta: a mudança vale a partir da próxima vez que ele abrir.";
+            ToolboxControlsKeywords = "caixa ferramentas controles textbox userform formulário toolbox controls sage";
             Explorer = "Explorador Unificado";
             ExplorerDescription = "A janela Propriedades fica dentro da janela Projeto, embaixo da árvore, numa seção que " +
                 "recolhe e abre com um clique; arraste a faixa da seção para mudar a altura.";
@@ -141,6 +157,7 @@ namespace SageEditor
             ResultsRows = "{0:N0} linhas";
             ResultsColumn = "{0:N0} coluna";
             ResultsColumns = "{0:N0} colunas";
+            NullCell = "Vazio";
             ConsoleWarning = "AVISO: ";
             ConsoleNoWorkbook = "Nenhuma pasta de trabalho aberta no Excel.";
         }
@@ -179,6 +196,19 @@ namespace SageEditor
                 "checked in Tools > References. Saved files are not changed: to not use Sage in a file, " +
                 "uncheck the reference and save.";
             AutoReferenceKeywords = "reference references library sage framework strings types";
+            SageReference = "Reference in the Active Project";
+            SageReferenceDescription = "The Sage Framework library in Tools > References of the active project in the editor ({0}). " +
+                "Off removes the reference: code that uses the Sage types no longer compiles.";
+            SageReferenceNone = "no active project";
+            SageReferenceKeywords = "reference references library active project add remove sage framework";
+            SageReferenceNotInstalled = "The Sage Framework library is not installed.";
+            SageReferenceNoProject = "No active project in the VBA editor: select one in the Project window.";
+            SageReferenceLocked = "The project is password protected: unlock it to change its references.";
+            SageReferenceRunning = "Code is running or in break mode: stop it to change the references.";
+            ToolboxControls = "Toolbox Controls";
+            ToolboxControlsDescription = "The Sage controls (Sage TextBox, Sage DataGrid) in the Controls page of the UserForm Toolbox. " +
+                "Excel keeps the Toolbox open: the change takes effect the next time it starts.";
+            ToolboxControlsKeywords = "toolbox controls textbox userform form sage";
             Explorer = "Unified Explorer";
             ExplorerDescription = "The Properties window goes inside the Project window, below the tree, in a section " +
                 "that collapses and expands with a click; drag the section bar to change its height.";
@@ -211,6 +241,7 @@ namespace SageEditor
             ResultsRows = "{0:N0} rows";
             ResultsColumn = "{0:N0} column";
             ResultsColumns = "{0:N0} columns";
+            NullCell = "Empty";
             ConsoleWarning = "WARNING: ";
             ConsoleNoWorkbook = "No workbook is open in Excel.";
         }

@@ -82,6 +82,7 @@ namespace SageEditor
         bool showAppearance = true;
         readonly HashSet<SettingItem> hidden = new HashSet<SettingItem>();
         readonly Label noResults = new Label();
+        readonly SettingItem referenceItem;
         Theme theme;
 
         SettingsForm(Action<Theme> applyTheme)
@@ -149,6 +150,13 @@ namespace SageEditor
                 delegate(bool on) { Settings.Icons = on; applyTheme(theme); }); // redesenha as abas
             AddOnOff(Strings.AutoReference, Strings.AutoReferenceDescription, Strings.AutoReferenceKeywords, Settings.AutoReference,
                 delegate(bool on) { Settings.AutoReference = on; });
+            // A referência no projeto ativo: relida quando a janela volta ao foco (o projeto ativo muda)
+            referenceItem = AddOnOff(Strings.SageReference, string.Format(Strings.SageReferenceDescription, Strings.SageReferenceNone),
+                Strings.SageReferenceKeywords, false, OnReferenceChanged);
+            RefreshReference();
+            Activated += delegate { RefreshReference(); };
+            AddOnOff(Strings.ToolboxControls, Strings.ToolboxControlsDescription, Strings.ToolboxControlsKeywords, ToolboxControls.On,
+                delegate(bool on) { ToolboxControls.Set(on); });
 
             noResults.Text = Strings.NoResults;
             noResults.AutoSize = true;
@@ -165,13 +173,44 @@ namespace SageEditor
         }
 
         // Item "Editor: <nome>" com Ativado/Desativado
-        void AddOnOff(string name, string description, string keywords, bool value, Action<bool> changed)
+        SettingItem AddOnOff(string name, string description, string keywords, bool value, Action<bool> changed)
         {
             SettingItem item = new SettingItem(Strings.EditorCategory, name, description,
                 new string[] { Strings.On, Strings.Off }, value ? Strings.On : Strings.Off, keywords);
             item.ValueChanged += delegate(string selected) { changed(selected == Strings.On); };
             editorItems.Add(item);
             content.Controls.Add(item);
+            return item;
+        }
+
+        // Estado da referência ao Sage no projeto ativo (lido na thread do Excel)
+        void RefreshReference()
+        {
+            try
+            {
+                string project = null;
+                SageReference.Status status = Connect.OnExcel(delegate(dynamic vbe)
+                {
+                    string p;
+                    SageReference.Status st = SageReference.Get(vbe, out p);
+                    project = p;
+                    return st;
+                });
+                referenceItem.SetDescription(string.Format(Strings.SageReferenceDescription,
+                    string.IsNullOrEmpty(project) ? Strings.SageReferenceNone : project));
+                referenceItem.SetValue(status == SageReference.Status.Present ? Strings.On : Strings.Off);
+                DoLayout();
+            }
+            catch (Exception ex) { Log.Error(ex); }
+        }
+
+        void OnReferenceChanged(bool on)
+        {
+            string error;
+            try { error = Connect.OnExcel(delegate(dynamic vbe) { return SageReference.Set(vbe, on); }); }
+            catch (Exception ex) { error = ex.Message; }
+            if (error != null) MessageBox.Show(this, error, Strings.SettingsTitle, MessageBoxButtons.OK, MessageBoxIcon.Information);
+            RefreshReference();
         }
 
         void AddNavItem(string text)
@@ -333,7 +372,9 @@ namespace SageEditor
     // Um item de configuração: "Categoria: Nome", descrição e um seletor.
     sealed class SettingItem : Panel
     {
-        readonly string category, name, description, keywords;
+        readonly string category, name, keywords;
+        string description;
+        bool quiet;
         readonly ComboBox combo = new ComboBox();
         readonly Font bold = new Font("Segoe UI", 9.75f, FontStyle.Bold);
         Theme theme;
@@ -359,7 +400,7 @@ namespace SageEditor
             combo.DrawItem += DrawComboItem;
             combo.SelectedIndexChanged += delegate
             {
-                if (ValueChanged != null) ValueChanged((string)combo.SelectedItem);
+                if (!quiet && ValueChanged != null) ValueChanged((string)combo.SelectedItem);
             };
             combo.GotFocus += delegate { SetActive(true); };
             combo.LostFocus += delegate { SetActive(false); };
@@ -390,6 +431,23 @@ namespace SageEditor
         }
 
         public new void Focus() { combo.Focus(); }
+
+        // Muda o valor mostrado sem disparar ValueChanged
+        public void SetValue(string value)
+        {
+            if (Equals(combo.SelectedItem, value)) return;
+            quiet = true;
+            try { combo.SelectedItem = value; }
+            finally { quiet = false; }
+        }
+
+        public void SetDescription(string text)
+        {
+            if (description == text) return;
+            description = text;
+            Relayout();
+            Invalidate();
+        }
 
         public void SetTheme(Theme t)
         {
