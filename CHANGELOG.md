@@ -47,7 +47,10 @@ Ainda sem versão. Coisas que os UserForms não têm, ou têm de um jeito antigo
 ### SageEditor e SageShortcuts
 - **Página "Sage" na Caixa de ferramentas**: os controles do Sage ficam numa página própria, ao lado da página *Controles*. Quem tinha os controles na página *Controles* (versões anteriores) os vê passar para a página Sage.
 - O DateBox entra sozinho na página Sage e na opção *Controles na Caixa de Ferramentas* das Configurações.
-- A desinstalação apaga a página Sage.
+- A desinstalação apaga a página Sage e tira os controles do Sage da Caixa de ferramentas de todos os usuários do computador.
+
+### SageEditor
+- Com as abas, as janelas de código e de formulário ocupam a área toda, sem barra de título e sem os botões nativos de minimizar, restaurar e fechar.
 
 ## 1.1.0
 
@@ -64,7 +67,6 @@ Ainda sem versão. Coisas que os UserForms não têm, ou têm de um jeito antigo
 
 ### SageEditor
 - Configurações novas: *Referência no Projeto Ativo* (adiciona ou remove a referência do Sage no projeto aberto) e *Controles na Caixa de Ferramentas*.
-- Com as abas, as janelas de código e de formulário ocupam a área toda, sem barra de título e sem os botões nativos de minimizar, restaurar e fechar.
 - Aba Resultado DataFrame: valores nulos como "Vazio" em português e "Empty" nos outros idiomas.
 
 ### SageShortcuts e instalador
@@ -74,7 +76,6 @@ Ainda sem versão. Coisas que os UserForms não têm, ou têm de um jeito antigo
 ### Correções
 - Com os temas escuros do Office, os itens dos menus do editor do VBA apareciam cinza, como se estivessem desabilitados.
 - *Controles adicionais* da Caixa de ferramentas não abria depois que um controle era tirado da lista.
-- A desinstalação agora tira os controles do Sage da Caixa de ferramentas.
 
 ## 1.0.0 (2026-10-10)
 
