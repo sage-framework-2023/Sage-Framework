@@ -45,7 +45,7 @@ Export-Component 'SageTypes\install.ps1' (Join-Path $stage 'Types')
 $shortcuts = Join-Path $stage 'Shortcuts'
 New-Item (Join-Path $shortcuts 'src') -ItemType Directory -Force | Out-Null
 Copy-Item (Join-Path $root 'SageShortcuts\SageShortcuts.ps1'), (Join-Path $root 'SageShortcuts\keybindings.txt') $shortcuts
-Copy-Item (Join-Path $root 'SageShortcuts\src\SageShortcuts.cs') (Join-Path $shortcuts 'src')
+Copy-Item (Join-Path $root 'SageShortcuts\src\SageShortcuts.cs'), (Join-Path $root 'SageShortcuts\src\ToolboxFile.cs') (Join-Path $shortcuts 'src')
 
 # Documentação (atalho "Documentação" no menu Iniciar) e a licença do DuckDB
 $docs = Join-Path $stage 'Docs'
@@ -90,7 +90,7 @@ Write-Host 'Compilando o instalador...'
     "-resource:$payload,payload.zip" `
     -r:System.dll -r:System.Core.dll -r:System.Drawing.dll -r:System.Windows.Forms.dll `
     -r:System.IO.Compression.dll -r:Microsoft.CSharp.dll `
-    "-out:$exe" (Join-Path $root 'SageSetup\src\Setup.cs') $info
+    "-out:$exe" (Join-Path $root 'SageSetup\src\Setup.cs') (Join-Path $root 'SageShortcuts\src\ToolboxFile.cs') $info
 if ($LASTEXITCODE -ne 0) { throw 'A compilação do instalador falhou.' }
 
 $hash = (Get-FileHash $exe -Algorithm SHA256).Hash

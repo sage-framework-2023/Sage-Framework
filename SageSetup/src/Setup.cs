@@ -861,25 +861,21 @@ namespace SageSetup
     // ----------------------------------------------------------------------
 
     // Tira os controles do Sage da Caixa de ferramentas dos UserForms (Microsoft\Forms\EXCEL.box,
-    // de cada usuário do computador), na desinstalação: sem isso, ficariam botões de controles que
-    // não existem mais. O formato é o que o SageShortcuts grava (ToolboxSetup, em SageShortcuts.cs):
-    // a lista da página é o stream i01\i01\i04\pr, com um cabeçalho de 24 bytes ([8] próximo
-    // índice, [16] quantidade), um registro de 32 bytes por controle (índice, 8 bytes zerados,
-    // tamanho do nome, CLSID) e os nomes em UTF-16. Os índices são refeitos em sequência (1..N, o
-    // próximo em N + 1), senão o diálogo Controles adicionais deixa de abrir. Arquivo fora do
-    // formato fica como está. O Excel já está fechado (o VBE mantém o arquivo aberto).
+    // de cada usuário do computador) e apaga a página "Sage", na desinstalação: sem isso, ficariam
+    // botões de controles que não existem mais. O formato do arquivo: SageShortcuts\src\ToolboxFile.cs,
+    // compilado junto com o instalador. O Excel já está fechado (o VBE mantém o arquivo aberto).
     static class Toolbox
     {
         public static void Remove(List<ComClass> classes)
         {
-            List<byte[]> ids = new List<byte[]>();
-            foreach (ComClass c in classes) if (c.Control) ids.Add(new Guid(c.Clsid).ToByteArray());
+            List<Guid> ids = new List<Guid>();
+            foreach (ComClass c in classes) if (c.Control) ids.Add(new Guid(c.Clsid));
             if (ids.Count == 0) return;
             foreach (string profile in Profiles())
                 foreach (string box in new[] { Path.Combine(profile, @"Application Data\Microsoft\Forms\EXCEL.box"),
                     Path.Combine(profile, @"AppData\Roaming\Microsoft\Forms\EXCEL.box") })
                 {
-                    try { if (File.Exists(box) && RemoveFrom(box, ids)) Log.Write("Caixa de ferramentas: " + box); }
+                    try { if (File.Exists(box) && SageToolbox.ToolboxFile.Remove(box, ids)) Log.Write("Caixa de ferramentas: " + box); }
                     catch (Exception ex) { Log.Write("Caixa de ferramentas " + box + ": " + ex.Message); }
                 }
         }
@@ -902,107 +898,6 @@ namespace SageSetup
                         }
                     }
             return dirs;
-        }
-
-        // true se tirou algum controle
-        static bool RemoveFrom(string box, List<byte[]> ids)
-        {
-            IStorage root;
-            if (StgOpenStorage(box, IntPtr.Zero, STGM_READWRITE | STGM_SHARE_EXCLUSIVE, IntPtr.Zero, 0, out root) != 0) return false;
-            IStorage s1 = null, s2 = null, s3 = null;
-            IStream pr = null;
-            try
-            {
-                s1 = Open(root, "i01");
-                s2 = s1 == null ? null : Open(s1, "i01");
-                s3 = s2 == null ? null : Open(s2, "i04");
-                if (s3 == null || s3.OpenStream("pr", IntPtr.Zero, STGM_READWRITE | STGM_SHARE_EXCLUSIVE, 0, out pr) != 0) return false;
-                byte[] data = ReadAll(pr);
-
-                if (data.Length < 24 || BitConverter.ToInt32(data, 0) != 0x00080200) return false;
-                int count = BitConverter.ToInt32(data, 16);
-                if (count <= 0 || count > 200 || 24 + count * 32 > data.Length) return false;
-                List<byte[]> records = new List<byte[]>(), names = new List<byte[]>();
-                int pos = 24 + count * 32;
-                for (int i = 0; i < count; i++)
-                {
-                    byte[] r = new byte[32];
-                    Array.Copy(data, 24 + i * 32, r, 0, 32);
-                    int chars = BitConverter.ToInt32(r, 12);
-                    if (chars < 0 || pos + chars * 2 > data.Length) return false;
-                    byte[] n = new byte[chars * 2];
-                    Array.Copy(data, pos, n, 0, n.Length);
-                    records.Add(r);
-                    names.Add(n);
-                    pos += n.Length;
-                }
-                if (pos != data.Length) return false;
-
-                bool changed = false;
-                for (int i = records.Count - 1; i >= 0; i--)
-                    if (ids.Exists(id => Same(records[i], 16, id))) { records.RemoveAt(i); names.RemoveAt(i); changed = true; }
-                if (!changed) return false;
-                for (int i = 0; i < records.Count; i++) Array.Copy(BitConverter.GetBytes(i + 1), 0, records[i], 0, 4);
-
-                MemoryStream m = new MemoryStream();
-                m.Write(data, 0, 24);
-                foreach (byte[] r in records) m.Write(r, 0, 32);
-                foreach (byte[] n in names) m.Write(n, 0, n.Length);
-                byte[] updated = m.ToArray();
-                Array.Copy(BitConverter.GetBytes(records.Count + 1), 0, updated, 8, 4);
-                Array.Copy(BitConverter.GetBytes(records.Count), 0, updated, 16, 4);
-
-                pr.Seek(0, 0, IntPtr.Zero);
-                pr.SetSize(updated.Length);
-                pr.Write(updated, updated.Length, IntPtr.Zero);
-                pr.Commit(0);
-                s3.Commit(0); s2.Commit(0); s1.Commit(0); root.Commit(0);
-                return true;
-            }
-            finally
-            {
-                foreach (object o in new object[] { pr, s3, s2, s1, root })
-                    if (o != null) Marshal.ReleaseComObject(o);
-            }
-        }
-
-        static bool Same(byte[] a, int offset, byte[] b)
-        {
-            for (int i = 0; i < b.Length; i++) if (a[offset + i] != b[i]) return false;
-            return true;
-        }
-
-        static IStorage Open(IStorage parent, string name)
-        {
-            IStorage child;
-            return parent.OpenStorage(name, null, STGM_READWRITE | STGM_SHARE_EXCLUSIVE, IntPtr.Zero, 0, out child) == 0 ? child : null;
-        }
-
-        static byte[] ReadAll(IStream stream)
-        {
-            System.Runtime.InteropServices.ComTypes.STATSTG stat;
-            stream.Stat(out stat, 1);
-            byte[] data = new byte[stat.cbSize];
-            IntPtr read = Marshal.AllocCoTaskMem(4);
-            try { stream.Read(data, data.Length, read); }
-            finally { Marshal.FreeCoTaskMem(read); }
-            return data;
-        }
-
-        const int STGM_READWRITE = 0x2, STGM_SHARE_EXCLUSIVE = 0x10;
-
-        [DllImport("ole32.dll", CharSet = CharSet.Unicode)]
-        static extern int StgOpenStorage(string name, IntPtr priority, int mode, IntPtr exclude, int reserved, out IStorage storage);
-
-        [ComImport, Guid("0000000B-0000-0000-C000-000000000046"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-        interface IStorage
-        {
-            [PreserveSig] int CreateStream([MarshalAs(UnmanagedType.LPWStr)] string name, int mode, int r1, int r2, out IStream stream);
-            [PreserveSig] int OpenStream([MarshalAs(UnmanagedType.LPWStr)] string name, IntPtr r1, int mode, int r2, out IStream stream);
-            [PreserveSig] int CreateStorage([MarshalAs(UnmanagedType.LPWStr)] string name, int mode, int r1, int r2, out IStorage storage);
-            [PreserveSig] int OpenStorage([MarshalAs(UnmanagedType.LPWStr)] string name, IStorage priority, int mode, IntPtr exclude, int reserved, out IStorage storage);
-            void CopyTo(); void MoveElementTo();
-            [PreserveSig] int Commit(int flags);
         }
     }
 

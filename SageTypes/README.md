@@ -322,7 +322,7 @@ Separe as âncoras com espaço (`"Bottom Right"`). `Anchors` aceita `Array("cont
 
 ## TextBox (controle para UserForms)
 
-Caixa de texto com correção ortográfica, para colocar em UserForms: no designer, o **Sage TextBox** já aparece na Caixa de ferramentas (o SageShortcuts o põe uma vez por usuário, com o Excel fechado). Se tiver sido desmarcado: clique direito na Caixa de ferramentas > *Controles adicionais* > marque **Sage Framework TextBox**. As palavras erradas ficam sublinhadas em vermelho enquanto se digita; o clique direito mostra as sugestões, *Ignorar* e *Adicionar ao dicionário*. A correção é a do Windows (a do Edge e do Bloco de Notas): os idiomas são os instalados em *Configurações > Hora e idioma*, e as palavras adicionadas valem para todos os programas.
+Caixa de texto com correção ortográfica, para colocar em UserForms: no designer, o **Sage TextBox** já aparece na página **Sage** da Caixa de ferramentas (o SageShortcuts a cria uma vez por usuário, com o Excel fechado). Se tiver sido desmarcado: clique direito na página > *Controles adicionais* > marque **Sage Framework TextBox**. As palavras erradas ficam sublinhadas em vermelho enquanto se digita; o clique direito mostra as sugestões, *Ignorar* e *Adicionar ao dicionário*. A correção é a do Windows (a do Edge e do Bloco de Notas): os idiomas são os instalados em *Configurações > Hora e idioma*, e as palavras adicionadas valem para todos os programas.
 
 ```vb
 Private Sub txtObs_Change()
@@ -379,9 +379,38 @@ End Sub
 
 Valores nulos aparecem como **Vazio** (português) ou **Empty** (outros idiomas), em roxo; números alinhados à direita.
 
+## DateBox (controle para UserForms)
+
+Caixa de data com calendário (*Sage Framework DateBox* na Caixa de ferramentas). `Value` é um `Date` de verdade, ou `Empty` sem data.
+
+```vb
+dtEntrega.Value = Date
+dtEntrega.MinDate = Date                 ' Empty: sem limite
+dtEntrega.Format = "dd/mmm/yyyy"         ' fora do foco; vazio = data abreviada do Windows
+
+Private Sub dtEntrega_Change()           ' só quando a data muda (não a cada tecla)
+    lblPrazo.Caption = dtEntrega.Value - Date & " dias"
+End Sub
+```
+
+**Digitação:** só números e separadores; o separador entra sozinho depois do dia e do mês. Conferida ao sair da caixa ou no Enter: `12/10/2026`, `12-10-26`, `12102026`, `121026`, `1503` (ano atual), `5` (mês e ano atuais), na ordem da data abreviada do Windows. Inválida ou fora dos limites: bipe e volta a data anterior. Com o foco, a data aparece como na digitação (`dd/mm/aaaa`); sem ele, no `Format` (o motor do `Format` do VBA). Seta para cima/baixo: um dia.
+
+**Calendário:** o botão à direita, F4 ou Alt+Seta para baixo. É uma janela própria (`CalendarPopup`), desenhada à mão, que não ativa (`WS_EX_NOACTIVATE`, `MA_NOACTIVATE`) e fica com a captura do mouse enquanto aberta, como a lista de uma ComboBox: o foco continua na caixa, as teclas de navegação vão para o calendário (setas, Page Up/Down, Ctrl+Page Up/Down, Home/End, Enter, Esc), e o clique fora o fecha. Vistas de dias, meses e anos (clique no título); *Hoje* e *Limpar* no rodapé; primeiro dia da semana e nomes da cultura do Windows; dias fora de `MinDate`/`MaxDate` apagados.
+
+| Membro | |
+|---|---|
+| `Value` (padrão) | `Date` ou `Empty`; aceita texto de data. Fora dos limites: `ValueError` (erro 380); texto que não é data: `TypeError` (erro 13) |
+| `Text` | O texto da caixa; atribuir funciona como digitar |
+| `Format`, `MinDate`, `MaxDate`, `Placeholder` | Formato fora do foco, limites (`Empty` = sem limite) e texto de dica |
+| `DropDown` | Abre o calendário |
+| `Locked`, `Enabled`, `TextAlign`, `BackColor`, `ForeColor`, `BorderColor`, `BorderStyle`, `FontName`, `FontSize`, `FontBold`, `FontItalic` | Como no TextBox |
+| Eventos | `Change`, `DropButtonClick`, `KeyDown(KeyCode, Shift)`, `KeyPress(KeyAscii)` |
+
+As datas são gravadas no form como texto ISO (`yyyy-MM-dd`).
+
 ### Como é feito
 
-A classe (`TextBox.cs`; o `DataGrid.cs` segue o mesmo molde) deriva de `OleControl` (`OleControl.cs`), que implementa à mão o protocolo ActiveX (`IOleObject`, `IOleInPlaceObject`, `IOleInPlaceActiveObject`, `IOleControl`, `IViewObject2`, `IPersistStreamInit`, `IObjectSafety`), como o ATL do C++. O `Control` do WinForms, que traz esse suporte pronto, derruba o `FM20.DLL` ao ser inserido. Quando o form ativa o controle, ele cria uma janela filha (`OleHost`) com uma caixa `EDIT` do Windows dentro; sem janela (no designer), desenha pelo `IViewObject::Draw`. A correção ortográfica é a API `ISpellChecker` do Windows (`Spelling.cs`), com o sublinhado desenhado por cima da caixa.
+A classe (`TextBox.cs`; o `DataGrid.cs` e o `DateBox.cs` seguem o mesmo molde) deriva de `OleControl` (`OleControl.cs`), que implementa à mão o protocolo ActiveX (`IOleObject`, `IOleInPlaceObject`, `IOleInPlaceActiveObject`, `IOleControl`, `IViewObject2`, `IPersistStreamInit`, `IObjectSafety`), como o ATL do C++. O `Control` do WinForms, que traz esse suporte pronto, derruba o `FM20.DLL` ao ser inserido. Quando o form ativa o controle, ele cria uma janela filha (`OleHost`) com uma caixa `EDIT` do Windows dentro; sem janela (no designer), desenha pelo `IViewObject::Draw`. A correção ortográfica é a API `ISpellChecker` do Windows (`Spelling.cs`), com o sublinhado desenhado por cima da caixa.
 
 Pontos que fazem a diferença no UserForm:
 - O stream recebido em `IPersistStreamInit::Save`/`Load` é liberado na hora (`Marshal.FinalReleaseComObject`). O .NET o manteria aberto até o coletor de lixo, e o form, ao rodar, abre o mesmo stream (`o`) em modo exclusivo: daria *Erro de acesso a caminho/arquivo*.
@@ -389,8 +418,8 @@ Pontos que fazem a diferença no UserForm:
 - O tamanho do controle vai junto com as propriedades gravadas (o form o pede com `GetExtent` depois de carregar).
 - As propriedades são gravadas com nome e tipo (`SaveProperties`/`LoadProperties`); as desconhecidas são ignoradas ao ler, então versões novas podem acrescentar propriedades. Não mude os nomes.
 - O `install.ps1` marca a classe com `[control]` no `.tlb` e tira a interface `_Object` do .NET; o registro leva as chaves de controle (`Control`, `MiscStatus`, `TypeLib`, `Version`, `ToolboxBitmap32`, categorias de controle, seguro para scripts e para inicialização, `PersistsToStreamInit`). No `com.txt`, a linha do controle termina em `|control`.
-- A Caixa de ferramentas (`Microsoft\Forms\EXCEL.box`, no perfil do usuário) recebe o controle pelo SageShortcuts (`ToolboxSetup`), uma vez por usuário (os já postos ficam em `%APPDATA%\Sage\toolbox.txt`), e só com o Excel fechado: o VBE mantém o arquivo aberto e o regrava ao fechar.
-- O ícone da Caixa de ferramentas é o BITMAP 1 do `SageToolbox.dll` (`res\toolbox.res`, 16x16, compilado pelo `build.cmd`).
+- A Caixa de ferramentas (`Microsoft\Forms\EXCEL.box`, no perfil do usuário) recebe os controles numa página **Sage** própria, pelo SageShortcuts (`ToolboxSetup`), uma vez por usuário (os já postos ficam em `%APPDATA%\Sage\toolbox.txt`), e só com o Excel fechado: o VBE mantém o arquivo aberto e o regrava ao fechar. O arquivo é um form do MSForms com um MultiPage; a página é criada como o VBE cria a dele (*Nova página*): um site no `f`, uma aba no `o` (TabStrip), o ID no `x` e uma pasta `iNN` com a lista de controles. O código fica em `SageShortcuts\src\ToolboxFile.cs`, usado também pelo desinstalador. Arquivo fora do formato conferido: os controles vão para a primeira página, como antes.
+- O ícone da Caixa de ferramentas é um BITMAP do `SageToolbox.dll` (1 TextBox, 2 DataGrid, 3 DateBox; `res\toolbox.res`, 16x16, compilado pelo `build.cmd`).
 - O MSForms guarda um cache (`.exd`) da biblioteca de tipos de cada controle, em `%TEMP%\VBE` e em `Microsoft\Forms` no perfil (`%APPDATA%` ou a pasta `Application Data` do perfil, que pode ser uma pasta de verdade em vez do atalho); o instalador apaga os do Sage, para não ficar um cache de uma versão anterior.
 
 ## SqlEngine

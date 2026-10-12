@@ -122,7 +122,7 @@ namespace SageEditor
             SageReferenceLocked = "O projeto está protegido por senha: desbloqueie-o para mudar as referências.";
             SageReferenceRunning = "O código está rodando ou em modo de interrupção: pare a execução para mudar as referências.";
             ToolboxControls = "Controles na Caixa de Ferramentas";
-            ToolboxControlsDescription = "Os controles do Sage (Sage TextBox, Sage DataGrid) na página Controles da Caixa de ferramentas dos UserForms. " +
+            ToolboxControlsDescription = "Os controles do Sage (Sage TextBox, Sage DataGrid, Sage DateBox) na página Controles da Caixa de ferramentas dos UserForms. " +
                 "O Excel mantém a Caixa de ferramentas aberta: a mudança vale a partir da próxima vez que ele abrir.";
             ToolboxControlsKeywords = "caixa ferramentas controles textbox userform formulário toolbox controls sage";
             Explorer = "Explorador Unificado";
@@ -206,7 +206,7 @@ namespace SageEditor
             SageReferenceLocked = "The project is password protected: unlock it to change its references.";
             SageReferenceRunning = "Code is running or in break mode: stop it to change the references.";
             ToolboxControls = "Toolbox Controls";
-            ToolboxControlsDescription = "The Sage controls (Sage TextBox, Sage DataGrid) in the Controls page of the UserForm Toolbox. " +
+            ToolboxControlsDescription = "The Sage controls (Sage TextBox, Sage DataGrid, Sage DateBox) in the Controls page of the UserForm Toolbox. " +
                 "Excel keeps the Toolbox open: the change takes effect the next time it starts.";
             ToolboxControlsKeywords = "toolbox controls textbox userform form sage";
             Explorer = "Unified Explorer";

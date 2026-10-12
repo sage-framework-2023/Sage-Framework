@@ -11,7 +11,9 @@
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
 
-$source = [IO.File]::ReadAllText((Join-Path $root 'src\SageShortcuts.cs'), [Text.Encoding]::UTF8)
+# ToolboxFile.cs (a Caixa de ferramentas) é usado também pelo instalador: vem num arquivo à parte
+$source = [IO.File]::ReadAllText((Join-Path $root 'src\SageShortcuts.cs'), [Text.Encoding]::UTF8) + "`n" +
+    [IO.File]::ReadAllText((Join-Path $root 'src\ToolboxFile.cs'), [Text.Encoding]::UTF8)
 Add-Type -TypeDefinition $source -Language CSharp -ReferencedAssemblies @(
     'System.Core', 'System.Drawing', 'System.Windows.Forms', 'Microsoft.CSharp')
 

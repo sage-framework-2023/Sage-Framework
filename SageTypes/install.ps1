@@ -322,6 +322,7 @@ $Classes = @(
     # Controles para UserForms (Caixa de ferramentas > Controles adicionais)
     @{ Class = 'SageTypes.TextBox'; Clsid = '{0AD72DAF-5E3F-47CA-8C4C-3E5050C6DFC5}'; ProgId = 'Sage.TextBox'; Control = $true; Icon = 1 }
     @{ Class = 'SageTypes.DataGrid'; Clsid = '{116738F7-D352-40B2-8E87-2B0294450F9E}'; ProgId = 'Sage.DataGrid'; Control = $true; Icon = 2 }
+    @{ Class = 'SageTypes.DateBox'; Clsid = '{D41B7E05-2C9A-4F63-8B1E-5A0C3D9F7E28}'; ProgId = 'Sage.DateBox'; Control = $true; Icon = 3 }
 )
 
 # DuckDB (motor do DataFrame). No pacote da release vem em lib\; num clone do git é

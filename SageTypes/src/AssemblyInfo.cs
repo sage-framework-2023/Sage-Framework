@@ -13,6 +13,6 @@ using System.Runtime.InteropServices;
 // mude o principal (2.0) junto com mudanças que quebram o código de quem usa.
 [assembly: AssemblyTitle("SageTypes")]
 [assembly: AssemblyDescription("Sage Framework")] // o nome em Ferramentas > Referências, com a versão: "Sage Framework 1.1.0"
-[assembly: AssemblyVersion("1.1.0.0")]
+[assembly: AssemblyVersion("1.2.0.0")]
 [assembly: Guid("3F8E2A61-7C4B-4E9D-A215-6B0C9D8E7F14")]
 [assembly: ComVisible(false)] // só o que for marcado com [ComVisible(true)]
