@@ -18,6 +18,7 @@ namespace SageEditor
     //                                     e mostra o retorno; Tab completa os nomes
     //   $Excel                            o Application do Excel
     //   cls / clear                       limpa a tela
+    //   exit                              fecha a janela e recomeça a sessão, com a tela limpa
     // Enter executa, Seta para cima/baixo navega no histórico, Tab completa, Esc apaga a linha
     // e Ctrl+C interrompe o comando (ou copia, com texto selecionado).
     sealed class PsConsole : UserControl
@@ -295,6 +296,7 @@ Remove-Variable start, SageStartFolders
             historyIndex = history.Count;
             string trimmed = line.Trim().ToLowerInvariant();
             if (trimmed == "cls" || trimmed == "clear" || trimmed == "clear-host") { ClearScreen(); return; }
+            if (trimmed == "exit") { Exit(); return; }
             if (runspace == null) return;
 
             int columns = Math.Max(40, output.ClientSize.Width / Math.Max(1, TextRenderer.MeasureText("M", output.Font).Width) - 2);
@@ -537,6 +539,19 @@ Remove-Variable start, SageStartFolders
             output.SelectionColor = color ?? output.ForeColor;
             output.AppendText(text);
             output.SelectionStart = output.TextLength;
+        }
+
+        // exit: como fechar um terminal. A sessão do PowerShell acaba (variáveis, pasta atual), a tela
+        // e o histórico de comandos são apagados e a janela fecha; uma sessão nova já começa, para
+        // o Terminal reabrir limpo
+        void Exit()
+        {
+            Shutdown();
+            history.Clear();
+            historyIndex = 0;
+            ClearScreen();
+            TerminalWindow.Hide();
+            EnsureRunspace();
         }
 
         void ClearScreen()
