@@ -156,7 +156,7 @@ namespace SageEditor
             TerminalLocals = "Variáveis Locais";
             TerminalWatch = "Inspeção de Variáveis";
             TerminalConsole = "Terminal";
-            TerminalResults = "Resultado DataFrame";
+            TerminalResults = "Resultado do DataFrame";
             ResultsEmpty = "Use df.Show no VBA para ver um DataFrame aqui.";
             ResultsRow = "{0:N0} linha";
             ResultsRows = "{0:N0} linhas";

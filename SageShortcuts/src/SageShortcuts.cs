@@ -686,7 +686,7 @@ namespace SageShortcuts
         const int vbext_wt_Watch = 3, vbext_wt_Locals = 4, vbext_wt_Immediate = 5;
 
         // Abre ou fecha a janela Terminal do SageEditor (tab -1: a janela; senão a aba: 0 Imediata,
-        // 1 Variáveis Locais, 2 Inspeção de Variáveis, 3 Terminal, 4 Resultado DataFrame). false: o SageEditor não está carregado ou não
+        // 1 Variáveis Locais, 2 Inspeção de Variáveis, 3 Terminal, 4 Resultado do DataFrame). false: o SageEditor não está carregado ou não
         // tem a janela, e quem chamou usa a janela do VBE.
         const int vbext_wt_Project = 6;
 

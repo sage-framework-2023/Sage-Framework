@@ -40,6 +40,7 @@ Ainda sem versão. Coisas que os UserForms não têm, ou têm de um jeito antigo
   - O clique na cor abre um seletor de cor (saturação e brilho, matiz, `#RRGGBB`, R, G, B) que reescreve a cor no código, no mesmo formato, enquanto você escolhe.
   - Enter ou clicar fora mantém; Esc volta a cor original.
   - Opção *Editor: Decoradores de Cor* nas Configurações (`"editor.colorDecorators"`).
+- A aba *Resultado DataFrame* da janela Terminal passa a se chamar **Resultado do DataFrame** em português.
 - Aba Terminal: `exit` fecha a janela e recomeça o PowerShell, com a tela, o histórico de comandos e as variáveis apagados.
 - A biblioteca aparece em *Ferramentas > Referências* como **Sage Framework 1.3**.
 

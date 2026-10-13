@@ -171,7 +171,7 @@ Loop
 
 **Carregar:** `ReadCsv(Caminho, [Cabeçalho], [Delimitador], [SeparadorDecimal], [Codificação])`, `ReadParquet`, `ReadExcel(Caminho, [Planilha], [Cabeçalho])`, `FromRange`, `FromArray` (2D ou array de linhas), `FromRecords` (lista de `DictionaryS`), `Sql("SELECT ... FROM {0} JOIN {1} ...", outroDf)`. Os `Read` aceitam caminho relativo (`ReadCsv "vendas.csv"`, `"dados\vendas.csv"`), a partir da pasta da pasta de trabalho ativa (se ela não foi salva, da pasta atual do Excel).
 
-**Gravar e ver:** `ToCsv`, `ToParquet`, `ToExcel` (formato pela extensão), `ToSql` (banco de dados, pelo `SqlEngine`), `ToRange`, `ToArray`, `ToString` / `Debug.Print df`, `Show` (mostra o DataFrame na aba *Resultado DataFrame* da janela Terminal do editor, numa grade lida aos poucos: abre na hora mesmo com milhões de linhas, e a macro continua; sem o SageEditor, abre uma janela própria).
+**Gravar e ver:** `ToCsv`, `ToParquet`, `ToExcel` (formato pela extensão), `ToSql` (banco de dados, pelo `SqlEngine`), `ToRange`, `ToArray`, `ToString` / `Debug.Print df`, `Show` (mostra o DataFrame na aba *Resultado do DataFrame* da janela Terminal do editor, numa grade lida aos poucos: abre na hora mesmo com milhões de linhas, e a macro continua; sem o SageEditor, abre uma janela própria).
 
 **Explorar:** `Count`, `Columns`, `DTypes`, `Shape`, `Info`, `Describe`, `Head`, `Tail`, `Slice`, `Sample`, `Col`, `Unique`, `ValueCounts`, `Sum`, `Mean`, `Min`, `Max`, `Median`, `Std`, `NUnique`.
 

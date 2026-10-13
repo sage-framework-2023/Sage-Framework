@@ -13,7 +13,7 @@
 - **Realce de sintaxe** mais completo, **números de linha**, **abas** das janelas abertas e **vários cursores**.
 - **Decoradores de cor**: cada `RGB(...)` e `&H...&` sublinhado na própria cor; o clique abre um seletor que reescreve a cor no código.
 - **Explorador unificado** (as Propriedades dentro da janela Projeto) e **ícones** para cada tipo de componente.
-- **Janela Terminal**: Verificação imediata, Variáveis locais, Inspeção de variáveis, um PowerShell que executa o seu VBA e a aba *Resultado DataFrame*.
+- **Janela Terminal**: Verificação imediata, Variáveis locais, Inspeção de variáveis, um PowerShell que executa o seu VBA e a aba *Resultado do DataFrame*.
 - **Referência automática** à biblioteca Sage em toda pasta de trabalho nova.
 - Interface em português ou inglês, conforme o idioma do Office.
 

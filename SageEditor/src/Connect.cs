@@ -178,7 +178,7 @@ namespace SageEditor
 
 
         // Janela Terminal (o Ctrl+J e o Ctrl+I do SageShortcuts chamam por aqui).
-        // Abas: 0 Imediata, 1 Variáveis Locais, 2 Inspeção de Variáveis, 3 Terminal, 4 Resultado DataFrame.
+        // Abas: 0 Imediata, 1 Variáveis Locais, 2 Inspeção de Variáveis, 3 Terminal, 4 Resultado do DataFrame.
         public bool ToggleTerminal()
         {
             return OnUi(delegate { TerminalWindow.Toggle(); });
