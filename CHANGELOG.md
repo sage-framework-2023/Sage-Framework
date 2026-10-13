@@ -33,6 +33,18 @@ Ainda sem versão. Coisas que os UserForms não têm, ou têm de um jeito antigo
 - **Tabs**: abas no visual atual (o MultiPage do VBA tem visual antigo).
 - **Validação**: ícone de erro com a mensagem ao lado do controle inválido.
 
+## 1.3.0
+
+### SageEditor
+- **Decoradores de cor**: cada `RGB(255, 128, 0)` e cada hexadecimal do VBA (`&H80FF&`, `&H8000000F`) fica sublinhado na própria cor. As cores do sistema aparecem com a cor real do Windows.
+  - O clique na cor abre um seletor de cor (saturação e brilho, matiz, `#RRGGBB`, R, G, B) que reescreve a cor no código, no mesmo formato, enquanto você escolhe.
+  - Enter ou clicar fora mantém; Esc volta a cor original.
+  - Opção *Editor: Decoradores de Cor* nas Configurações (`"editor.colorDecorators"`).
+- A biblioteca aparece em *Ferramentas > Referências* como **Sage Framework 1.3**.
+
+### Correções
+- Aba Terminal: a linha de comando atual tinha letras um pouco maiores e ficava deslocada em relação aos comandos já executados. Agora ela fica alinhada como a próxima linha do histórico.
+
 ## 1.2.0
 
 ### SageTypes

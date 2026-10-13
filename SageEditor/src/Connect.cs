@@ -6,6 +6,7 @@
 //   - Temas de cores para todo o VBE (ThemeEngine)
 //   - Abas das janelas abertas no topo da área de código (EditorTabs)
 //   - Vários cursores na janela de código (MultiCursor)
+//   - Cores do código (RGB(...), &H...&) sublinhadas na própria cor, com o seletor de cor (ColorDecorators)
 //   - Comando Clear na Verificação imediata (ImmediateCommands)
 //   - Ícones do vscode-icons na janela Projeto e nas abas (ProjectIcons)
 //   - Propriedades dentro da janela Projeto, numa seção que recolhe (UnifiedExplorer)
@@ -94,6 +95,8 @@ namespace SageEditor
             catch (Exception ex) { Log.Error(ex); }
             MultiCursor.Vbe = vbe;
             MultiCursor.Start(main);
+            ColorDecorators.Vbe = vbe;
+            ColorDecorators.Start(main);
             ProjectIcons.Start(main);
             UnifiedExplorer.Vbe = vbe;
             UnifiedExplorer.Start(main);
@@ -112,7 +115,7 @@ namespace SageEditor
             {
                 try { LineNumbers.Poll(); }
                 catch (Exception) { } // VBE ocupado (ex.: executando código)
-                try { EditorTabs.Poll(); ThemeEngine.PollForms(); MultiCursor.Poll(); ProjectIcons.Poll(); UnifiedExplorer.Poll(); }
+                try { EditorTabs.Poll(); ThemeEngine.PollForms(); MultiCursor.Poll(); ColorDecorators.Poll(); ProjectIcons.Poll(); UnifiedExplorer.Poll(); }
                 catch (Exception ex) { Log.Error(ex); }
                 try { TerminalWindow.Poll(); }
                 catch (Exception ex) { Log.Error(ex); }
@@ -132,10 +135,12 @@ namespace SageEditor
                 if (lineTimer != null) { lineTimer.Dispose(); lineTimer = null; }
                 LineNumbers.Vbe = null;
                 MultiCursor.Shutdown();
+                ColorDecorators.Shutdown();
                 ProjectIcons.Shutdown();
                 UnifiedExplorer.Shutdown();
                 UnifiedExplorer.Vbe = null;
                 MultiCursor.Vbe = null;
+                ColorDecorators.Vbe = null;
                 ImmediateCommands.Shutdown();
                 TerminalWindow.Shutdown();
                 TerminalWindow.Vbe = null;

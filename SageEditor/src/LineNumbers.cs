@@ -201,6 +201,29 @@ namespace SageEditor
         }
 
         // ------------------------------------------------------------------
+        // Para os outros módulos (ColorDecorators)
+        // ------------------------------------------------------------------
+
+        // A janela de um CodePane (o Window.HWnd vem 0 para janelas de código)
+        public static IntPtr HwndOfPane(dynamic pane) { return HwndOf(pane); }
+
+        // A linha do código desenhada na altura y da janela (área cliente), pela primeira
+        // linha visível do CodePane e pela altura das linhas vista no desenho do texto
+        public static bool RowToLine(IntPtr hwnd, int y, out dynamic pane, out int line)
+        {
+            pane = null;
+            line = 0;
+            Pane p;
+            if (!panes.TryGetValue(hwnd, out p) || p.LineHeight == 0 || p.TextTop == int.MaxValue) return false;
+            pane = PaneFor(hwnd);
+            if (pane == null) return false;
+            int topLine, total, current;
+            if (!ReadPane(pane, out topLine, out total, out current)) return false;
+            line = topLine + (int)Math.Floor((y - p.TextTop) / (double)p.LineHeight + 0.5);
+            return line >= 1 && line <= total;
+        }
+
+        // ------------------------------------------------------------------
 
         static bool Read(IntPtr hwnd, object known, out int topLine, out int total, out int current, out int visible)
         {

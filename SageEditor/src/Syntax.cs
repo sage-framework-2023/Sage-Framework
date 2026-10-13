@@ -68,15 +68,49 @@ namespace SageEditor
 
         static bool HookTextOut(IntPtr hdc, int x, int y, IntPtr text, int count)
         {
-            if (count > 0 && Draw(hdc, x, y, 0, IntPtr.Zero, text, count, IntPtr.Zero)) return true;
-            return origTextOut(hdc, x, y, text, count);
+            ColorDecorators.Pending colors = Colors(hdc, x, y, text, count, IntPtr.Zero);
+            bool done = count > 0 && Draw(hdc, x, y, 0, IntPtr.Zero, text, count, IntPtr.Zero);
+            if (!done) done = origTextOut(hdc, x, y, text, count);
+            ColorDecorators.End(hdc, colors);
+            return done;
         }
 
         static bool HookExtTextOut(IntPtr hdc, int x, int y, uint options, IntPtr rect, IntPtr text, uint count, IntPtr dx)
         {
-            if (count > 0 && (options & (ETO_GLYPH_INDEX | ETO_PDY)) == 0 &&
-                Draw(hdc, x, y, options, rect, text, (int)count, dx)) return true;
-            return origExt(hdc, x, y, options, rect, text, count, dx);
+            bool plain = count > 0 && (options & (ETO_GLYPH_INDEX | ETO_PDY)) == 0;
+            ColorDecorators.Pending colors = plain ? Colors(hdc, x, y, text, (int)count, dx) : null;
+            bool done = plain && Draw(hdc, x, y, options, rect, text, (int)count, dx);
+            if (!done) done = origExt(hdc, x, y, options, rect, text, count, dx);
+            ColorDecorators.End(hdc, colors);
+            return done;
+        }
+
+        // Cores (RGB(...), &H...&) no texto normal de uma janela de código: os sublinhados são
+        // desenhados depois do trecho (ColorDecorators). Antes do desenho, porque com TA_UPDATECP
+        // a posição corrente anda com o texto.
+        static ColorDecorators.Pending Colors(IntPtr hdc, int x, int y, IntPtr text, int count, IntPtr dx)
+        {
+            try
+            {
+                if (count < 1 || !Settings.ColorDecorators) return null;
+                IntPtr hwnd = Native.WindowFromDC(hdc);
+                if (!IsCodePane(hwnd)) return null;
+                int px = x, py = y;
+                if ((GetTextAlign(hdc) & TA_UPDATECP) != 0)
+                {
+                    Point cp;
+                    if (GetCurrentPositionEx(hdc, out cp)) { px = cp.X; py = cp.Y; }
+                }
+                Theme t = ThemeEngine.Current;
+                int requested = requestedColor;
+                if (requested != 0 && (t == null || requested != t.WindowText)) return null; // comentário, seleção, palavra-chave
+                return ColorDecorators.Begin(hdc, hwnd, px, py, text, count, dx);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex);
+                return null;
+            }
         }
 
         enum Kind { Normal, Keyword }

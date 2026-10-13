@@ -11,6 +11,7 @@
 ### SageEditor: o editor do VBA renovado
 - **Temas** para o editor inteiro: *Dark Modern*, *Dark+*, *Sage*, *Light Modern* ou o padrão do VBE.
 - **Realce de sintaxe** mais completo, **números de linha**, **abas** das janelas abertas e **vários cursores**.
+- **Decoradores de cor**: cada `RGB(...)` e `&H...&` sublinhado na própria cor; o clique abre um seletor que reescreve a cor no código.
 - **Explorador unificado** (as Propriedades dentro da janela Projeto) e **ícones** para cada tipo de componente.
 - **Janela Terminal**: Verificação imediata, Variáveis locais, Inspeção de variáveis, um PowerShell que executa o seu VBA e a aba *Resultado DataFrame*.
 - **Referência automática** à biblioteca Sage em toda pasta de trabalho nova.
@@ -74,7 +75,7 @@ powershell -ExecutionPolicy Bypass -File SageEditor\install.ps1
 powershell -ExecutionPolicy Bypass -File SageShortcuts\install.ps1
 
 # O instalador da release (dist\SageFramework-Setup-<versão>.exe)
-powershell -ExecutionPolicy Bypass -File build-release.ps1 -Version 1.2.0
+powershell -ExecutionPolicy Bypass -File build-release.ps1 -Version 1.3.0
 ```
 
 Feche o Excel antes de instalar: ele mantém os DLLs carregados. A versão da release precisa ser a mesma do `AssemblyVersion` em `SageTypes\src\AssemblyInfo.cs`.

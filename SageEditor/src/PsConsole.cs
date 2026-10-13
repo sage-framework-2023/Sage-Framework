@@ -23,7 +23,7 @@ namespace SageEditor
     sealed class PsConsole : UserControl
     {
         readonly RichTextBox output = new RichTextBox();
-        readonly Label prompt = new Label();
+        readonly PromptBox prompt = new PromptBox();
         readonly InputBox input = new InputBox();
         readonly Panel inputRow = new Panel();
         readonly List<string> history = new List<string>();
@@ -49,18 +49,15 @@ namespace SageEditor
             output.ScrollBars = RichTextBoxScrollBars.Vertical;
             output.Visible = false;
 
-            prompt.AutoSize = true;
+            // O prompt também é um RichTextBox: o mesmo desenho de texto do histórico e da linha de
+            // digitação (um Label sairia com outra largura de letra e outras margens)
             prompt.Font = font;
-            prompt.Dock = DockStyle.Left;
-            prompt.Padding = new Padding(0, 1, 0, 0);
-            prompt.Margin = Padding.Empty;
             prompt.Visible = false; // aparece quando o PowerShell estiver pronto
+            prompt.Clicked += delegate { input.Focus(); };
             input.BorderStyle = BorderStyle.None;
             input.Font = font;
-            input.Dock = DockStyle.Fill;
             input.KeyDown += InputKeyDown;
             inputRow.Height = font.Height + 6;
-            inputRow.Padding = new Padding(0, 1, 4, 0);
             inputRow.Controls.Add(input);
             inputRow.Controls.Add(prompt);
 
@@ -93,6 +90,48 @@ namespace SageEditor
                 output.SelectionStart = output.TextLength;
                 output.ScrollToCaret();
             }
+            PlaceInput(height);
+        }
+
+        // A linha de digitação como a próxima linha do histórico: o texto do prompt na mesma margem
+        // e na mesma altura em que o histórico desenharia a linha seguinte, e a caixa de digitação
+        // logo depois do último caractere do prompt
+        void PlaceInput(int rowTop)
+        {
+            if (!input.IsHandleCreated || !prompt.IsHandleCreated) return;
+            Point inputOrigin = input.GetPositionFromCharIndex(0), promptOrigin = prompt.GetPositionFromCharIndex(0);
+            int x = inputOrigin.X, y = inputOrigin.Y;
+            if (output.TextLength > 0 && output.Visible && output.IsHandleCreated)
+            {
+                x = output.GetPositionFromCharIndex(0).X;
+                int line = output.GetLineFromCharIndex(output.TextLength);
+                int last = output.GetPositionFromCharIndex(output.GetFirstCharIndexFromLine(line)).Y;
+                char end = output.Text[output.TextLength - 1];
+                int next = end == '\n' || end == '\r' ? last : last + LineHeight();
+                y = Math.Max(-2, Math.Min(inputRow.Height - 4, output.Top + next - rowTop)); // pode subir um pouco: a área começa 2 px depois do histórico
+            }
+            int left = x;
+            // A altura de uma linha: com mais, o RichTextBox de uma linha centraliza o texto e ele desce
+            int height = LineHeight() + 1;
+            if (prompt.Visible && prompt.TextLength > 0)
+            {
+                prompt.SetBounds(x - promptOrigin.X, y - promptOrigin.Y, prompt.TextEnd + promptOrigin.X + 2, height);
+                left = x + prompt.TextEnd - promptOrigin.X;
+            }
+            input.SetBounds(left - inputOrigin.X, y - inputOrigin.Y, Math.Max(20, inputRow.Width - (left - inputOrigin.X) - 4), height);
+        }
+
+        // A distância entre as linhas do histórico (a da fonte, sem duas linhas para medir)
+        int LineHeight()
+        {
+            int lines = output.GetLineFromCharIndex(output.TextLength) + 1;
+            if (lines >= 2)
+            {
+                int first = output.GetPositionFromCharIndex(0).Y;
+                int last = output.GetPositionFromCharIndex(output.GetFirstCharIndexFromLine(lines - 1)).Y;
+                if (last > first) return (last - first) / (lines - 1);
+            }
+            return output.Font.Height;
         }
 
         // Altura do texto da saída (a última linha é a vazia depois da quebra final)
@@ -100,14 +139,7 @@ namespace SageEditor
         {
             if (output.TextLength == 0) return 0;
             int lines = output.GetLineFromCharIndex(output.TextLength) + 1;
-            int lineHeight = output.Font.Height;
-            if (lines >= 2)
-            {
-                int first = output.GetPositionFromCharIndex(0).Y;
-                int last = output.GetPositionFromCharIndex(output.GetFirstCharIndexFromLine(lines - 1)).Y;
-                if (last > first) lineHeight = (last - first) / (lines - 1);
-            }
-            return lines * lineHeight + 2;
+            return lines * LineHeight() + 2;
         }
 
         public void FocusInput()
@@ -342,6 +374,7 @@ Remove-Variable start, SageStartFolders
         void UpdatePrompt()
         {
             prompt.Text = PromptText;
+            Arrange();
         }
 
         void SetBusy(bool busy)
@@ -564,6 +597,57 @@ Remove-Variable start, SageStartFolders
 
         // Linha de comando: uma linha só, colorida enquanto se digita (PsColors), que fica com
         // Enter, Tab e as setas (o VBE e o WinForms as usariam para navegar)
+        // O prompt: um RichTextBox de uma linha, só para mostrar (o clique vai para a linha de digitação)
+        sealed class PromptBox : RichTextBox
+        {
+            public event EventHandler Clicked;
+
+            public PromptBox()
+            {
+                Multiline = false;
+                ReadOnly = true;
+                TabStop = false;
+                DetectUrls = false;
+                BorderStyle = BorderStyle.None;
+                ScrollBars = RichTextBoxScrollBars.None;
+                Cursor = Cursors.IBeam;
+            }
+
+            // Onde termina o texto (a coluna depois do último caractere), pela largura de um caractere
+            public int TextEnd
+            {
+                get
+                {
+                    int n = TextLength;
+                    if (n == 0) return GetPositionFromCharIndex(0).X;
+                    int last = GetPositionFromCharIndex(n - 1).X;
+                    int pitch = n >= 2 ? (last - GetPositionFromCharIndex(0).X) / (n - 1) : TextRenderer.MeasureText("M", Font, Size.Empty, TextFormatFlags.NoPadding).Width;
+                    return last + pitch;
+                }
+            }
+
+            protected override void OnTextChanged(EventArgs e)
+            {
+                base.OnTextChanged(e);
+                SelectAll();
+                SelectionColor = ForeColor;
+                Select(0, 0);
+            }
+
+            protected override void OnForeColorChanged(EventArgs e)
+            {
+                base.OnForeColorChanged(e);
+                OnTextChanged(e);
+            }
+
+            // Sem cursor nem seleção: o foco vai para a linha de digitação
+            protected override void OnGotFocus(EventArgs e)
+            {
+                base.OnGotFocus(e);
+                if (Clicked != null) Clicked(this, EventArgs.Empty);
+            }
+        }
+
         sealed class InputBox : RichTextBox
         {
             public bool Dark = true;

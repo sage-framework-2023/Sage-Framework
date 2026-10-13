@@ -144,6 +144,8 @@ namespace SageEditor
                 delegate(bool on) { Settings.EditorTabs = on; applyTheme(theme); });
             AddOnOff(Strings.MultiCursor, Strings.MultiCursorDescription, Strings.MultiCursorKeywords, Settings.MultiCursor,
                 delegate(bool on) { Settings.MultiCursor = on; });
+            AddOnOff(Strings.ColorDecorators, Strings.ColorDecoratorsDescription, Strings.ColorDecoratorsKeywords, Settings.ColorDecorators,
+                delegate(bool on) { Settings.ColorDecorators = on; applyTheme(theme); }); // redesenha o código
             AddOnOff(Strings.Explorer, Strings.ExplorerDescription, Strings.ExplorerKeywords, Settings.UnifiedExplorer,
                 delegate(bool on) { Settings.UnifiedExplorer = on; });
             AddOnOff(Strings.Icons, Strings.IconsDescription, Strings.IconsKeywords, Settings.Icons,

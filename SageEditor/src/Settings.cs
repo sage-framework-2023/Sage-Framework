@@ -19,6 +19,7 @@ namespace SageEditor
         public const string EditorTabsKey = "workbench.editor.showTabs";
         public const string AutoReferenceKey = "sage.autoReference";
         public const string MultiCursorKey = "sage.multiCursor";
+        public const string ColorDecoratorsKey = "editor.colorDecorators";
         public const string IconsKey = "sage.icons";
         public const string ExplorerKey = "sage.explorer";
         public const string LocaleKey = "locale"; // opcional: força o idioma ("pt-BR", "en"); senão, o do Office
@@ -44,6 +45,13 @@ namespace SageEditor
         {
             get { return !string.Equals(Get(AutoReferenceKey, "on"), "off", StringComparison.OrdinalIgnoreCase); }
             set { Set(AutoReferenceKey, value ? "on" : "off"); }
+        }
+
+        // "on" (padrão) ou "off": RGB(...) e &H...& sublinhados na própria cor (ColorDecorators)
+        public static bool ColorDecorators
+        {
+            get { return !string.Equals(Get(ColorDecoratorsKey, "on"), "off", StringComparison.OrdinalIgnoreCase); }
+            set { Set(ColorDecoratorsKey, value ? "on" : "off"); }
         }
 
         // "on" (padrão) ou "off": vários cursores (MultiCursor)

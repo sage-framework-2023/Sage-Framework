@@ -29,6 +29,7 @@ namespace SageEditor
         public static string SageReferenceNotInstalled, SageReferenceNoProject, SageReferenceLocked, SageReferenceRunning;
         public static string ToolboxControls, ToolboxControlsDescription, ToolboxControlsKeywords;
         public static string MultiCursor, MultiCursorDescription, MultiCursorKeywords;
+        public static string ColorDecorators, ColorDecoratorsDescription, ColorDecoratorsKeywords;
         public static string Icons, IconsDescription, IconsKeywords;
         public static string Explorer, ExplorerDescription, ExplorerKeywords, ExplorerProperties;
         public static string DefaultTheme;
@@ -134,6 +135,10 @@ namespace SageEditor
             IconsDescription = "Ícones coloridos (vscode-icons) na janela Projeto e nas abas do código: módulos, classes, " +
                 "formulários, planilhas e as pastas de cada tipo.";
             IconsKeywords = "ícones icones projeto explorador árvore abas vscode-icons icons explorer tree";
+            ColorDecorators = "Decoradores de Cor";
+            ColorDecoratorsDescription = "Sublinha cada RGB(255, 128, 0) e &H80FF& do código com a própria cor. " +
+                "Clique na cor para escolher outra: o código muda junto, no mesmo formato. Esc desfaz.";
+            ColorDecoratorsKeywords = "cor cores rgb hexadecimal seletor decorador color picker decorators";
             MultiCursor = "Vários Cursores";
             MultiCursorDescription = "Edita várias linhas ao mesmo tempo, como no VS Code: Alt+Clique acrescenta um cursor, " +
                 "Ctrl+Alt+Seta para Cima/Baixo acrescenta na linha de cima/de baixo, Shift+Alt+arrastar seleciona em coluna " +
@@ -218,6 +223,10 @@ namespace SageEditor
             IconsDescription = "Colored icons (vscode-icons) in the Project window and the code tabs: modules, classes, " +
                 "forms, sheets and a folder for each kind.";
             IconsKeywords = "icons project explorer tree tabs vscode-icons";
+            ColorDecorators = "Color Decorators";
+            ColorDecoratorsDescription = "Underlines each RGB(255, 128, 0) and &H80FF& in the code with its own color. " +
+                "Click the color to pick another: the code changes too, in the same format. Esc undoes.";
+            ColorDecoratorsKeywords = "color colors rgb hexadecimal picker decorators";
             MultiCursor = "Multiple Cursors";
             MultiCursorDescription = "Edits several lines at once, like VS Code: Alt+Click adds a cursor, " +
                 "Ctrl+Alt+Up/Down adds one on the line above/below, Shift+Alt+drag selects a column " +
