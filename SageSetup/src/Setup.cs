@@ -23,6 +23,7 @@ namespace SageSetup
     //
     //   SageFramework-Setup.exe                instala (janela)
     //   SageFramework-Setup.exe /quiet         instala sem janela
+    //   SageFramework-Setup.exe /noactivex     não mexe na configuração de ActiveX do Office (ver ActiveX)
     //   Uninstall.exe /uninstall [/quiet]      desinstala (é o mesmo programa, copiado na instalação)
     //
     // Os arquivos vêm num zip embutido (payload.zip, montado pelo build-release.ps1): os DLLs já
@@ -47,7 +48,7 @@ namespace SageSetup
                 if (flags.Contains("uninstall")) return Uninstaller.Run(quiet, flags.Contains("confirmed"), flags.Contains("temp"));
                 int dotnet = DotNet.Ensure(quiet);
                 if (dotnet != 0) return dotnet;
-                if (quiet) return Installer.RunQuiet();
+                if (quiet) return Installer.RunQuiet(!flags.Contains("noactivex"));
                 Application.Run(new SetupForm());
                 return SetupForm.ExitCode;
             }
@@ -88,6 +89,26 @@ namespace SageSetup
         public static string CloseExcel { get { return T("Feche o Excel antes de continuar (salve o seu trabalho).",
             "Close Excel before continuing (save your work)."); } }
         public static string Failed { get { return T("A instalação falhou.", "Setup failed."); } }
+        public static string AllowActiveX { get { return T("Permitir os controles do Sage nos UserForms (ActiveX do Office)",
+            "Allow Sage controls in UserForms (Office ActiveX setting)"); } }
+        public static string AllowActiveXTip { get { return T(
+            "O Microsoft 365 passou a vir com \"Desabilitar todos os controles sem notificação\", que bloqueia o TextBox,\n" +
+            "o DataGrid e o DateBox do Sage. Marcado, cada usuário do computador passa para \"Avisar-me antes de habilitar\n" +
+            "controles UFI com restrições adicionais e controles SFI com restrições mínimas\": os controles do Sage abrem\n" +
+            "sem aviso, e controles de terceiros não marcados como seguros pedem confirmação.\n" +
+            "A desinstalação volta a configuração anterior.",
+            "Microsoft 365 now ships with \"Disable all controls without notification\", which blocks the Sage TextBox,\n" +
+            "DataGrid and DateBox. When checked, every user on this computer is switched to \"Prompt me before enabling\n" +
+            "UFI controls with additional restrictions and SFI controls with minimal restrictions\": Sage controls load\n" +
+            "without a prompt, and third-party controls not marked as safe ask for confirmation.\n" +
+            "Uninstalling restores the previous setting."); } }
+        public static string ActiveXPolicy { get { return T(
+            "Uma política de grupo bloqueia os controles ActiveX no Office deste usuário, e ela tem prioridade sobre a " +
+            "Central de Confiabilidade: o TextBox, o DataGrid e o DateBox do Sage não vão abrir nos UserForms.\n\n" +
+            "Peça ao administrador da rede para liberar os controles ActiveX (DisableAllActiveX).",
+            "A group policy blocks ActiveX controls in Office for this user, and it takes precedence over the Trust Center: " +
+            "the Sage TextBox, DataGrid and DateBox will not load in UserForms.\n\n" +
+            "Ask your network administrator to allow ActiveX controls (DisableAllActiveX)."); } }
         public static string ConfirmUninstall { get { return T("Remover o Sage Framework e todos os seus componentes?\n\n" +
             "As configurações do Sage (tema, atalhos de teclado) também serão apagadas.",
             "Remove Sage Framework and all of its components?\n\nSage settings (theme, keyboard shortcuts) will also be deleted."); } }
@@ -384,6 +405,7 @@ namespace SageSetup
         public static string PowerShell { get { return Path.Combine(Environment.SystemDirectory, @"WindowsPowerShell\v1.0\powershell.exe"); } }
         public static string Conhost { get { return Path.Combine(Environment.SystemDirectory, "conhost.exe"); } }
         public const string UninstallKey = @"Software\Microsoft\Windows\CurrentVersion\Uninstall\SageFramework";
+        public const string UserKey = @"Software\SageFramework"; // de cada usuário: o que a desinstalação volta
         public const string AddinKey = @"Software\Microsoft\VBA\VBE\6.0\Addins64\";
         public const string EditorProgId = "Sage.Editor";
     }
@@ -597,6 +619,64 @@ namespace SageSetup
     }
 
     // ----------------------------------------------------------------------
+    // Controles ActiveX no Office (Central de Confiabilidade)
+    // ----------------------------------------------------------------------
+
+    // O Microsoft 365 passou a vir com "Desabilitar todos os controles sem notificação", que bloqueia
+    // os controles do Sage nos UserForms ("Não há confiabilidade no requerente para a ação especificada").
+    // A instalação passa cada usuário para "Avisar-me antes de habilitar controles UFI com restrições
+    // adicionais e controles SFI com restrições mínimas" (DisableAllActiveX = 0): os do Sage são seguros
+    // para inicialização (SFI) e abrem sem aviso. O valor anterior fica guardado e volta na desinstalação.
+    static class ActiveX
+    {
+        const string Key = @"Software\Microsoft\Office\Common\Security";
+        const string PolicyKey = @"Software\Policies\Microsoft\Office\Common\Security";
+        const string Value = "DisableAllActiveX";
+        const string Saved = "PreviousDisableAllActiveX"; // -1 = o valor não existia
+
+        public static void Allow(RegistryKey user)
+        {
+            using (RegistryKey sec = user.CreateSubKey(Key))
+            using (RegistryKey sage = user.CreateSubKey(Paths.UserKey))
+            {
+                // Numa atualização, fica o valor de antes da primeira instalação
+                if (sage.GetValue(Saved) == null)
+                {
+                    object old = sec.GetValue(Value);
+                    sage.SetValue(Saved, old is int ? (int)old : -1, RegistryValueKind.DWord);
+                }
+                sec.SetValue(Value, 0, RegistryValueKind.DWord);
+            }
+            if (BlockedByPolicy(user)) Log.Write("ActiveX bloqueado por política de grupo");
+        }
+
+        public static void Restore(RegistryKey user)
+        {
+            using (RegistryKey sage = user.OpenSubKey(Paths.UserKey))
+            {
+                object saved = sage == null ? null : sage.GetValue(Saved);
+                if (!(saved is int)) return;
+                using (RegistryKey sec = user.CreateSubKey(Key))
+                {
+                    if ((int)saved == -1) sec.DeleteValue(Value, false);
+                    else sec.SetValue(Value, (int)saved, RegistryValueKind.DWord);
+                }
+            }
+            Common.DeleteKey(user, Paths.UserKey);
+        }
+
+        // A política de grupo tem prioridade sobre a Central de Confiabilidade
+        public static bool BlockedByPolicy(RegistryKey user)
+        {
+            using (RegistryKey k = user.OpenSubKey(PolicyKey))
+            {
+                object v = k == null ? null : k.GetValue(Value);
+                return v is int && (int)v == 1;
+            }
+        }
+    }
+
+    // ----------------------------------------------------------------------
     // Biblioteca de tipos (oleaut32)
     // ----------------------------------------------------------------------
 
@@ -671,14 +751,14 @@ namespace SageSetup
 
     static class Installer
     {
-        public static int RunQuiet()
+        public static int RunQuiet(bool allowActiveX)
         {
             if (!Common.WaitForExcel(true)) return 2;
-            Install(delegate(int p, string s) { Log.Write(p + "% " + s); });
+            Install(delegate(int p, string s) { Log.Write(p + "% " + s); }, allowActiveX);
             return 0;
         }
 
-        public static void Install(Action<int, string> progress)
+        public static void Install(Action<int, string> progress, bool allowActiveX)
         {
             progress(5, Texts.StepPrepare);
             List<ComClass> classes = Payload.Classes();
@@ -736,6 +816,9 @@ namespace SageSetup
                         Log.Write("Fonte do VBE: Consolas");
                     }
                 }
+                // Desmarcado numa atualização: volta o que uma instalação anterior tinha mudado
+                if (allowActiveX) ActiveX.Allow(user);
+                else ActiveX.Restore(user);
             });
             foreach (string tlb in Directory.GetFiles(dir, "*.tlb", SearchOption.AllDirectories))
             {
@@ -959,7 +1042,11 @@ namespace SageSetup
                 Common.DeleteKey(machine, Paths.AddinKey + Paths.EditorProgId);
                 Common.DeleteKey(machine, Paths.UninstallKey);
             }
-            UserHives.ForEach(delegate(RegistryKey user) { Common.DeleteKey(user, Paths.AddinKey + Paths.EditorProgId); });
+            UserHives.ForEach(delegate(RegistryKey user)
+            {
+                Common.DeleteKey(user, Paths.AddinKey + Paths.EditorProgId);
+                ActiveX.Restore(user);
+            });
             Common.RemoveUserInstall(classes);
             Toolbox.Remove(classes);
 
@@ -1004,6 +1091,7 @@ namespace SageSetup
         readonly Button install, cancel;
         readonly ProgressBar bar;
         readonly Label status;
+        readonly CheckBox activeX;
         bool busy, finished;
 
         public SetupForm()
@@ -1015,7 +1103,7 @@ namespace SageSetup
             StartPosition = FormStartPosition.CenterScreen;
             AutoScaleMode = AutoScaleMode.Dpi;
             AutoScaleDimensions = new SizeF(96f, 96f);
-            ClientSize = new Size(560, 330);
+            ClientSize = new Size(560, 358);
             BackColor = Color.White;
             try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch (Exception) { }
 
@@ -1037,17 +1125,20 @@ namespace SageSetup
             Label info = new Label { Text = (installed != null ? Texts.Installed(installed) + "    " : "") + Texts.Requirements,
                 Location = new Point(20, 208), Size = new Size(520, 36), ForeColor = Color.DimGray };
 
-            bar = new ProgressBar { Location = new Point(20, 250), Width = 520, Height = 16, Visible = false };
-            status = new Label { Location = new Point(20, 270), Size = new Size(520, 20), ForeColor = Color.DimGray };
+            activeX = new CheckBox { Text = Texts.AllowActiveX, Checked = true, Location = new Point(20, 246), Size = new Size(520, 22) };
+            new ToolTip { AutoPopDelay = 30000 }.SetToolTip(activeX, Texts.AllowActiveXTip);
 
-            install = new Button { Text = installed != null ? Texts.Update : Texts.Install, Location = new Point(354, 292), Size = new Size(90, 28) };
-            cancel = new Button { Text = Texts.Cancel, Location = new Point(450, 292), Size = new Size(90, 28) };
+            bar = new ProgressBar { Location = new Point(20, 278), Width = 520, Height = 16, Visible = false };
+            status = new Label { Location = new Point(20, 298), Size = new Size(520, 20), ForeColor = Color.DimGray };
+
+            install = new Button { Text = installed != null ? Texts.Update : Texts.Install, Location = new Point(354, 320), Size = new Size(90, 28) };
+            cancel = new Button { Text = Texts.Cancel, Location = new Point(450, 320), Size = new Size(90, 28) };
             install.Click += delegate { if (finished) Close(); else Start(); };
             cancel.Click += delegate { Close(); };
             AcceptButton = install;
             CancelButton = cancel;
 
-            Controls.AddRange(new Control[] { header, description, folderLabel, folder, info, bar, status, install, cancel });
+            Controls.AddRange(new Control[] { header, description, folderLabel, folder, info, activeX, bar, status, install, cancel });
             FormClosing += (s, e) => { if (busy) e.Cancel = true; };
         }
 
@@ -1055,12 +1146,13 @@ namespace SageSetup
         {
             if (!Common.WaitForExcel(false)) return;
             busy = true;
-            install.Enabled = cancel.Enabled = false;
+            install.Enabled = cancel.Enabled = activeX.Enabled = false;
             bar.Visible = true;
+            bool allowActiveX = activeX.Checked;
             Thread worker = new Thread(delegate()
             {
                 Exception error = null;
-                try { Installer.Install(Report); }
+                try { Installer.Install(Report, allowActiveX); }
                 catch (Exception ex) { error = ex; Log.Write("ERRO: " + ex); }
                 BeginInvoke((Action)delegate { Finish(error); });
             });
@@ -1081,7 +1173,7 @@ namespace SageSetup
                 ExitCode = 1;
                 status.Text = Texts.Failed;
                 status.ForeColor = Color.Firebrick;
-                cancel.Enabled = true;
+                cancel.Enabled = activeX.Enabled = true;
                 MessageBox.Show(this, Texts.Failed + "\n\n" + error.Message, Texts.Title, MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
@@ -1090,6 +1182,10 @@ namespace SageSetup
             install.Text = Texts.Close;
             install.Enabled = true;
             cancel.Visible = false;
+            if (activeX.Checked)
+                using (RegistryKey user = Common.User)
+                    if (ActiveX.BlockedByPolicy(user))
+                        MessageBox.Show(this, Texts.ActiveXPolicy, Texts.Title, MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
     }
 }

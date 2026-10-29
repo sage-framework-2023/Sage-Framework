@@ -44,6 +44,12 @@ Ainda sem versão. Coisas que os UserForms não têm, ou têm de um jeito antigo
 - Aba Terminal: `exit` fecha a janela e recomeça o PowerShell, com a tela, o histórico de comandos e as variáveis apagados.
 - A biblioteca aparece em *Ferramentas > Referências* como **Sage Framework 1.3**.
 
+### Instalador
+- Nova opção **Permitir os controles do Sage nos UserForms (ActiveX do Office)**, marcada por padrão. O Microsoft 365 passou a vir com *Desabilitar todos os controles sem notificação*, que bloqueia o TextBox, o DataGrid e o DateBox com o erro "Não há confiabilidade no requerente para a ação especificada". Com a opção marcada, cada usuário do computador passa para *Avisar-me antes de habilitar controles UFI com restrições adicionais e controles SFI com restrições mínimas*, e os controles do Sage abrem sem aviso.
+  - A desinstalação volta a configuração anterior.
+  - Se uma política de grupo bloquear o ActiveX, o instalador avisa (a política tem prioridade).
+  - Instalação sem janela: `/quiet /noactivex` não mexe na configuração.
+
 ### Correções
 - Aba Terminal: a linha de comando atual tinha letras um pouco maiores e ficava deslocada em relação aos comandos já executados. Agora ela fica alinhada como a próxima linha do histórico.
 

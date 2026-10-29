@@ -1,94 +1,94 @@
 # Sage Framework
 
-**O VBA, modernizado, sem sair do Excel.** O Sage Framework traz para o editor do VBA a experiência de um IDE atual e, para a linguagem, tipos modernos para texto, listas, datas, tabelas, JSON, APIs, bancos de dados e controles novos para UserForms. Tudo num instalador só.
+**VBA, modernized, without leaving Excel.** Sage Framework brings the experience of a modern IDE to the VBA editor and adds modern types to the language for text, lists, dates, tables, JSON, APIs and databases, plus new controls for UserForms. All in a single installer.
 
-📖 **Documentação:** https://sageframework.onrender.com
+📖 **Documentation:** https://sageframework.onrender.com
 ⬇️ **Download:** [Releases](https://github.com/sage-framework-2023/Sage-Framework/releases) (`SageFramework-Setup-x.y.z.exe`)
-📝 **Novidades:** [CHANGELOG.md](CHANGELOG.md)
+📝 **What's new:** [CHANGELOG.md](CHANGELOG.md)
 
-## O que vem no pacote
+## What's included
 
-### SageEditor: o editor do VBA renovado
-- **Temas** para o editor inteiro: *Dark Modern*, *Dark+*, *Sage*, *Light Modern* ou o padrão do VBE.
-- **Realce de sintaxe** mais completo, **números de linha**, **abas** das janelas abertas e **vários cursores**.
-- **Decoradores de cor**: cada `RGB(...)` e `&H...&` sublinhado na própria cor; o clique abre um seletor que reescreve a cor no código.
-- **Explorador unificado** (as Propriedades dentro da janela Projeto) e **ícones** para cada tipo de componente.
-- **Janela Terminal**: Verificação imediata, Variáveis locais, Inspeção de variáveis, um PowerShell que executa o seu VBA e a aba *Resultado do DataFrame*.
-- **Referência automática** à biblioteca Sage em toda pasta de trabalho nova.
-- Interface em português ou inglês, conforme o idioma do Office.
+### SageEditor: a renewed VBA editor
+- **Themes** for the whole editor: *Dark Modern*, *Dark+*, *Sage*, *Light Modern* or the VBE default.
+- Richer **syntax highlighting**, **line numbers**, **tabs** for open windows and **multiple cursors**.
+- **Color decorators**: every `RGB(...)` and `&H...&` is underlined in its own color; clicking it opens a color picker that rewrites the color in the code.
+- **Unified explorer** (Properties inside the Project window) and **icons** for each component type.
+- **Terminal window**: Immediate, Locals, Watches, a PowerShell that runs your VBA, and the *DataFrame Results* tab.
+- **Automatic reference** to the Sage library in every new workbook.
+- Interface in English or Portuguese, following the Office language.
 
-### SageShortcuts: atalhos de teclado
-Configuráveis num arquivo de texto: `Ctrl+K, Ctrl+C` para comentar, `Alt+Seta` para mover linhas, `Shift+Alt+Seta` para duplicar, `Ctrl+J` para o Terminal, `F12` para ir à definição e outros.
+### SageShortcuts: keyboard shortcuts
+Configurable in a text file: `Ctrl+K, Ctrl+C` to comment, `Alt+Arrow` to move lines, `Shift+Alt+Arrow` to duplicate, `Ctrl+J` for the Terminal, `F12` to go to definition, and more.
 
-### SageTypes: a biblioteca **Sage**
-| Tipo | Para quê |
+### SageTypes: the **Sage** library
+| Type | What for |
 |---|---|
-| `StringS`, `ListS`, `DictionaryS` | Texto, listas e dicionários com métodos encadeáveis, índices negativos, fatias e erros claros (`KeyError`, `IndexError`) |
-| `DatetimeS` | Data e hora com fuso, dias úteis, início e fim de período |
-| `DataFrame` | Tabelas sobre o DuckDB, para milhões de linhas |
-| `Json`, `Requests`, `SqlEngine` | Ler e gravar JSON, chamar APIs e conectar a PostgreSQL, MySQL, SQLite, SQL Server, Access e ODBC |
-| `Resizable`, `OfficeTheme` | UserForms redimensionáveis e o tema do Office em uso |
+| `StringS`, `ListS`, `DictionaryS` | Text, lists and dictionaries with chainable methods, negative indexes, slices and clear errors (`KeyError`, `IndexError`) |
+| `DatetimeS` | Date and time with time zones, business days, start and end of period |
+| `DataFrame` | Tables backed by DuckDB, for millions of rows |
+| `Json`, `Requests`, `SqlEngine` | Read and write JSON, call APIs and connect to PostgreSQL, MySQL, SQLite, SQL Server, Access and ODBC |
+| `Resizable`, `OfficeTheme` | Resizable UserForms and the current Office theme |
 
-### Controles para UserForms
-Na página **Sage** da Caixa de ferramentas:
-- **TextBox** com correção ortográfica do Windows e texto de dica.
-- **DataGrid** que mostra um `DataFrame` com paginação automática, formatos de coluna, seleção de células e Ctrl+C.
-- **DateBox**: caixa de data com calendário, digitação rápida e limites de data.
+### Controls for UserForms
+On the **Sage** page of the Toolbox:
+- **TextBox** with Windows spell checking and placeholder text.
+- **DataGrid** that shows a `DataFrame` with automatic paging, column formats, cell selection and Ctrl+C.
+- **DateBox**: a date box with a calendar, quick typing and date limits.
 
-## Um exemplo
+## An example
 
 ```vb
 Dim df As New Sage.DataFrame
-df.ReadCsv "C:\dados\vendas.csv"
+df.ReadCsv "C:\data\sales.csv"
 
-Dim resumo As Sage.DataFrame
-Set resumo = df.Query("Valor > 100 And Cidade = ""SP""") _
-               .GroupBy("Produto", "Total = sum(Valor), N = count(*)") _
-               .SortValues("Total", False)
+Dim summary As Sage.DataFrame
+Set summary = df.Query("Amount > 100 And City = ""NY""") _
+                .GroupBy("Product", "Total = sum(Amount), N = count(*)") _
+                .SortValues("Total", False)
 
-resumo.ToRange Sheets("Resumo").Range("A1")
-Debug.Print resumo                     ' mostra a tabela formatada
+summary.ToRange Sheets("Summary").Range("A1")
+Debug.Print summary                    ' prints the formatted table
 ```
 
-## Instalação
+## Installation
 
-**Requisitos:** Windows 10 ou 11 com **Excel de 64 bits**, .NET Framework 4.8 (já vem no Windows; se faltar, o instalador oferece instalar) e permissão de administrador.
+**Requirements:** Windows 10 or 11 with **64-bit Excel**, .NET Framework 4.8 (included in Windows; if it is missing, the installer offers to install it) and administrator rights.
 
-1. Baixe o `SageFramework-Setup-x.y.z.exe` na [página de releases](https://github.com/sage-framework-2023/Sage-Framework/releases).
-2. Feche o Excel e execute o instalador.
-3. Abra o Excel, entre no editor do VBA (Alt+F11) e procure o menu **Sage**.
+1. Download `SageFramework-Setup-x.y.z.exe` from the [releases page](https://github.com/sage-framework-2023/Sage-Framework/releases).
+2. Close Excel and run the installer.
+3. Open Excel, go to the VBA editor (Alt+F11) and look for the **Sage** menu.
 
-Para atualizar, execute o instalador da versão nova. Para desinstalar: *Configurações > Aplicativos > Sage Framework*.
+To update, run the installer of the new version. To uninstall: *Settings > Apps > Sage Framework*.
 
-> **Controles ActiveX no Microsoft 365:** para usar os controles do Sage nos UserForms, em *Arquivo > Opções > Central de Confiabilidade > Configurações da Central de Confiabilidade > Configurações do ActiveX*, marque *Avisar-me antes de habilitar controles UFI com restrições adicionais e controles SFI com restrições mínimas*. [Mais detalhes](https://sageframework.onrender.com/controles/#configuração-do-activex-no-office).
+> **ActiveX controls in Microsoft 365:** Microsoft 365 now ships with *Disable all controls without notification*, which blocks the Sage controls in UserForms with the error *"The subject is not trusted for the specified action"*. The installer option **Allow Sage controls in UserForms (Office ActiveX setting)**, checked by default, fixes this for every user on the computer. To do it by hand: *File > Options > Trust Center > Trust Center Settings > ActiveX Settings*, select *Prompt me before enabling Unsafe for Initialization (UFI) controls with additional restrictions and Safe for Initialization (SFI) controls with minimal restrictions*. [More details](https://sageframework.onrender.com/controles/#configuração-do-activex-no-office).
 
-O instalador ainda não tem assinatura digital: se o Windows mostrar *"O Windows protegeu o computador"*, clique em **Mais informações** > **Executar assim mesmo**.
+The installer is not digitally signed yet: if Windows shows *"Windows protected your PC"*, click **More info** > **Run anyway**.
 
-## Compilar a partir do código
+## Building from source
 
-Tudo é C# compilado com o `csc` do .NET Framework 4, que já vem no Windows: não precisa de Visual Studio nem de NuGet.
+Everything is C# compiled with the .NET Framework 4 `csc`, which ships with Windows: no Visual Studio or NuGet needed.
 
 ```powershell
-# Cada componente, instalado só para o usuário atual (sem administrador)
+# Each component, installed for the current user only (no administrator rights)
 powershell -ExecutionPolicy Bypass -File SageTypes\install.ps1
 powershell -ExecutionPolicy Bypass -File SageEditor\install.ps1
 powershell -ExecutionPolicy Bypass -File SageShortcuts\install.ps1
 
-# O instalador da release (dist\SageFramework-Setup-<versão>.exe)
+# The release installer (dist\SageFramework-Setup-<version>.exe)
 powershell -ExecutionPolicy Bypass -File build-release.ps1 -Version 1.3.0
 ```
 
-Feche o Excel antes de instalar: ele mantém os DLLs carregados. A versão da release precisa ser a mesma do `AssemblyVersion` em `SageTypes\src\AssemblyInfo.cs`.
+Close Excel before installing: it keeps the DLLs loaded. The release version must match the `AssemblyVersion` in `SageTypes\src\AssemblyInfo.cs`.
 
-| Pasta | Componente |
+| Folder | Component |
 |---|---|
-| [`SageEditor/`](SageEditor/README.md) | Add-in COM do editor do VBA |
-| [`SageTypes/`](SageTypes/README.md) | A biblioteca **Sage** e os controles para UserForms |
-| `SageShortcuts/` | Os atalhos de teclado (roda como script do PowerShell) |
-| `SageSetup/` | O instalador e o desinstalador |
+| [`SageEditor/`](SageEditor/README.md) | COM add-in for the VBA editor |
+| [`SageTypes/`](SageTypes/README.md) | The **Sage** library and the UserForm controls |
+| `SageShortcuts/` | The keyboard shortcuts (runs as a PowerShell script) |
+| `SageSetup/` | The installer and uninstaller |
 
-## Contribuir
+## Contributing
 
-Encontrou um problema ou tem uma sugestão? Abra uma [issue](https://github.com/sage-framework-2023/Sage-Framework/issues). Se algo não funcionar, anexe o log do editor: `%APPDATA%\Sage\SageEditor.log`.
+Found a problem or have a suggestion? Open an [issue](https://github.com/sage-framework-2023/Sage-Framework/issues). If something doesn't work, attach the editor log: `%APPDATA%\Sage\SageEditor.log`.
 
-Os componentes de terceiros e suas licenças estão em `SageTypes/THIRD-PARTY-NOTICES.txt` (DuckDB) e `SageEditor/THIRD-PARTY-NOTICES.txt` (ícones).
+Third-party components and their licenses are listed in `SageTypes/THIRD-PARTY-NOTICES.txt` (DuckDB) and `SageEditor/THIRD-PARTY-NOTICES.txt` (icons).
