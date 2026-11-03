@@ -19,9 +19,11 @@ namespace SageEditor
         sealed class Pane
         {
             public int LineHeight, LastY = -1, TextTop = int.MaxValue;
+            public int FontHeight;                  // altura da fonte do código (tmHeight) quando LineHeight foi medido
             public int Width;                       // largura reservada (0 = sem faixa)
             public int TopLine = -1, Current = -1, Total = -1;
             public bool Pending;                    // faixa desenhada sem os números: redesenhar
+            public bool Reframe;                    // fonte mudou: recalcular a largura da faixa
         }
 
         static readonly Dictionary<IntPtr, Pane> panes = new Dictionary<IntPtr, Pane>();
@@ -30,6 +32,15 @@ namespace SageEditor
         static int fontSize;
 
         [StructLayout(LayoutKind.Sequential)] struct POINT { public int X, Y; }
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        struct TEXTMETRIC
+        {
+            public int tmHeight, tmAscent, tmDescent, tmInternalLeading, tmExternalLeading, tmAveCharWidth, tmMaxCharWidth,
+                tmWeight, tmOverhang, tmDigitizedAspectX, tmDigitizedAspectY;
+            public char tmFirstChar, tmLastChar, tmDefaultChar, tmBreakChar;
+            public byte tmItalic, tmUnderlined, tmStruckOut, tmPitchAndFamily, tmCharSet;
+        }
+        [DllImport("gdi32.dll", CharSet = CharSet.Unicode)] static extern bool GetTextMetrics(IntPtr hdc, out TEXTMETRIC tm);
         [DllImport("user32.dll")] static extern bool ClientToScreen(IntPtr hwnd, ref POINT p);
         [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr hwnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
         const uint SWP_NOSIZE = 0x1, SWP_NOMOVE = 0x2, SWP_NOZORDER = 0x4, SWP_NOACTIVATE = 0x10, SWP_FRAMECHANGED = 0x20;
@@ -57,9 +68,23 @@ namespace SageEditor
         }
 
         // Posição real de cada trecho de código desenhado (coordenadas da área cliente)
-        public static void Observe(IntPtr hwnd, int x, int y)
+        public static void Observe(IntPtr hwnd, IntPtr hdc, int x, int y)
         {
             Pane p = Get(hwnd);
+            // A altura da linha só diminui com as medições (a menor distância entre dois trechos):
+            // com a fonte do editor maior (Ferramentas > Opções > Formato do editor), ela é medida de novo
+            TEXTMETRIC tm;
+            if (GetTextMetrics(hdc, out tm) && tm.tmHeight != p.FontHeight)
+            {
+                if (p.FontHeight != 0)
+                {
+                    p.LineHeight = 0;
+                    p.LastY = -1;
+                    p.TextTop = int.MaxValue;
+                    p.Reframe = true;
+                }
+                p.FontHeight = tm.tmHeight;
+            }
             if (p.LastY >= 0 && y != p.LastY)
             {
                 int diff = Math.Abs(y - p.LastY);
@@ -77,7 +102,7 @@ namespace SageEditor
         public static void AdjustClient(IntPtr hwnd, IntPtr lParam)
         {
             Pane p = Get(hwnd);
-            p.Width = Enabled ? WidthFor(p.Total > 0 ? p.Total : 999) : 0;
+            p.Width = Enabled ? WidthFor(p.Total > 0 ? p.Total : 999, p.LineHeight) : 0;
             if (p.Width == 0) return;
             Native.RECT r = (Native.RECT)Marshal.PtrToStructure(lParam, typeof(Native.RECT));
             r.Left += p.Width;
@@ -85,9 +110,10 @@ namespace SageEditor
             Marshal.StructureToPtr(r, lParam, false);
         }
 
-        static int WidthFor(int total)
+        // Na fonte em que os números são desenhados (a da altura da linha; antes de medir, a padrão)
+        static int WidthFor(int total, int lineHeight)
         {
-            EnsureFont(16);
+            EnsureFont(lineHeight > 0 ? lineHeight : 16);
             string widest = new string('8', Math.Max(3, total.ToString().Length));
             return TextRenderer.MeasureText(widest, font, Size.Empty, TextFormatFlags.NoPadding).Width + 18;
         }
@@ -187,6 +213,15 @@ namespace SageEditor
                     lastRepair = Environment.TickCount;
                     RefreshFrames(new IntPtr[] { hwnd });
                 }
+                return;
+            }
+
+            // Fonte mudou e a nova altura já foi medida: a faixa muda de largura. Aqui, e não no
+            // Observe, que roda no meio do desenho do código
+            if (p.Reframe && p.LineHeight > 0)
+            {
+                p.Reframe = false;
+                RefreshFrames(new IntPtr[] { hwnd });
                 return;
             }
 

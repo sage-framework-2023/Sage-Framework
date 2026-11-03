@@ -135,7 +135,7 @@ namespace SageEditor
                     Point cp;
                     if (GetCurrentPositionEx(hdc, out cp)) { px = cp.X; py = cp.Y; }
                 }
-                LineNumbers.Observe(hwnd, px, py);
+                LineNumbers.Observe(hwnd, hdc, px, py);
                 Theme t = ThemeEngine.SyntaxTheme(hdc);
                 if (t == null || t.Syntax == null) return false;
 

@@ -315,17 +315,26 @@ namespace SageEditor
                     using (Graphics g = Graphics.FromImage(strip))
                     {
                         g.Clear(t.Sidebar);
-                        StringBuilder sb = new StringBuilder(256);
-                        GetWindowText(hwnd, sb, sb.Capacity);
                         Font font = SystemFonts.MessageBoxFont;
                         int pad = (int)Math.Round(height / 3.0);
-                        TextRenderer.DrawText(g, sb.ToString(), font, new Rectangle(pad, 0, width - pad, height), t.Foreground, t.Sidebar,
+                        TextRenderer.DrawText(g, ExplorerTitle(hwnd), font, new Rectangle(pad, 0, width - pad, height), t.Foreground, t.Sidebar,
                             TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix | TextFormatFlags.EndEllipsis);
                     }
                     using (Graphics target = Graphics.FromHdc(dc)) target.DrawImageUnscaled(strip, 0, 0);
                 }
             }
             finally { ReleaseDC(hwnd, dc); }
+        }
+
+        // O título do VBE ("Projeto - VBAProject", "Project - VBAProject") com "Explorador" no
+        // lugar de "Projeto": a janela tem a árvore e as Propriedades
+        static string ExplorerTitle(IntPtr hwnd)
+        {
+            StringBuilder sb = new StringBuilder(256);
+            GetWindowText(hwnd, sb, sb.Capacity);
+            string text = sb.ToString();
+            int dash = text.IndexOf(" - ", StringComparison.Ordinal);
+            return dash < 0 ? Strings.ExplorerTitle : Strings.ExplorerTitle + text.Substring(dash);
         }
 
         // A árvore não passa da faixa da seção

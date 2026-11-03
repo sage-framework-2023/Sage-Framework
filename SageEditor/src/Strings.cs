@@ -31,7 +31,7 @@ namespace SageEditor
         public static string MultiCursor, MultiCursorDescription, MultiCursorKeywords;
         public static string ColorDecorators, ColorDecoratorsDescription, ColorDecoratorsKeywords;
         public static string Icons, IconsDescription, IconsKeywords;
-        public static string Explorer, ExplorerDescription, ExplorerKeywords, ExplorerProperties;
+        public static string Explorer, ExplorerDescription, ExplorerKeywords, ExplorerProperties, ExplorerTitle;
         public static string DefaultTheme;
 
         // Abas
@@ -131,6 +131,7 @@ namespace SageEditor
                 "recolhe e abre com um clique; arraste a faixa da seção para mudar a altura.";
             ExplorerKeywords = "explorador projeto propriedades seção recolher unificado explorer project properties";
             ExplorerProperties = "Propriedades";
+            ExplorerTitle = "Explorador";
             Icons = "Ícones";
             IconsDescription = "Ícones coloridos (vscode-icons) na janela Projeto e nas abas do código: módulos, classes, " +
                 "formulários, planilhas e as pastas de cada tipo.";
@@ -219,6 +220,7 @@ namespace SageEditor
                 "that collapses and expands with a click; drag the section bar to change its height.";
             ExplorerKeywords = "explorer project properties section collapse unified";
             ExplorerProperties = "Properties";
+            ExplorerTitle = "Explorer";
             Icons = "Icons";
             IconsDescription = "Colored icons (vscode-icons) in the Project window and the code tabs: modules, classes, " +
                 "forms, sheets and a folder for each kind.";
