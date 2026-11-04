@@ -225,6 +225,8 @@ namespace SageEditor
                 return;
             }
 
+            Overscroll.Poll(pane, hwnd);
+
             int topLine, total, current;
             if (!ReadPane(pane, out topLine, out total, out current)) return;
             if (p.Pending || topLine != p.TopLine || current != p.Current || total != p.Total)
@@ -241,6 +243,23 @@ namespace SageEditor
 
         // A janela de um CodePane (o Window.HWnd vem 0 para janelas de código)
         public static IntPtr HwndOfPane(dynamic pane) { return HwndOf(pane); }
+
+        // O CodePane de uma janela de código e a altura das linhas vista no desenho (0: ainda
+        // não desenhada), para o Overscroll
+        public static dynamic PaneOf(IntPtr hwnd) { return PaneFor(hwnd); }
+
+        public static int LineHeightOf(IntPtr hwnd)
+        {
+            Pane p;
+            return panes.TryGetValue(hwnd, out p) ? p.LineHeight : 0;
+        }
+
+        // Onde começa o texto na área cliente (abaixo das caixas de objeto e procedimento); -1: não visto
+        public static int TextTopOf(IntPtr hwnd)
+        {
+            Pane p;
+            return panes.TryGetValue(hwnd, out p) && p.TextTop != int.MaxValue ? p.TextTop : -1;
+        }
 
         // A linha do código desenhada na altura y da janela (área cliente), pela primeira
         // linha visível do CodePane e pela altura das linhas vista no desenho do texto

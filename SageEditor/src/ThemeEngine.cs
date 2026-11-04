@@ -109,6 +109,7 @@ namespace SageEditor
             user32Hooks["GetSysColor"] = Marshal.GetFunctionPointerForDelegate(hookColor);
             user32Hooks["GetSysColorBrush"] = Marshal.GetFunctionPointerForDelegate(hookBrush);
             Painters.HookEdges(user32, user32Hooks);
+            Overscroll.Hooks(user32, user32Hooks);
             gdi32Hooks = new Dictionary<string, IntPtr>();
             gdi32Hooks["SetTextColor"] = Marshal.GetFunctionPointerForDelegate(hookText);
             gdi32Hooks["SetBkColor"] = Marshal.GetFunctionPointerForDelegate(hookBk);
@@ -292,6 +293,12 @@ namespace SageEditor
                     subclassed.TryGetValue(hwnd, out plain);
                     if (plain == "VbaWindow")
                     {
+                        IntPtr over;
+                        if (Overscroll.Handle(hwnd, msg, wParam, lParam, out over))
+                        {
+                            LineNumbers.Paint(hwnd, Effective);
+                            return over;
+                        }
                         switch (msg)
                         {
                             case WM_NCCALCSIZE:
@@ -338,6 +345,16 @@ namespace SageEditor
                                 Painters.InvertGrays(hwnd, t); // com as bordas (área não-cliente)
                                 return result;
                             }
+                        }
+                    }
+
+                    if (cls == "VbaWindow")
+                    {
+                        IntPtr over;
+                        if (Overscroll.Handle(hwnd, msg, wParam, lParam, out over))
+                        {
+                            LineNumbers.Paint(hwnd, t);
+                            return over;
                         }
                     }
 

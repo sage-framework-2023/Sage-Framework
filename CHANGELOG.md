@@ -33,16 +33,18 @@ Ainda sem versão. Coisas que os UserForms não têm, ou têm de um jeito antigo
 - **Tabs**: abas no visual atual (o MultiPage do VBA tem visual antigo).
 - **Validação**: ícone de erro com a mensagem ao lado do controle inválido.
 
-## 1.3.1
+## 1.4.0
 
 ### SageEditor
 - Explorador unificado:
   - Botões **Novo Formulário**, **Novo Módulo** e **Nova Classe** na linha do projeto ativo, à direita, como os de Novo Arquivo do VS Code: os ícones do Sage com um "+". O clique cria o componente e já o abre.
   - Linhas mais altas, como no VS Code (22 px na escala de 100%), com os ícones no mesmo tamanho dos do VS Code.
   - A barra de título passa a mostrar **Explorador** (*Explorer* em inglês) no lugar de *Projeto - VBAProject*, porque a janela tem a árvore e as Propriedades.
+- Código: a roda do mouse rola além da última linha, como no VS Code, até ela ficar no topo da janela, com espaço vazio embaixo. Redimensionar a janela não tira o código do lugar, e o clique no espaço vazio põe o cursor no fim do código.
 - Janela Terminal (Ctrl+J): ao lado do ×, como no VS Code:
   - Aba Terminal: lixeira **Fechar Terminal**, o mesmo que digitar `exit`.
   - Aba Resultado do DataFrame: **Limpar o Resultado** e **Salvar**, que grava todas as linhas do DataFrame mostrado em **CSV**, **Excel** (.xlsx), **JSON**, **Markdown** ou **XML**. No Excel, no JSON e no XML, números, datas e sim/não continuam com o tipo; o CSV usa o separador do Windows (`;` no português), como o `df.ToCsv`.
+- A biblioteca aparece em *Ferramentas > Referências* como **Sage Framework 1.4**.
 
 ### Correções
 - Explorador: depois de *Alternar pastas*, as pastas voltavam com o ícone comum do VBE até serem expandidas. Agora cada uma já aparece com o seu ícone.
