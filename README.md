@@ -75,7 +75,7 @@ powershell -ExecutionPolicy Bypass -File SageEditor\install.ps1
 powershell -ExecutionPolicy Bypass -File SageShortcuts\install.ps1
 
 # The release installer (dist\SageFramework-Setup-<version>.exe)
-powershell -ExecutionPolicy Bypass -File build-release.ps1 -Version 1.3.0
+powershell -ExecutionPolicy Bypass -File build-release.ps1 -Version 1.3.1
 ```
 
 Close Excel before installing: it keeps the DLLs loaded. The release version must match the `AssemblyVersion` in `SageTypes\src\AssemblyInfo.cs`.

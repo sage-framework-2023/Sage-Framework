@@ -544,6 +544,9 @@ Remove-Variable start, SageStartFolders
         // exit: como fechar um terminal. A sessão do PowerShell acaba (variáveis, pasta atual), a tela
         // e o histórico de comandos são apagados e a janela fecha; uma sessão nova já começa, para
         // o Terminal reabrir limpo
+        // Botão "Fechar Terminal" (a lixeira da faixa das abas): o mesmo que digitar exit
+        public void Kill() { Exit(); }
+
         void Exit()
         {
             Shutdown();

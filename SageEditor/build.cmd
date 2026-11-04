@@ -10,5 +10,5 @@ rem arquivo de resposta: na linha de comando passaria do limite do Windows (8191
 set RSP=%~dp0bin\resources.rsp
 type nul > "%RSP%"
 for %%f in ("%~dp0res\icons\*.png") do echo -resource:"%%f",icons.%%~nxf>> "%RSP%"
-"%CSC%" -nologo -target:library -platform:anycpu -optimize+ -codepage:65001 -out:"%~dp0bin\SageEditor.dll" -r:System.dll -r:System.Core.dll -r:System.Drawing.dll -r:System.Windows.Forms.dll -r:Microsoft.CSharp.dll -r:"%PS%" @"%RSP%" "%~dp0src\*.cs"
+"%CSC%" -nologo -target:library -platform:anycpu -optimize+ -codepage:65001 -out:"%~dp0bin\SageEditor.dll" -r:System.dll -r:System.Core.dll -r:System.Drawing.dll -r:System.Windows.Forms.dll -r:System.Xml.dll -r:System.IO.Compression.dll -r:Microsoft.CSharp.dll -r:"%PS%" @"%RSP%" "%~dp0src\*.cs"
 exit /b %ERRORLEVEL%

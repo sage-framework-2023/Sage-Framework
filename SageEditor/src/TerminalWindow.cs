@@ -652,7 +652,36 @@ namespace SageEditor
             }
         }
 
-        const int HotClose = 100;
+        // Ao lado do ×, o botão da aba ativa, como no VS Code: a lixeira (Fechar Terminal) no
+        // Terminal e o Limpar o Resultado no Resultado do DataFrame
+        Rectangle ActionButton
+        {
+            get
+            {
+                int size = StripHeight;
+                return new Rectangle(Width - 2 * size, 0, size, size - 1);
+            }
+        }
+
+        bool HasAction { get { return ActiveTab == TerminalWindow.TabConsole || ActiveTab == TerminalWindow.TabResults; } }
+
+        string ActionText { get { return ActiveTab == TerminalWindow.TabConsole ? Strings.KillTerminal : Strings.ClearResults; } }
+
+        // No Resultado do DataFrame, à esquerda do Limpar o Resultado: Salvar (CSV, Excel, JSON...),
+        // mais largo que os outros para a seta da lista ao lado do disquete
+        Rectangle SaveButton
+        {
+            get
+            {
+                int size = StripHeight, width = size + (int)Math.Round(10 * scale);
+                return new Rectangle(Width - 2 * size - width, 0, width, size - 1);
+            }
+        }
+
+        bool HasSave { get { return ActiveTab == TerminalWindow.TabResults; } }
+
+        const int HotClose = 100, HotAction = 101, HotSave = 102;
+        ToolTip tip;
 
         protected override void OnPaint(PaintEventArgs e)
         {
@@ -689,6 +718,88 @@ namespace SageEditor
                 g.DrawLine(pen, cx - arm, cy + arm, cx + arm, cy - arm);
                 g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.Default;
             }
+
+            if (HasAction)
+            {
+                Rectangle action = ActionButton;
+                if (hot == HotAction) using (SolidBrush b = new SolidBrush(t.Hover)) g.FillRectangle(b, action);
+                DrawActionIcon(g, action, ActiveTab == TerminalWindow.TabConsole, hot == HotAction ? t.Foreground : t.Muted);
+            }
+            if (HasSave)
+            {
+                Rectangle save = SaveButton;
+                if (hot == HotSave) using (SolidBrush b = new SolidBrush(t.Hover)) g.FillRectangle(b, save);
+                DrawSaveIcon(g, save, hot == HotSave ? t.Foreground : t.Muted);
+            }
+        }
+
+        // O disquete do VS Code (codicon save), como os outros ícones, e a seta da lista à direita
+        // (chevron-down), como nos botões de menu do VS Code
+        void DrawSaveIcon(Graphics g, Rectangle r, Color color)
+        {
+            System.Drawing.Drawing2D.GraphicsState state = g.Save();
+            try
+            {
+                g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                g.TranslateTransform(r.Left + (r.Height - 16 * scale) / 2f + 2 * scale, r.Top + (r.Height - 16 * scale) / 2f);
+                g.ScaleTransform(scale, scale);
+                using (Pen pen = new Pen(color, 1f))
+                {
+                    g.DrawPolygon(pen, new[] { new PointF(2.5f, 2.5f), new PointF(11.5f, 2.5f), new PointF(13.5f, 4.5f), new PointF(13.5f, 13.5f), new PointF(2.5f, 13.5f) });
+                    g.DrawLines(pen, new[] { new PointF(5f, 2.5f), new PointF(5f, 6f), new PointF(10.5f, 6f), new PointF(10.5f, 2.5f) });   // a tampa de metal
+                    g.DrawLines(pen, new[] { new PointF(4.5f, 13.5f), new PointF(4.5f, 9f), new PointF(11.5f, 9f), new PointF(11.5f, 13.5f) }); // a etiqueta
+                    g.DrawLines(pen, new[] { new PointF(17f, 7f), new PointF(19.5f, 9.5f), new PointF(22f, 7f) });                         // seta da lista
+                }
+            }
+            finally { g.Restore(state); }
+        }
+
+        // Os ícones do VS Code (codicons trash e clear-all), em linhas numa grade de 16, no
+        // meio do botão e na escala da tela
+        void DrawActionIcon(Graphics g, Rectangle r, bool trash, Color color)
+        {
+            System.Drawing.Drawing2D.GraphicsState state = g.Save();
+            try
+            {
+                g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                g.TranslateTransform(r.Left + (r.Width - 16 * scale) / 2f, r.Top + (r.Height - 16 * scale) / 2f);
+                g.ScaleTransform(scale, scale);
+                using (Pen pen = new Pen(color, 1f))
+                {
+                    if (trash)
+                    {
+                        g.DrawLine(pen, 6f, 1.5f, 10f, 1.5f);                 // alça
+                        g.DrawLine(pen, 2.5f, 3.5f, 13.5f, 3.5f);             // tampa
+                        g.DrawLines(pen, new[] { new PointF(4f, 3.5f), new PointF(4.5f, 14.5f), new PointF(11.5f, 14.5f), new PointF(12f, 3.5f) });
+                        g.DrawLine(pen, 6.5f, 6f, 6.5f, 12f);
+                        g.DrawLine(pen, 9.5f, 6f, 9.5f, 12f);
+                    }
+                    else
+                    {
+                        g.DrawLine(pen, 1.5f, 3.5f, 13.5f, 3.5f);             // três linhas, a última curta
+                        g.DrawLine(pen, 1.5f, 7f, 13.5f, 7f);
+                        g.DrawLine(pen, 1.5f, 10.5f, 6.5f, 10.5f);
+                        g.DrawLine(pen, 9f, 9.5f, 14f, 14.5f);                // × no canto de baixo
+                        g.DrawLine(pen, 14f, 9.5f, 9f, 14.5f);
+                    }
+                }
+            }
+            finally { g.Restore(state); }
+        }
+
+        // Fechar Terminal: o mesmo que digitar exit. Limpar o Resultado: a grade volta ao início.
+        void RunAction()
+        {
+            if (ActiveTab == TerminalWindow.TabConsole) Console.Kill();
+            else if (ActiveTab == TerminalWindow.TabResults) Results.Clear();
+        }
+
+        void ShowTip()
+        {
+            if (tip == null) tip = new ToolTip { ShowAlways = true };
+            if (hot != HotAction && hot != HotSave) { tip.Hide(this); return; }
+            Rectangle a = hot == HotSave ? SaveButton : ActionButton;
+            tip.Show(hot == HotSave ? Strings.Save : ActionText, this, a.Left, a.Bottom + 2);
         }
 
         // Aba (0 a 2), o × (HotClose), a área vazia da faixa (-2) ou fora dela (-1)
@@ -696,6 +807,8 @@ namespace SageEditor
         {
             if (p.Y < 0 || p.Y >= StripHeight) return -1;
             if (CloseButton.Contains(p)) return HotClose;
+            if (HasAction && ActionButton.Contains(p)) return HotAction;
+            if (HasSave && SaveButton.Contains(p)) return HotSave;
             for (int i = 0; i < tabs.Length; i++) if (tabs[i].Contains(p)) return i;
             return -2;
         }
@@ -712,7 +825,16 @@ namespace SageEditor
         protected override void OnMouseUp(MouseEventArgs e)
         {
             base.OnMouseUp(e);
-            if (e.Button == MouseButtons.Left && HitTest(e.Location) == HotClose) TerminalWindow.Hide();
+            if (e.Button != MouseButtons.Left) return;
+            int i = HitTest(e.Location);
+            if (i == HotClose) TerminalWindow.Hide();
+            else if (i == HotAction) { hot = -1; ShowTip(); Invalidate(); RunAction(); }
+            else if (i == HotSave)
+            {
+                Rectangle save = SaveButton;
+                hot = -1; ShowTip(); Invalidate();
+                Results.ShowSaveMenu(PointToScreen(new Point(save.Left, save.Bottom)));
+            }
         }
 
         protected override void OnMouseMove(MouseEventArgs e)
@@ -720,13 +842,13 @@ namespace SageEditor
             base.OnMouseMove(e);
             int i = HitTest(e.Location);
             if (i == -2) i = -1;
-            if (i != hot) { hot = i; Invalidate(); }
+            if (i != hot) { hot = i; Invalidate(); ShowTip(); }
         }
 
         protected override void OnMouseLeave(EventArgs e)
         {
             base.OnMouseLeave(e);
-            if (hot != -1) { hot = -1; Invalidate(); }
+            if (hot != -1) { hot = -1; Invalidate(); ShowTip(); }
         }
     }
 }

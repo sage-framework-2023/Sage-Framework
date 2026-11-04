@@ -516,7 +516,7 @@ namespace SageEditor
             menu.Items.Add(item);
         }
 
-        sealed class MenuColors : ProfessionalColorTable
+        internal sealed class MenuColors : ProfessionalColorTable // também no menu Salvar do Resultado do DataFrame
         {
             readonly Theme t;
             public MenuColors(Theme theme) { t = theme; }

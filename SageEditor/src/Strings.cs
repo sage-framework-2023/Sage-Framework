@@ -32,6 +32,7 @@ namespace SageEditor
         public static string ColorDecorators, ColorDecoratorsDescription, ColorDecoratorsKeywords;
         public static string Icons, IconsDescription, IconsKeywords;
         public static string Explorer, ExplorerDescription, ExplorerKeywords, ExplorerProperties, ExplorerTitle;
+        public static string NewForm, NewModule, NewClass;
         public static string DefaultTheme;
 
         // Abas
@@ -39,6 +40,7 @@ namespace SageEditor
 
         // Janela Terminal
         public static string TerminalTitle, TerminalImmediate, TerminalLocals, TerminalWatch, TerminalConsole, TerminalResults;
+        public static string KillTerminal, ClearResults, Save, SaveFailed, SaveTooManyRows, SaveNothing;
         public static string ResultsEmpty, ResultsRow, ResultsRows, ResultsColumn, ResultsColumns, NullCell;
         public static string ConsoleWarning, ConsoleNoWorkbook;
 
@@ -132,6 +134,9 @@ namespace SageEditor
             ExplorerKeywords = "explorador projeto propriedades seção recolher unificado explorer project properties";
             ExplorerProperties = "Propriedades";
             ExplorerTitle = "Explorador";
+            NewForm = "Novo Formulário";
+            NewModule = "Novo Módulo";
+            NewClass = "Nova Classe";
             Icons = "Ícones";
             IconsDescription = "Ícones coloridos (vscode-icons) na janela Projeto e nas abas do código: módulos, classes, " +
                 "formulários, planilhas e as pastas de cada tipo.";
@@ -158,6 +163,12 @@ namespace SageEditor
             TerminalWatch = "Inspeção de Variáveis";
             TerminalConsole = "Terminal";
             TerminalResults = "Resultado do DataFrame";
+            KillTerminal = "Fechar Terminal";
+            ClearResults = "Limpar o Resultado";
+            Save = "Salvar";
+            SaveFailed = "Não foi possível salvar o arquivo.";
+            SaveNothing = "Não há resultado para salvar. Use df.Show para mostrar um DataFrame aqui.";
+            SaveTooManyRows = "O Excel comporta até 1.048.575 linhas, e o resultado tem {0:N0}. Salve em CSV, JSON, Markdown ou XML.";
             ResultsEmpty = "Use df.Show no VBA para ver um DataFrame aqui.";
             ResultsRow = "{0:N0} linha";
             ResultsRows = "{0:N0} linhas";
@@ -221,6 +232,9 @@ namespace SageEditor
             ExplorerKeywords = "explorer project properties section collapse unified";
             ExplorerProperties = "Properties";
             ExplorerTitle = "Explorer";
+            NewForm = "New Form";
+            NewModule = "New Module";
+            NewClass = "New Class";
             Icons = "Icons";
             IconsDescription = "Colored icons (vscode-icons) in the Project window and the code tabs: modules, classes, " +
                 "forms, sheets and a folder for each kind.";
@@ -247,6 +261,12 @@ namespace SageEditor
             TerminalWatch = "Watches";
             TerminalConsole = "Terminal";
             TerminalResults = "DataFrame Results";
+            KillTerminal = "Kill Terminal";
+            ClearResults = "Clear Results";
+            Save = "Save";
+            SaveFailed = "The file could not be saved.";
+            SaveNothing = "There is no result to save. Use df.Show to display a DataFrame here.";
+            SaveTooManyRows = "Excel holds up to 1,048,575 rows, and the result has {0:N0}. Save as CSV, JSON, Markdown or XML.";
             ResultsEmpty = "Use df.Show in VBA to see a DataFrame here.";
             ResultsRow = "{0:N0} row";
             ResultsRows = "{0:N0} rows";

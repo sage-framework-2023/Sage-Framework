@@ -25,6 +25,9 @@ namespace SageEditor
         readonly Queue<long> order = new Queue<long>();
         Func<long, int, string[][]> fetch;
         string[] types = new string[0];
+        string[] columnNames = new string[0];
+        long rowCount;
+        string frameTitle = "";
         bool failed;
         Theme theme;
 
@@ -97,6 +100,9 @@ namespace SageEditor
             failed = false;
             fetch = rowFetch;
             types = columnTypes;
+            columnNames = columns;
+            rowCount = rows;
+            frameTitle = title ?? "";
 
             for (int c = 0; c < columns.Length; c++)
             {
@@ -119,6 +125,101 @@ namespace SageEditor
             empty.Visible = false;
             grid.Visible = true;
             if (grid.RowCount > 0 && grid.ColumnCount > 0) grid.CurrentCell = grid[0, 0];
+        }
+
+        // Botão "Limpar o Resultado": volta ao estado inicial, sem o DataFrame (e sem segurar o
+        // acesso às linhas dele)
+        public void Clear()
+        {
+            grid.RowCount = 0;
+            grid.Columns.Clear();
+            pages.Clear();
+            order.Clear();
+            fetch = null;
+            types = new string[0];
+            columnNames = new string[0];
+            rowCount = 0;
+            frameTitle = "";
+            failed = false;
+            summary.Text = "";
+            count.Text = "";
+            grid.Visible = false;
+            empty.Visible = true;
+        }
+
+        public bool HasData { get { return fetch != null && !failed; } }
+
+        // Botão "Salvar": o menu com os formatos, embaixo do botão (screen: o canto do botão na tela)
+        public void ShowSaveMenu(Point screen)
+        {
+            ContextMenuStrip menu = new ContextMenuStrip();
+            Theme t = Theme.Find(Settings.ColorTheme);
+            menu.Renderer = new ToolStripProfessionalRenderer(new EditorTabs.MenuColors(t));
+            menu.BackColor = t.Sidebar;
+            menu.ForeColor = t.Foreground;
+            // Lista estreita, com o texto perto da borda: sem a coluna de ícones e a de marcação
+            menu.ShowImageMargin = false;
+            menu.ShowCheckMargin = false;
+            menu.Padding = new Padding(2);
+            foreach (ResultsExport.Format f in new[] { ResultsExport.Format.Csv, ResultsExport.Format.Excel, ResultsExport.Format.Json, ResultsExport.Format.Markdown, ResultsExport.Format.Xml })
+            {
+                ResultsExport.Format format = f;
+                // Sempre habilitadas, na cor do texto do tema: sem resultado, o clique avisa
+                ToolStripMenuItem item = new ToolStripMenuItem(FormatName(f) + " (" + ResultsExport.Extension(f) + ")");
+                item.ForeColor = t.Foreground;
+                item.Padding = new Padding(0, 1, 0, 1);
+                item.Click += delegate { SaveAs(format); };
+                menu.Items.Add(item);
+            }
+            menu.Closed += delegate { BeginInvoke((MethodInvoker)menu.Dispose); };
+            menu.Show(screen);
+        }
+
+        static string FormatName(ResultsExport.Format f)
+        {
+            switch (f)
+            {
+                case ResultsExport.Format.Csv: return "CSV";
+                case ResultsExport.Format.Excel: return "Excel";
+                case ResultsExport.Format.Json: return "JSON";
+                case ResultsExport.Format.Markdown: return "Markdown";
+                default: return "XML";
+            }
+        }
+
+        void SaveAs(ResultsExport.Format format)
+        {
+            if (!HasData)
+            {
+                MessageBox.Show(this, Strings.SaveNothing, Strings.Save, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            if (format == ResultsExport.Format.Excel && rowCount > ResultsExport.ExcelMaxRows)
+            {
+                MessageBox.Show(this, string.Format(CultureInfo.CurrentCulture, Strings.SaveTooManyRows, rowCount), Strings.Save, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            string ext = ResultsExport.Extension(format);
+            string name = frameTitle.Length > 0 ? frameTitle : "DataFrame";
+            foreach (char ch in System.IO.Path.GetInvalidFileNameChars()) name = name.Replace(ch, '_');
+            using (SaveFileDialog dialog = new SaveFileDialog())
+            {
+                dialog.Title = Strings.Save;
+                dialog.FileName = name + ext;
+                dialog.DefaultExt = ext.Substring(1);
+                dialog.Filter = FormatName(format) + " (*" + ext + ")|*" + ext;
+                dialog.OverwritePrompt = true;
+                if (dialog.ShowDialog(this) != DialogResult.OK) return;
+                Cursor previous = Cursor.Current;
+                Cursor.Current = Cursors.WaitCursor;
+                try { ResultsExport.Save(format, dialog.FileName, columnNames, types, rowCount, fetch); }
+                catch (Exception ex)
+                {
+                    Log.Error(ex);
+                    MessageBox.Show(this, Strings.SaveFailed + "\n\n" + ex.Message, Strings.Save, MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+                finally { Cursor.Current = previous; }
+            }
         }
 
         public void FocusGrid()

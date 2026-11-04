@@ -20,6 +20,7 @@ namespace SageEditor
         public static dynamic Vbe;
         static IntPtr vbeWindow, project, tree, properties;
         static ExplorerHeader header;
+        public static Control HeaderControl { get { return header; } } // para o ToolTip dos botões (ExplorerActions)
         static bool collapsed;
         static int height = -1; // altura das Propriedades (px)
         static int tick;
@@ -112,8 +113,14 @@ namespace SageEditor
             foreach (dynamic w in Vbe.Windows)
             {
                 if ((int)w.Type != vbext_wt_ProjectWindow) continue;
-                if ((bool)w.Visible && project != IntPtr.Zero && Native.IsWindowVisible(project)) w.Visible = false;
-                else { w.Visible = true; w.SetFocus(); }
+                if ((bool)w.Visible && project != IntPtr.Zero && Native.IsWindowVisible(project)) { w.Visible = false; return; }
+                w.Visible = true;
+                // A barra do Sage já ao abrir, sem esperar a verificação periódica (até lá
+                // ficaria a do VBE, com "Projeto - ..."); as Propriedades voltam no Poll
+                IntPtr p = FindChild(vbeWindow, "PROJECT");
+                if (Settings.UnifiedExplorer && p != IntPtr.Zero && p != project) { Release(false); Attach(p); }
+                w.SetFocus();
+                RepaintTitle();
                 return;
             }
         }
@@ -219,7 +226,8 @@ namespace SageEditor
         // Subclassing
         // ------------------------------------------------------------------
 
-        const int WM_SIZE = 0x0005, WM_WINDOWPOSCHANGING = 0x0046, WM_SETTEXT = 0x000C;
+        const int WM_SIZE = 0x0005, WM_WINDOWPOSCHANGING = 0x0046, WM_SETTEXT = 0x000C, WM_SETFOCUS = 0x0007, WM_KILLFOCUS = 0x0008;
+        const int WM_MOUSEMOVE = 0x0200, WM_LBUTTONDOWN = 0x0201, WM_LBUTTONUP = 0x0202, WM_LBUTTONDBLCLK = 0x0203, WM_MOUSELEAVE = 0x02A3;
         const uint SWP_NOSIZE = 0x1, SWP_NOMOVE = 0x2, SWP_NOZORDER = 0x4, SWP_NOACTIVATE = 0x10, SWP_FRAMECHANGED = 0x20, SWP_SHOWWINDOW = 0x40, SWP_HIDEWINDOW = 0x80;
         const int WM_NCCALCSIZE = 0x0083, WM_NCPAINT = 0x0085, WM_NCACTIVATE = 0x0086, WM_NCHITTEST = 0x0084, HTCAPTION = 2;
 
@@ -281,6 +289,7 @@ namespace SageEditor
             try
             {
                 if (msg == WM_SIZE) Layout();
+                else if (msg == WM_SETFOCUS || msg == WM_KILLFOCUS) RepaintTitle();
                 else if (msg == Native.WM_NCDESTROY)
                 {
                     Native.RemoveWindowSubclass(hwnd, projectProc, SubclassId);
@@ -326,16 +335,9 @@ namespace SageEditor
             finally { ReleaseDC(hwnd, dc); }
         }
 
-        // O título do VBE ("Projeto - VBAProject", "Project - VBAProject") com "Explorador" no
-        // lugar de "Projeto": a janela tem a árvore e as Propriedades
-        static string ExplorerTitle(IntPtr hwnd)
-        {
-            StringBuilder sb = new StringBuilder(256);
-            GetWindowText(hwnd, sb, sb.Capacity);
-            string text = sb.ToString();
-            int dash = text.IndexOf(" - ", StringComparison.Ordinal);
-            return dash < 0 ? Strings.ExplorerTitle : Strings.ExplorerTitle + text.Substring(dash);
-        }
+        // "Explorador", no lugar do título do VBE ("Projeto - VBAProject"): a janela tem a árvore e
+        // as Propriedades, e o projeto ativo já aparece na árvore, com os botões de Novo ao lado
+        static string ExplorerTitle(IntPtr hwnd) { return Strings.ExplorerTitle; }
 
         // A árvore não passa da faixa da seção
         static IntPtr TreeProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, UIntPtr id, UIntPtr refData)
@@ -351,6 +353,23 @@ namespace SageEditor
                         if (p.cy > limit) { p.cy = Math.Max(0, limit); Marshal.StructureToPtr(p, lParam, false); }
                     }
                 }
+                else if (msg == WM_SETFOCUS || msg == WM_KILLFOCUS)
+                {
+                    IntPtr result = Native.DefSubclassProc(hwnd, msg, wParam, lParam);
+                    RepaintTitle();
+                    return result;
+                }
+                // Botões Novo Formulário, Novo Módulo e Nova Classe na linha do projeto
+                else if (msg == Native.WM_PAINT)
+                {
+                    IntPtr result = Native.DefSubclassProc(hwnd, msg, wParam, lParam);
+                    ExplorerActions.Paint(hwnd);
+                    return result;
+                }
+                else if (msg == WM_MOUSEMOVE) ExplorerActions.MouseMove(hwnd, lParam);
+                else if (msg == WM_MOUSELEAVE) ExplorerActions.MouseLeave(hwnd);
+                else if ((msg == WM_LBUTTONDOWN || msg == WM_LBUTTONDBLCLK) && ExplorerActions.MouseDown(hwnd, lParam)) return IntPtr.Zero;
+                else if (msg == WM_LBUTTONUP && ExplorerActions.MouseUp(hwnd, lParam)) return IntPtr.Zero;
                 else if (msg == Native.WM_NCDESTROY)
                 {
                     Native.RemoveWindowSubclass(hwnd, treeProc, SubclassId);
@@ -359,6 +378,13 @@ namespace SageEditor
             }
             catch (Exception ex) { Log.Error(ex); }
             return Native.DefSubclassProc(hwnd, msg, wParam, lParam);
+        }
+
+        // O VBE redesenha a barra de título da janela acoplada quando o foco entra ou sai dela
+        // (ativa/inativa), por cima da do Sage e sem passar pelo WM_NCPAINT: desenha a do Sage de novo
+        static void RepaintTitle()
+        {
+            if (project != IntPtr.Zero && Native.IsWindow(project) && IsDocked()) PaintTitle(project);
         }
 
         // As Propriedades ficam na área da seção (e escondidas com ela recolhida)

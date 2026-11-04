@@ -51,6 +51,14 @@ namespace SageEditor
                 Build();
                 if (ours == IntPtr.Zero) return;
                 SendMessage(tree, TVM_SETIMAGELIST, (IntPtr)TVSIL_NORMAL, ours);
+                // Linhas da altura das do VS Code: 22 px para ícones de 16 px
+                int cx, cy;
+                if (ImageList_GetIconSize(ours, out cx, out cy))
+                {
+                    int row = (int)Math.Round(cy * 22 / 16.0);
+                    if ((int)SendMessage(tree, TVM_GETITEMHEIGHT, IntPtr.Zero, IntPtr.Zero) < row)
+                        SendMessage(tree, TVM_SETITEMHEIGHT, (IntPtr)row, IntPtr.Zero);
+                }
             }
             FixItems();
         }
@@ -86,17 +94,20 @@ namespace SageEditor
             ours = IntPtr.Zero; // árvore nova: monta a lista de novo
         }
 
-        // Lista própria: as posições do VBE (trocadas ou copiadas) e as pastas coloridas no fim
+        // Lista própria: as posições do VBE (trocadas ou copiadas) e as pastas coloridas no fim.
+        // Os ícones têm o tamanho dos do VBE (16 px na escala de 100%), o mesmo do VS Code; o que
+        // muda é a altura das linhas (RowHeight).
         static void Build()
         {
-            int cx, cy;
-            if (!ImageList_GetIconSize(original, out cx, out cy) || cx <= 0) return;
+            int vbeX, vbeY;
+            if (!ImageList_GetIconSize(original, out vbeX, out vbeY) || vbeX <= 0) return;
+            int cx = vbeX, cy = vbeY;
             int count = ImageList_GetImageCount(original);
             IntPtr list = ImageList_Create(cx, cy, ILC_COLOR32, count + folderKinds.Length * 2, 4);
             for (int i = 0; i < count; i++)
             {
                 string name;
-                IntPtr icon = replaced.TryGetValue(i, out name) ? IconHandle(name, cx) : ImageList_GetIcon(original, i, ILD_TRANSPARENT);
+                IntPtr icon = replaced.TryGetValue(i, out name) ? IconHandle(name, cx) : Centered(ImageList_GetIcon(original, i, ILD_TRANSPARENT), cx, cy);
                 ImageList_ReplaceIcon(list, -1, icon);
                 DestroyIcon(icon);
             }
@@ -142,7 +153,7 @@ namespace SageEditor
                     (folderBase >= 0 && it.iImage >= folderBase && it.iImage < folderBase + folderKinds.Length * 2);
                 if (folder)
                 {
-                    int kind = child == IntPtr.Zero ? 0 : KindOf(Get(child).iImage);
+                    int kind = child == IntPtr.Zero ? KindOfName(text) : KindOf(Get(child).iImage);
                     bool expanded = (it.state & TVIS_EXPANDED) != 0;
                     int want = folderBase + kind * 2 + (expanded ? 1 : 0);
                     if (it.iImage != want || it.iSelectedImage != want)
@@ -179,6 +190,21 @@ namespace SageEditor
                 case 8: return 4;                     // Módulos de classe
             }
             return image >= 0 && image < 3 ? 5 : 0;  // Referências (e o resto: pasta comum)
+        }
+
+        // Pasta ainda sem itens: o VBE só os põe ao expandir (como depois de "Alternar pastas",
+        // que refaz a árvore com as pastas fechadas). O tipo vem do nome, no VBE em português ou inglês.
+        static int KindOfName(string text)
+        {
+            switch ((text ?? "").Trim().ToLowerInvariant())
+            {
+                case "microsoft excel objetos": case "microsoft excel objects": return 1;
+                case "formulários": case "forms": return 2;
+                case "módulos": case "modules": return 3;
+                case "módulos de classe": case "class modules": return 4;
+                case "referências": case "references": return 5;
+            }
+            return 0;
         }
 
         static TVITEM Get(IntPtr item)
@@ -229,6 +255,7 @@ namespace SageEditor
             if (tree != IntPtr.Zero && Native.IsWindow(tree) && original != IntPtr.Zero)
             {
                 SendMessage(tree, TVM_SETIMAGELIST, (IntPtr)TVSIL_NORMAL, original);
+                SendMessage(tree, TVM_SETITEMHEIGHT, (IntPtr)(-1), IntPtr.Zero); // a altura padrão
                 RestoreFolders(SendMessage(tree, TVM_GETNEXTITEM, (IntPtr)TVGN_ROOT, IntPtr.Zero));
             }
             ImageList_Destroy(ours);
@@ -303,6 +330,25 @@ namespace SageEditor
             return b == null ? IntPtr.Zero : b.GetHicon();
         }
 
+        // Um ícone do VBE (sem o PNG do Sage) no tamanho original, no meio da área maior: esticado,
+        // ficaria borrado. Libera o ícone recebido.
+        static IntPtr Centered(IntPtr icon, int cx, int cy)
+        {
+            if (icon == IntPtr.Zero) return icon;
+            try
+            {
+                using (Icon source = System.Drawing.Icon.FromHandle(icon))
+                using (Bitmap small = source.ToBitmap())
+                using (Bitmap b = new Bitmap(cx, cy, System.Drawing.Imaging.PixelFormat.Format32bppArgb))
+                {
+                    using (Graphics g = Graphics.FromImage(b))
+                        g.DrawImageUnscaled(small, (cx - small.Width) / 2, (cy - small.Height) / 2);
+                    return b.GetHicon();
+                }
+            }
+            finally { DestroyIcon(icon); }
+        }
+
         // Ícone de uma aba do código: o do componente na árvore; senão, pelo tipo da janela
         public static string ForTab(string name, string kind)
         {
@@ -314,7 +360,7 @@ namespace SageEditor
         // ------------------------------------------------------------------
 
         const int TV_FIRST = 0x1100, TVM_GETIMAGELIST = TV_FIRST + 8, TVM_SETIMAGELIST = TV_FIRST + 9, TVM_GETNEXTITEM = TV_FIRST + 10,
-            TVM_GETITEMW = TV_FIRST + 62, TVM_SETITEMW = TV_FIRST + 63;
+            TVM_GETITEMW = TV_FIRST + 62, TVM_SETITEMW = TV_FIRST + 63, TVM_SETITEMHEIGHT = TV_FIRST + 27, TVM_GETITEMHEIGHT = TV_FIRST + 28;
         const int TVSIL_NORMAL = 0, TVGN_ROOT = 0, TVGN_NEXT = 1, TVGN_CHILD = 4;
         const uint TVIF_TEXT = 1, TVIF_IMAGE = 2, TVIF_STATE = 8, TVIF_HANDLE = 0x10, TVIF_SELECTEDIMAGE = 0x20, TVIS_EXPANDED = 0x20;
         const int WM_NOTIFY = 0x004E, TVN_ITEMEXPANDEDA = -415, TVN_ITEMEXPANDEDW = -455;

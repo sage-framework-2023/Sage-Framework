@@ -33,6 +33,23 @@ Ainda sem versão. Coisas que os UserForms não têm, ou têm de um jeito antigo
 - **Tabs**: abas no visual atual (o MultiPage do VBA tem visual antigo).
 - **Validação**: ícone de erro com a mensagem ao lado do controle inválido.
 
+## 1.3.1
+
+### SageEditor
+- Explorador unificado:
+  - Botões **Novo Formulário**, **Novo Módulo** e **Nova Classe** na linha do projeto ativo, à direita, como os de Novo Arquivo do VS Code: os ícones do Sage com um "+". O clique cria o componente e já o abre.
+  - Linhas mais altas, como no VS Code (22 px na escala de 100%), com os ícones no mesmo tamanho dos do VS Code.
+  - A barra de título passa a mostrar **Explorador** (*Explorer* em inglês) no lugar de *Projeto - VBAProject*, porque a janela tem a árvore e as Propriedades.
+- Janela Terminal (Ctrl+J): ao lado do ×, como no VS Code:
+  - Aba Terminal: lixeira **Fechar Terminal**, o mesmo que digitar `exit`.
+  - Aba Resultado do DataFrame: **Limpar o Resultado** e **Salvar**, que grava todas as linhas do DataFrame mostrado em **CSV**, **Excel** (.xlsx), **JSON**, **Markdown** ou **XML**. No Excel, no JSON e no XML, números, datas e sim/não continuam com o tipo; o CSV usa o separador do Windows (`;` no português), como o `df.ToCsv`.
+
+### Correções
+- Explorador: depois de *Alternar pastas*, as pastas voltavam com o ícone comum do VBE até serem expandidas. Agora cada uma já aparece com o seu ícone.
+- Explorador: depois do **Ctrl+R**, a barra de título voltava a ser a do VBE.
+- SageShortcuts: os atalhos novos de cada versão (como o **Ctrl+R**, que abre e fecha a janela Projeto) não chegavam a quem já tinha instalado antes, porque o `%APPDATA%\Sage\keybindings.txt` só era criado na primeira vez. Agora os atalhos novos entram no fim do arquivo, uma vez cada: um atalho apagado não volta, e um atalho que você já usa para outra ação fica como está.
+- Números de linha: com a fonte do editor maior (*Ferramentas > Opções > Formato do editor*), os números ficavam com o espaçamento da fonte anterior e se desalinhavam das linhas do código. Agora eles acompanham o tamanho da fonte, e a faixa se alarga para caber os números maiores.
+
 ## 1.3.0
 
 ### SageEditor
@@ -41,7 +58,6 @@ Ainda sem versão. Coisas que os UserForms não têm, ou têm de um jeito antigo
   - Enter ou clicar fora mantém; Esc volta a cor original.
   - Opção *Editor: Decoradores de Cor* nas Configurações (`"editor.colorDecorators"`).
 - A aba *Resultado DataFrame* da janela Terminal passa a se chamar **Resultado do DataFrame** em português.
-- Explorador unificado: a barra de título passa a mostrar **Explorador - VBAProject** (*Explorer* em inglês) no lugar de *Projeto*, porque a janela tem a árvore e as Propriedades.
 - Aba Terminal: `exit` fecha a janela e recomeça o PowerShell, com a tela, o histórico de comandos e as variáveis apagados.
 - A biblioteca aparece em *Ferramentas > Referências* como **Sage Framework 1.3**.
 
@@ -52,8 +68,6 @@ Ainda sem versão. Coisas que os UserForms não têm, ou têm de um jeito antigo
   - Instalação sem janela: `/quiet /noactivex` não mexe na configuração.
 
 ### Correções
-- SageShortcuts: os atalhos novos de cada versão (como o **Ctrl+R**, que abre e fecha a janela Projeto) não chegavam a quem já tinha instalado antes, porque o `%APPDATA%\Sage\keybindings.txt` só era criado na primeira vez. Agora os atalhos novos entram no fim do arquivo, uma vez cada: um atalho apagado não volta, e um atalho que você já usa para outra ação fica como está.
-- Números de linha: com a fonte do editor maior (*Ferramentas > Opções > Formato do editor*), os números ficavam com o espaçamento da fonte anterior e se desalinhavam das linhas do código. Agora eles acompanham o tamanho da fonte, e a faixa se alarga para caber os números maiores.
 - Aba Terminal: a linha de comando atual tinha letras um pouco maiores e ficava deslocada em relação aos comandos já executados. Agora ela fica alinhada como a próxima linha do histórico.
 
 ## 1.2.0
