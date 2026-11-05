@@ -89,7 +89,7 @@ namespace SageEditor
                 {
                     lastTop = top;
                     Forget(hwnd);
-                    Native.InvalidateRect(hwnd, IntPtr.Zero, false);
+                    Overscroll.InvalidateText(hwnd);
                 }
             }
             catch (Exception) { } // VBE ocupado
@@ -255,10 +255,11 @@ namespace SageEditor
                         case WM_HSCROLL:
                         case WM_MOUSEWHEEL:
                         {
-                            // A rolagem move os pixels sem redesenhar: redesenha tudo
+                            // A rolagem move os pixels sem redesenhar: redesenha o texto (só ele: a
+                            // janela sem WS_CLIPCHILDREN repintaria as caixas e as barras, que piscam)
                             IntPtr result = Native.DefSubclassProc(hwnd, msg, wParam, lParam);
                             Forget(hwnd);
-                            Native.InvalidateRect(hwnd, IntPtr.Zero, false);
+                            Overscroll.InvalidateText(hwnd);
                             return result;
                         }
                         case WM_SETCURSOR:

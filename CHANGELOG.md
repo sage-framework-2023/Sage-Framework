@@ -36,6 +36,7 @@ Ainda sem versão. Coisas que os UserForms não têm, ou têm de um jeito antigo
 ## 1.4.0
 
 ### SageEditor
+- Temas novos: **Azure (Dark)**, inspirado no Dark+ com o azul do Azure; **Azure (Light)**, branco e azul-claro, inspirado no portal do Azure; e **Sage (Light)**. O tema *Sage* passa a se chamar **Sage (Dark)** (quem já usa continua nele). O *Padrão do VBE* passa a se chamar **Light (Padrão do VBA)**, e a lista fica em ordem alfabética. Escolha em *Sage > Configurações > Aparência: Tema de Cores*.
 - Explorador unificado:
   - Botões **Novo Formulário**, **Novo Módulo** e **Nova Classe** na linha do projeto ativo, à direita, como os de Novo Arquivo do VS Code: os ícones do Sage com um "+". O clique cria o componente e já o abre.
   - Linhas mais altas, como no VS Code (22 px na escala de 100%), com os ícones no mesmo tamanho dos do VS Code.
@@ -43,10 +44,11 @@ Ainda sem versão. Coisas que os UserForms não têm, ou têm de um jeito antigo
 - Código: a roda do mouse rola além da última linha, como no VS Code, até ela ficar no topo da janela, com espaço vazio embaixo. Redimensionar a janela não tira o código do lugar, e o clique no espaço vazio põe o cursor no fim do código.
 - Janela Terminal (Ctrl+J): ao lado do ×, como no VS Code:
   - Aba Terminal: lixeira **Fechar Terminal**, o mesmo que digitar `exit`.
-  - Aba Resultado do DataFrame: **Limpar o Resultado** e **Salvar**, que grava todas as linhas do DataFrame mostrado em **CSV**, **Excel** (.xlsx), **JSON**, **Markdown** ou **XML**. No Excel, no JSON e no XML, números, datas e sim/não continuam com o tipo; o CSV usa o separador do Windows (`;` no português), como o `df.ToCsv`.
+  - Aba Resultado do DataFrame: **Limpar Resultado** e **Salvar**, que grava todas as linhas do DataFrame mostrado em **CSV**, **Excel** (.xlsx), **JSON**, **Markdown** ou **XML**. No Excel, no JSON e no XML, números, datas e sim/não continuam com o tipo; o CSV usa o separador do Windows (`;` no português), como o `df.ToCsv`.
 - A biblioteca aparece em *Ferramentas > Referências* como **Sage Framework 1.4**.
 
 ### Correções
+- Código: as caixas de objeto e de procedimento, os botões de modo de exibição e as barras de rolagem piscavam ao rolar, porque a cada rolagem a janela inteira era redesenhada. Agora só o texto é.
 - Explorador: depois de *Alternar pastas*, as pastas voltavam com o ícone comum do VBE até serem expandidas. Agora cada uma já aparece com o seu ícone.
 - Explorador: depois do **Ctrl+R**, a barra de título voltava a ser a do VBE.
 - SageShortcuts: os atalhos novos de cada versão (como o **Ctrl+R**, que abre e fecha a janela Projeto) não chegavam a quem já tinha instalado antes, porque o `%APPDATA%\Sage\keybindings.txt` só era criado na primeira vez. Agora os atalhos novos entram no fim do arquivo, uma vez cada: um atalho apagado não volta, e um atalho que você já usa para outra ação fica como está.

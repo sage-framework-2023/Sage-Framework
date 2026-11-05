@@ -9,7 +9,7 @@
 ## What's included
 
 ### SageEditor: a renewed VBA editor
-- **Themes** for the whole editor: *Dark Modern*, *Dark+*, *Sage*, *Light Modern* or the VBE default.
+- **Themes** for the whole editor: *Azure (Dark)*, *Azure (Light)*, *Dark Modern*, *Dark+*, *Light (VBA Default)*, *Light Modern*, *Sage (Dark)* and *Sage (Light)*.
 - Richer **syntax highlighting**, **line numbers**, **tabs** for open windows and **multiple cursors**.
 - **Color decorators**: every `RGB(...)` and `&H...&` is underlined in its own color; clicking it opens a color picker that rewrites the color in the code.
 - **Unified explorer** (Properties inside the Project window) and **icons** for each component type.

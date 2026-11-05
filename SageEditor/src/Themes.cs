@@ -69,9 +69,19 @@ namespace SageEditor
 
         public const string DefaultName = "Padrão do VBE";
 
+        // Em ordem alfabÃ©tica, como aparecem nas ConfiguraÃ§Ãµes
         public static readonly Theme[] All = new Theme[]
         {
-            CreateDefault(),
+            WithSyntax(Create("Azure (Dark)", true,
+                editor: "#1A1F26", sidebar: "#222831", text: "#D6DEE8", muted: "#8E9BAB",
+                border: "#323A45", selection: "#0F4C81", selectionText: "#FFFFFF",
+                input: "#2C343F", accent: "#0089D6", hover: "#2A3340",
+                palette: AzureDarkPalette(), backPalette: DarkBackPalette("#1A1F26")), SyntaxColors.Create("#DCDCAA", "#9CDCFE", "#CE9178", "#B5CEA8", "#4EC9B0", "#C586C0")),
+            WithSyntax(Create("Azure (Light)", false,
+                editor: "#FFFFFF", sidebar: "#E6F2FB", text: "#0B2A4A", muted: "#4F6B85",
+                border: "#B7D7F0", selection: "#BBDEFB", selectionText: "#000000",
+                input: "#FFFFFF", accent: "#0078D4", hover: "#CCE4F7",
+                palette: AzureLightPalette(), backPalette: LightBackPalette("#FFFFFF")), SyntaxColors.Create("#7A5C00", "#0B4F8A", "#A3361B", "#0A7A5A", "#00788A", "#7A2FB5")),
             WithSyntax(Create("Dark Modern", true,
                 editor: "#1F1F1F", sidebar: "#181818", text: "#CCCCCC", muted: "#9D9D9D",
                 border: "#2B2B2B", selection: "#264F78", selectionText: "#FFFFFF",
@@ -82,17 +92,29 @@ namespace SageEditor
                 border: "#3C3C3C", selection: "#264F78", selectionText: "#FFFFFF",
                 input: "#3C3C3C", accent: "#007ACC", hover: "#2A2D2E",
                 palette: DarkPalette(), backPalette: DarkBackPalette("#1E1E1E")), SyntaxColors.Create("#DCDCAA", "#9CDCFE", "#CE9178", "#B5CEA8", "#4EC9B0", "#C586C0")),
-            WithSyntax(Create("Sage", true,
-                editor: "#2B352D", sidebar: "#243027", text: "#DCE5D8", muted: "#9AA894",
-                border: "#3B4A3E", selection: "#4E6E56", selectionText: "#FFFFFF",
-                input: "#34403A", accent: "#8DAA85", hover: "#33403A",
-                palette: SagePalette(), backPalette: DarkBackPalette("#2B352D")), SyntaxColors.Create("#E3D38E", "#A7D8D3", "#E0A27A", "#C3D9A4", "#8FCFB4", "#C8A2C8")),
+            CreateDefault(),
             WithSyntax(Create("Light Modern", false,
                 editor: "#FFFFFF", sidebar: "#F8F8F8", text: "#3B3B3B", muted: "#717171",
                 border: "#E5E5E5", selection: "#ADD6FF", selectionText: "#000000",
                 input: "#FFFFFF", accent: "#005FB8", hover: "#F2F2F2",
                 palette: LightPalette(), backPalette: LightPalette()), SyntaxColors.Create("#795E26", "#001080", "#A31515", "#098658", "#267F99", "#AF00DB")),
+            WithSyntax(Create("Sage (Dark)", true,
+                editor: "#2B352D", sidebar: "#243027", text: "#DCE5D8", muted: "#9AA894",
+                border: "#3B4A3E", selection: "#4E6E56", selectionText: "#FFFFFF",
+                input: "#34403A", accent: "#8DAA85", hover: "#33403A",
+                palette: SagePalette(), backPalette: DarkBackPalette("#2B352D")), SyntaxColors.Create("#E3D38E", "#A7D8D3", "#E0A27A", "#C3D9A4", "#8FCFB4", "#C8A2C8")),
+            WithSyntax(Create("Sage (Light)", false,
+                editor: "#FAFCF8", sidebar: "#E9EFE6", text: "#2B352D", muted: "#66745F",
+                border: "#CCD8C6", selection: "#C9DCC3", selectionText: "#000000",
+                input: "#FFFFFF", accent: "#5E8A5A", hover: "#DDE7D8",
+                palette: SageLightPalette(), backPalette: LightBackPalette("#FAFCF8")), SyntaxColors.Create("#7A5C1E", "#2F5D62", "#A4542E", "#3E7A4A", "#2F7F6F", "#7A4C8C")),
         };
+
+        // Nomes antigos no settings.json: o "Sage" virou "Sage (Dark)" na 1.4.0
+        static string CurrentName(string name)
+        {
+            return string.Equals(name, "Sage", StringComparison.OrdinalIgnoreCase) ? "Sage (Dark)" : name;
+        }
 
         static Theme WithSyntax(Theme t, SyntaxColors syntax)
         {
@@ -102,9 +124,11 @@ namespace SageEditor
 
         public static Theme Find(string name)
         {
+            name = CurrentName(name);
             foreach (Theme t in All)
                 if (string.Equals(t.Name, name, StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(t.DisplayName, name, StringComparison.OrdinalIgnoreCase)) return t;
+            foreach (Theme t in All) if (t.IsDefault) return t;
             return All[0];
         }
 
@@ -268,6 +292,43 @@ namespace SageEditor
                 Ref("#E0D48F"), // Amarelo
                 Ref("#FFFFFF"), // Branco       -> texto do ponto de interrupção
             };
+        }
+
+        // Cor do texto no tema Azure (Dark): como o Dark+, com as palavras-chave no azul do Azure
+        static int[] AzureDarkPalette()
+        {
+            int[] p = DarkPalette();
+            p[0] = Ref("#D6DEE8"); // Preto        -> texto claro
+            p[1] = Ref("#3FA9F5"); // Azul-marinho -> palavras-chave
+            return p;
+        }
+
+        // Cor do texto no tema Azure (Light): azul do Azure sobre branco, texto azul-marinho
+        static int[] AzureLightPalette()
+        {
+            int[] p = LightPalette();
+            p[0] = Ref("#0B2A4A"); // Preto        -> texto
+            p[1] = Ref("#0078D4"); // Azul-marinho -> palavras-chave
+            p[2] = Ref("#3C7A6B"); // Verde        -> comentários
+            return p;
+        }
+
+        // Cor do texto no tema Sage (Light): verdes-sálvia escuros
+        static int[] SageLightPalette()
+        {
+            int[] p = LightPalette();
+            p[0] = Ref("#2B352D"); // Preto        -> texto
+            p[1] = Ref("#3F7D4E"); // Azul-marinho -> palavras-chave
+            p[2] = Ref("#7B8C76"); // Verde        -> comentários
+            return p;
+        }
+
+        // Cor de fundo nos temas claros: o branco vira o fundo do editor
+        static int[] LightBackPalette(string editor)
+        {
+            int[] p = LightPalette();
+            p[15] = Ref(editor);
+            return p;
         }
 
         static int[] LightPalette()

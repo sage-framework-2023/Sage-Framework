@@ -127,7 +127,7 @@ namespace SageEditor
             if (grid.RowCount > 0 && grid.ColumnCount > 0) grid.CurrentCell = grid[0, 0];
         }
 
-        // Botão "Limpar o Resultado": volta ao estado inicial, sem o DataFrame (e sem segurar o
+        // Botão "Limpar Resultado": volta ao estado inicial, sem o DataFrame (e sem segurar o
         // acesso às linhas dele)
         public void Clear()
         {

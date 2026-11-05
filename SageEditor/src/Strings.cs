@@ -104,7 +104,7 @@ namespace SageEditor
             EditorCategory = "Editor: ";
             LineNumbers = "Números de Linha";
             LineNumbersDescription = "Mostra o número de cada linha à esquerda do código, com a linha atual em destaque. " +
-                "Funciona com os temas do Sage (não com o Padrão do VBE).";
+                "Funciona com os temas do Sage (não com o Light (Padrão do VBA)).";
             LineNumbersKeywords = "linha linhas números numeração line numbers editor margem";
             ShowTabs = "Mostrar Abas";
             ShowTabsDescription = "Mostra as janelas abertas (módulos, classes e formulários) como abas no topo da área de código. " +
@@ -151,7 +151,7 @@ namespace SageEditor
                 "e Esc volta a um cursor. O Ctrl+Z do VBE não desfaz essas edições.";
             MultiCursorKeywords = "cursores cursor múltiplos vários coluna seleção multi cursor column selection";
 
-            DefaultTheme = "Padrão do VBE";
+            DefaultTheme = "Light (Padrão do VBA)";
 
             Close = "Fechar";
             CloseOthers = "Fechar Outras";
@@ -164,7 +164,7 @@ namespace SageEditor
             TerminalConsole = "Terminal";
             TerminalResults = "Resultado do DataFrame";
             KillTerminal = "Fechar Terminal";
-            ClearResults = "Limpar o Resultado";
+            ClearResults = "Limpar Resultado";
             Save = "Salvar";
             SaveFailed = "Não foi possível salvar o arquivo.";
             SaveNothing = "Não há resultado para salvar. Use df.Show para mostrar um DataFrame aqui.";
@@ -202,7 +202,7 @@ namespace SageEditor
             EditorCategory = "Editor: ";
             LineNumbers = "Line Numbers";
             LineNumbersDescription = "Shows the number of each line to the left of the code, with the current line highlighted. " +
-                "Works with the Sage themes (not with VBE Default).";
+                "Works with the Sage themes (not with Light (VBA Default)).";
             LineNumbersKeywords = "line numbers editor gutter margin";
             ShowTabs = "Show Tabs";
             ShowTabsDescription = "Shows the open windows (modules, classes and forms) as tabs at the top of the code area. " +
@@ -249,7 +249,7 @@ namespace SageEditor
                 "and Esc goes back to one cursor. The VBE's Ctrl+Z does not undo these edits.";
             MultiCursorKeywords = "multi cursor cursors multiple column selection";
 
-            DefaultTheme = "VBE Default";
+            DefaultTheme = "Light (VBA Default)";
 
             Close = "Close";
             CloseOthers = "Close Others";

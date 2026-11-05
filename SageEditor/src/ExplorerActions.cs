@@ -89,7 +89,8 @@ namespace SageEditor
             lastRow = row;
 
             Theme t = Theme.Find(Settings.ColorTheme);
-            int bk = (int)Native.SendMessage(tree, TVM_GETBKCOLOR, IntPtr.Zero, IntPtr.Zero);
+            // Sem cor definida, a árvore devolve -1 (0xFFFFFFFF no x64: (int)IntPtr estouraria)
+            int bk = unchecked((int)Native.SendMessage(tree, TVM_GETBKCOLOR, IntPtr.Zero, IntPtr.Zero).ToInt64());
             Color back = bk == -1 ? SystemColors.Window : Color.FromArgb(bk & 0xFF, (bk >> 8) & 0xFF, (bk >> 16) & 0xFF);
             Color fore = t.IsDefault ? SystemColors.WindowText : t.Foreground;
             Color hover = t.IsDefault ? SystemColors.ControlLight : t.Hover;

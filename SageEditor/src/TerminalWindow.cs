@@ -653,7 +653,7 @@ namespace SageEditor
         }
 
         // Ao lado do ×, o botão da aba ativa, como no VS Code: a lixeira (Fechar Terminal) no
-        // Terminal e o Limpar o Resultado no Resultado do DataFrame
+        // Terminal e o Limpar Resultado no Resultado do DataFrame
         Rectangle ActionButton
         {
             get
@@ -667,7 +667,7 @@ namespace SageEditor
 
         string ActionText { get { return ActiveTab == TerminalWindow.TabConsole ? Strings.KillTerminal : Strings.ClearResults; } }
 
-        // No Resultado do DataFrame, à esquerda do Limpar o Resultado: Salvar (CSV, Excel, JSON...),
+        // No Resultado do DataFrame, à esquerda do Limpar Resultado: Salvar (CSV, Excel, JSON...),
         // mais largo que os outros para a seta da lista ao lado do disquete
         Rectangle SaveButton
         {
@@ -787,7 +787,7 @@ namespace SageEditor
             finally { g.Restore(state); }
         }
 
-        // Fechar Terminal: o mesmo que digitar exit. Limpar o Resultado: a grade volta ao início.
+        // Fechar Terminal: o mesmo que digitar exit. Limpar Resultado: a grade volta ao início.
         void RunAction()
         {
             if (ActiveTab == TerminalWindow.TabConsole) Console.Kill();

@@ -21,6 +21,7 @@ namespace SageEditor
         static readonly Dictionary<IntPtr, int> lastTop = new Dictionary<IntPtr, int>(); // o TopLine que o Sage pôs
         static readonly Dictionary<IntPtr, int> realHeight = new Dictionary<IntPtr, int>(); // altura da área cliente real
         static bool fixing;
+        static IntPtr arranging; // a janela que o VBE está arrumando a pedido do Sage
 
         const int WM_SIZE = 0x0005, WM_PAINT = 0x000F, WM_WINDOWPOSCHANGED = 0x0047, WM_MOUSEWHEEL = 0x020A,
             WM_LBUTTONDOWN = 0x0201, WM_LBUTTONDBLCLK = 0x0203;
@@ -30,13 +31,14 @@ namespace SageEditor
         [DllImport("user32.dll")] static extern bool ScreenToClient(IntPtr hwnd, ref POINT p);
         [DllImport("user32.dll")] static extern IntPtr SetFocus(IntPtr hwnd);
         [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr hwnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
-        [DllImport("user32.dll")] static extern bool RedrawWindow(IntPtr hwnd, IntPtr rect, IntPtr region, uint flags);
+        [DllImport("user32.dll")] static extern bool RedrawWindow(IntPtr hwnd, ref Native.RECT rect, IntPtr region, uint flags);
+        [DllImport("user32.dll")] static extern bool InvalidateRect(IntPtr hwnd, ref Native.RECT rect, bool erase);
         [DllImport("user32.dll")] static extern int GetWindowLong(IntPtr hwnd, int index);
         const int GWL_STYLE = -16, SBS_VERT = 0x1, SBS_SIZEBOX = 0x8;
-        const uint SWP_HIDEWINDOW = 0x80;
+        const uint SWP_HIDEWINDOW = 0x80, SWP_SHOWWINDOW = 0x40, SWP_FRAMECHANGED = 0x20;
         [DllImport("gdi32.dll")] static extern bool StretchBlt(IntPtr dest, int x, int y, int w, int h, IntPtr src, int sx, int sy, int sw, int sh, uint rop);
         const uint SRCCOPY = 0x00CC0020;
-        const uint RDW_INVALIDATE = 0x1, RDW_ERASE = 0x4, RDW_ALLCHILDREN = 0x80, RDW_UPDATENOW = 0x100;
+        const uint RDW_INVALIDATE = 0x1, RDW_NOCHILDREN = 0x40, RDW_ALLCHILDREN = 0x80, RDW_UPDATENOW = 0x100;
 
         // ------------------------------------------------------------------
         // Desvio do GetClientRect (VBE7.DLL)
@@ -56,6 +58,67 @@ namespace SageEditor
             hooks["MoveWindow"] = Marshal.GetFunctionPointerForDelegate(hookMove);
             origDefer = (DeferWindowPosProc)Marshal.GetDelegateForFunctionPointer(Native.GetProcAddress(user32, "DeferWindowPos"), typeof(DeferWindowPosProc));
             hooks["DeferWindowPos"] = Marshal.GetFunctionPointerForDelegate(hookDefer);
+            origInvalidate = (InvalidateRectProc)Marshal.GetDelegateForFunctionPointer(Native.GetProcAddress(user32, "InvalidateRect"), typeof(InvalidateRectProc));
+            hooks["InvalidateRect"] = Marshal.GetFunctionPointerForDelegate(hookInvalidate);
+            origRedraw = (RedrawWindowProc)Marshal.GetDelegateForFunctionPointer(Native.GetProcAddress(user32, "RedrawWindow"), typeof(RedrawWindowProc));
+            hooks["RedrawWindow"] = Marshal.GetFunctionPointerForDelegate(hookRedraw);
+        }
+
+        // ------------------------------------------------------------------
+        // Desvios de InvalidateRect e RedrawWindow (VBE7.DLL). A janela de código não tem
+        // WS_CLIPCHILDREN: invalidá-la inteira invalida também os filhos, e as caixas de cima e os
+        // botões de baixo piscavam a cada passo da roda. Durante um passo, só a área do texto.
+        // ------------------------------------------------------------------
+
+        delegate bool InvalidateRectProc(IntPtr hwnd, IntPtr rect, bool erase);
+        delegate bool RedrawWindowProc(IntPtr hwnd, IntPtr rect, IntPtr region, uint flags);
+        static InvalidateRectProc origInvalidate;
+        static RedrawWindowProc origRedraw;
+        static readonly InvalidateRectProc hookInvalidate = HookInvalidateRect;
+        static readonly RedrawWindowProc hookRedraw = HookRedrawWindow;
+
+        static bool HookInvalidateRect(IntPtr hwnd, IntPtr rect, bool erase)
+        {
+            if (hwnd != arranging || arranging == IntPtr.Zero) return origInvalidate(hwnd, rect, erase);
+            Native.RECT text = Clip(hwnd, rect);
+            return text.Bottom <= text.Top || text.Right <= text.Left || InvalidateRect(hwnd, ref text, erase);
+        }
+
+        static bool HookRedrawWindow(IntPtr hwnd, IntPtr rect, IntPtr region, uint flags)
+        {
+            if (hwnd != arranging || arranging == IntPtr.Zero || region != IntPtr.Zero) return origRedraw(hwnd, rect, region, flags);
+            Native.RECT text = Clip(hwnd, rect);
+            return text.Bottom <= text.Top || text.Right <= text.Left || RedrawWindow(hwnd, ref text, IntPtr.Zero, (flags & ~RDW_ALLCHILDREN) | RDW_NOCHILDREN);
+        }
+
+        // Para o ColorDecorators, que redesenha o código a cada rolagem
+        public static void InvalidateText(IntPtr hwnd)
+        {
+            Native.RECT text = TextArea(hwnd);
+            InvalidateRect(hwnd, ref text, false);
+        }
+
+        // O retângulo pedido (NULL: a janela toda) recortado à área do texto
+        static Native.RECT Clip(IntPtr hwnd, IntPtr rect)
+        {
+            Native.RECT text = TextArea(hwnd);
+            if (rect == IntPtr.Zero) return text;
+            Native.RECT r = (Native.RECT)Marshal.PtrToStructure(rect, typeof(Native.RECT));
+            text.Left = Math.Max(text.Left, r.Left);
+            text.Top = Math.Max(text.Top, r.Top);
+            text.Right = Math.Min(text.Right, r.Right);
+            text.Bottom = Math.Min(text.Bottom, r.Bottom);
+            return text;
+        }
+
+        // A área do texto e do espaço vazio: abaixo das caixas, acima da fileira de baixo e à
+        // esquerda da barra vertical (17 px + 2 de margem), sem encostar em nenhum filho
+        static Native.RECT TextArea(IntPtr hwnd)
+        {
+            Native.RECT c;
+            Native.GetClientRect(hwnd, out c);
+            int top = LineNumbers.TextTopOf(hwnd);
+            return new Native.RECT { Left = 0, Top = top < 0 ? 32 : top, Right = c.Right - 19, Bottom = c.Bottom - 19 };
         }
 
         // ------------------------------------------------------------------
@@ -77,19 +140,37 @@ namespace SageEditor
         static bool HookSetWindowPos(IntPtr hwnd, IntPtr after, int x, int y, int cx, int cy, uint flags)
         {
             if (extra.Count > 0 && Adjust(hwnd, ref y, ref cy, (flags & SWP_NOMOVE) == 0, (flags & SWP_NOSIZE) == 0)) flags &= ~SWP_HIDEWINDOW;
+            if (AlreadyThere(hwnd, x, y, cx, cy, flags)) return true;
             return origSetPos(hwnd, after, x, y, cx, cy, flags);
         }
 
         static bool HookMoveWindow(IntPtr hwnd, int x, int y, int w, int h, bool repaint)
         {
             if (extra.Count > 0) Adjust(hwnd, ref y, ref h, true, true);
+            if (AlreadyThere(hwnd, x, y, w, h, 0)) return true;
             return origMove(hwnd, x, y, w, h, repaint);
         }
 
         static IntPtr HookDeferWindowPos(IntPtr info, IntPtr hwnd, IntPtr after, int x, int y, int cx, int cy, uint flags)
         {
             if (extra.Count > 0 && Adjust(hwnd, ref y, ref cy, (flags & SWP_NOMOVE) == 0, (flags & SWP_NOSIZE) == 0)) flags &= ~SWP_HIDEWINDOW;
+            if (AlreadyThere(hwnd, x, y, cx, cy, flags)) return info;
             return origDefer(info, hwnd, after, x, y, cx, cy, flags);
+        }
+
+        // No arranjo que o Sage pede (SetExtra), o VBE reposiciona todos os filhos, quase sempre no
+        // mesmo lugar, e cada um é repintado: as caixas de cima e os botões de baixo piscavam a
+        // cada passo da roda. Pedido que não muda nada é ignorado.
+        static bool AlreadyThere(IntPtr hwnd, int x, int y, int cx, int cy, uint flags)
+        {
+            if (arranging == IntPtr.Zero || Native.GetParent(hwnd) != arranging) return false;
+            if ((flags & (SWP_HIDEWINDOW | SWP_FRAMECHANGED)) != 0) return false;
+            if ((flags & SWP_SHOWWINDOW) != 0 && !Native.IsWindowVisible(hwnd)) return false;
+            Native.RECT r = ClientRectOf(arranging, hwnd);
+            // A caixa de cima: o VBE a encolhe para 16 px e a devolve para 22 (a altura não conta)
+            bool sameHeight = Native.ClassName(hwnd) == "ComboBox" || r.Bottom - r.Top == cy;
+            return ((flags & SWP_NOMOVE) != 0 || (r.Left == x && r.Top == y)) &&
+                ((flags & SWP_NOSIZE) != 0 || (r.Right - r.Left == cx && sameHeight));
         }
 
         // Uma barra ou os botões de uma janela de código com espaço extra: a fileira de baixo a
@@ -167,7 +248,10 @@ namespace SageEditor
             Native.RECT c;
             Native.GetClientRect(hwnd, out c); // o real (o desvio só vale para o VBE)
             realHeight[hwnd] = c.Bottom;
-            Native.SendMessage(hwnd, WM_SIZE, IntPtr.Zero, (IntPtr)((c.Bottom << 16) | (c.Right & 0xFFFF)));
+            IntPtr previous = arranging; // um passo da roda já pode estar em andamento
+            arranging = hwnd;
+            try { Native.SendMessage(hwnd, WM_SIZE, IntPtr.Zero, (IntPtr)((c.Bottom << 16) | (c.Right & 0xFFFF))); }
+            finally { arranging = previous; }
             FixChildren(hwnd);
         }
 
@@ -211,11 +295,12 @@ namespace SageEditor
             finally { fixing = false; }
         }
 
-        // Filhos no lugar e a área de código redesenhada (os filhos não: as caixas de cima piscavam)
+        // Filhos no lugar e só a área do texto redesenhada (sem os filhos: as caixas de cima piscavam)
         static void Refresh(IntPtr hwnd)
         {
             FixChildren(hwnd);
-            RedrawWindow(hwnd, IntPtr.Zero, IntPtr.Zero, RDW_INVALIDATE | RDW_UPDATENOW);
+            Native.RECT text = TextArea(hwnd);
+            RedrawWindow(hwnd, ref text, IntPtr.Zero, RDW_INVALIDATE | RDW_UPDATENOW | RDW_NOCHILDREN);
         }
 
         static List<IntPtr> Children(IntPtr hwnd)
@@ -353,6 +438,7 @@ namespace SageEditor
                 {
                     // Para cima: primeiro o espaço diminui (o código desce junto)
                     if (e == 0) return false;
+                    arranging = hwnd;
                     int before = pane.TopLine;
                     int remove = Math.Min(e, lines * height);
                     SetExtra(hwnd, e - remove);
@@ -365,6 +451,7 @@ namespace SageEditor
                 // Para baixo: o VBE rola o que puder; o que faltar vira espaço vazio
                 int top = pane.TopLine;
                 int total = pane.CodeModule.CountOfLines;
+                if (e > 0) arranging = hwnd;
                 result = Native.DefSubclassProc(hwnd, msg, wParam, lParam);
                 // Nunca além da última linha (o VBE iria até a linha vazia depois dela)
                 if (e > 0 && (int)pane.TopLine > total) { pane.TopLine = total; lastTop[hwnd] = total; return true; }
@@ -378,6 +465,7 @@ namespace SageEditor
                 int grow = Math.Min(missing, (limit - e) / height) * height; // linhas inteiras
                 if (grow <= 0) return true;
                 int topBefore = pane.TopLine;
+                arranging = hwnd;
                 SetExtra(hwnd, e + grow);
                 pane.TopLine = Math.Min(total, topBefore + grow / height);
                 Refresh(hwnd);
@@ -385,6 +473,7 @@ namespace SageEditor
                 return true;
             }
             catch (Exception ex) { Log.Error(ex); return false; } // VBE ocupado
+            finally { arranging = IntPtr.Zero; }
         }
 
         // Clique no espaço vazio: o cursor vai para o fim da última linha, sem rolar
@@ -426,7 +515,7 @@ namespace SageEditor
                     return;
                 }
                 SetExtra(hwnd, 0);
-                RedrawWindow(hwnd, IntPtr.Zero, IntPtr.Zero, RDW_INVALIDATE | RDW_UPDATENOW);
+                Refresh(hwnd);
             }
             catch (Exception) { } // VBE ocupado
         }

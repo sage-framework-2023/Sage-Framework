@@ -5,15 +5,15 @@ Add-in .NET do editor do VBA (VBE), carregado dentro do Excel. Ele roda independ
 - **Menu Sage**, entre "Janela" e "Ajuda", com a opção **Configurações...**.
 - **Configurações** no estilo do VS Code. Por enquanto, só *Aparência: Tema de Cores*.
 - **Temas para o VBE inteiro**: menus, barras de ferramentas, menus de contexto, Projeto, Propriedades, Verificação imediata, código, bordas e barras de título, a Caixa de ferramentas e o fundo do designer de UserForms (o formulário em si mantém as cores dele).
-  - Temas disponíveis: *Padrão do VBE*, *Dark Modern*, *Dark+*, *Sage* (escuro em tons de sálvia) e *Light Modern*.
+  - Temas disponíveis, em ordem alfabética: *Azure (Dark)* (como o Dark+, com o azul do Azure), *Azure (Light)* (branco e azul-claro, inspirado no portal do Azure), *Dark Modern*, *Dark+*, *Light (Padrão do VBA)* (o VBE sem tema), *Light Modern*, *Sage (Dark)* e *Sage (Light)* (tons de sálvia).
 - **Realce de sintaxe** no estilo do VS Code, além das cores que o VBE já tem:
   - nomes de Sub/Function/Property/Enum e chamadas de procedimentos em amarelo;
   - variáveis e propriedades em ciano;
   - strings em laranja e números em verde;
   - tipos (`As Long`, `As Sage.ListS`) em verde-água;
   - controle de fluxo (`If`, `For`, `Select Case`, `Exit`...) em roxo.
-- **Números de linha** à esquerda do código, com a linha atual em destaque (*Editor: Números de Linha* nas Configurações). Funcionam com qualquer tema; no *Padrão do VBE*, com as cores do Windows.
-- **Abas** das janelas abertas (módulos, classes e formulários) no topo da área de código, como no VS Code (*Editor: Mostrar Abas* nas Configurações). Funciona com qualquer tema, inclusive o *Padrão do VBE*:
+- **Números de linha** à esquerda do código, com a linha atual em destaque (*Editor: Números de Linha* nas Configurações). Funcionam com qualquer tema; no *Light (Padrão do VBA)*, com as cores do Windows.
+- **Abas** das janelas abertas (módulos, classes e formulários) no topo da área de código, como no VS Code (*Editor: Mostrar Abas* nas Configurações). Funciona com qualquer tema, inclusive o *Light (Padrão do VBA)*:
   - clique ativa a janela; arrastar muda a aba de lugar; o `×` ou o botão do meio fecha;
   - o botão direito abre *Fechar*, *Fechar Outras*, *Fechar à Direita* e *Fechar Todas*;
   - formulários mostram o tipo ao lado do nome (`frmPrincipal  UserForm`); módulos com o mesmo nome em projetos diferentes mostram o projeto;
