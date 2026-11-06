@@ -241,6 +241,7 @@ namespace SageEditor
                     {
                         Subclass(wParam);
                         pendingStyle.Add(wParam);
+                        PanelLayout.Created(wParam, parent, cs);
                     }
                 }
                 catch (Exception ex) { Log.Error(ex); }

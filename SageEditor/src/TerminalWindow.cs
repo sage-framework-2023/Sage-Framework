@@ -135,6 +135,7 @@ namespace SageEditor
                 InterceptMenus();
                 DockFirstTime();
                 AppDomain.CurrentDomain.SetData(ResultsSlot, showResults);
+                AppDomain.CurrentDomain.SetData(ConsoleSlot, printToConsole);
                 Log.Info("Terminal criado");
             }
             catch (Exception ex)
@@ -282,6 +283,38 @@ namespace SageEditor
             if (!Ready || host.InvokeRequired) return false;
             host.Panel.Results.ShowFrame(title, columns, types, rows, fetch);
             Show(TabResults);
+            return true;
+        }
+
+        // Console.PrintF do VBA (SageTypes), achada no AppDomain como a showResults. O texto
+        // vai para a aba Terminal. O começo de uma sequência de prints mostra a aba, sem tirar o
+        // foco de onde ele está; durante a sequência, vale a aba que o usuário escolher.
+        const string ConsoleSlot = "Sage.ConsolePrint";
+        const int PrintPause = 1000;
+        static readonly Func<string, bool> printToConsole = PrintToConsole;
+        static int lastPrint = Environment.TickCount - PrintPause - 1;
+
+        static bool PrintToConsole(string text)
+        {
+            if (!Ready) return false;
+            try
+            {
+                if (!host.InvokeRequired)
+                {
+                    int now = Environment.TickCount;
+                    bool first = unchecked(now - lastPrint) > PrintPause;
+                    lastPrint = now;
+                    if (first && (host.Panel.ActiveTab != TabConsole || !(bool)toolWindow.Visible))
+                    {
+                        host.Panel.SelectTab(TabConsole);
+                        toolWindow.Visible = true;
+                        FitHost();
+                        Repaint();
+                    }
+                }
+                host.Panel.Console.Print(text);
+            }
+            catch (Exception ex) { Log.Error(ex); } // nunca derrubar a macro
             return true;
         }
 
@@ -493,6 +526,13 @@ namespace SageEditor
             SendMessage(target, doubleClick ? WM_NCLBUTTONDBLCLK : WM_NCLBUTTONDOWN, (IntPtr)HTCAPTION, point);
         }
 
+        // Janela solta: volta a acoplar (PanelLayout)
+        public static void Redock()
+        {
+            if (Ready && frame != IntPtr.Zero && (bool)toolWindow.Visible && Native.GetAncestor(frame, Native.GA_ROOT) != vbeWindow)
+                Vbe.MainWindow.LinkedWindows.Add(toolWindow);
+        }
+
         public static void Hide()
         {
             if (Ready) toolWindow.Visible = false;
@@ -533,6 +573,7 @@ namespace SageEditor
         {
             if (keyboardHook != IntPtr.Zero) { Native.UnhookWindowsHookEx(keyboardHook); keyboardHook = IntPtr.Zero; }
             AppDomain.CurrentDomain.SetData(ResultsSlot, null);
+            AppDomain.CurrentDomain.SetData(ConsoleSlot, null);
             foreach (ButtonClick c in menuClicks) c.Dispose();
             menuClicks.Clear();
             if (frame != IntPtr.Zero && Native.IsWindow(frame))
@@ -816,10 +857,11 @@ namespace SageEditor
         protected override void OnMouseDown(MouseEventArgs e)
         {
             base.OnMouseDown(e);
-            if (e.Button != MouseButtons.Left) return;
             int i = HitTest(e.Location);
+            if (e.Button == MouseButtons.Right && Settings.UnifiedExplorer && (i == -2 || (i >= 0 && i < tabs.Length))) { PanelLayout.ShowPanelMenu(); return; }
+            if (e.Button != MouseButtons.Left) return;
             if (i >= 0 && i < tabs.Length) TerminalWindow.Show(i);
-            else if (i == -2) TerminalWindow.StartDrag(PointToScreen(e.Location), e.Clicks > 1);
+            else if (i == -2 && !Settings.UnifiedExplorer) TerminalWindow.StartDrag(PointToScreen(e.Location), e.Clicks > 1); // com o layout do Sage, o Painel fica no lugar
         }
 
         protected override void OnMouseUp(MouseEventArgs e)

@@ -27,6 +27,7 @@ Configurable in a text file: `Ctrl+K, Ctrl+C` to comment, `Alt+Arrow` to move li
 | `DatetimeS` | Date and time with time zones, business days, start and end of period |
 | `DataFrame` | Tables backed by DuckDB, for millions of rows |
 | `Json`, `Requests`, `SqlEngine` | Read and write JSON, call APIs and connect to PostgreSQL, MySQL, SQLite, SQL Server, Access and ODBC |
+| `Console` | `Console.PrintF` writes formatted text to the Terminal tab of the Panel, printf style |
 | `Resizable`, `OfficeTheme` | Resizable UserForms and the current Office theme |
 
 ### Controls for UserForms
@@ -75,7 +76,7 @@ powershell -ExecutionPolicy Bypass -File SageEditor\install.ps1
 powershell -ExecutionPolicy Bypass -File SageShortcuts\install.ps1
 
 # The release installer (dist\SageFramework-Setup-<version>.exe)
-powershell -ExecutionPolicy Bypass -File build-release.ps1 -Version 1.4.0
+powershell -ExecutionPolicy Bypass -File build-release.ps1 -Version 1.5.0
 ```
 
 Close Excel before installing: it keeps the DLLs loaded. The release version must match the `AssemblyVersion` in `SageTypes\src\AssemblyInfo.cs`.

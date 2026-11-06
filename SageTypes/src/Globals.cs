@@ -10,7 +10,8 @@ namespace SageTypes
     //
     //   Set d = Json.Loads(texto)            ' ou Sage.Json.Loads(texto)
     //   Set r = Requests.Get(url)
-    //   Debug.Print GetUser()                ' getpass.getuser(): o usuário logado no Windows
+    //   Console.PrintF "%d linhas\n", n      ' na aba Terminal do Painel (Console.cs)
+    //   Debug.Print GetUser()               ' getpass.getuser(): o usuário logado no Windows
     //   Sleep 1.5                            ' time.sleep(1.5), sem congelar a tela do Excel
     //   Resizable Me, Anchors:=Array("gridDados", "Fill")   ' UserForm redimensionável (FormResize.cs)
     //   If OfficeTheme() = "Black" Then ...  ' o tema do Office (Arquivo > Conta > Tema do Office)
@@ -29,6 +30,7 @@ namespace SageTypes
         [DispId(6)] StringS OfficeTheme();
         [DispId(5)] void Resizable(object Form, [Optional] object Anchors, [Optional] object MinWidth, [Optional] object MinHeight,
             [Optional] object MaxButton, [Optional] object MinButton);
+        [DispId(7)] Console Console { get; }
     }
 
     [ComVisible(true), Guid("3129D3A3-5535-4294-8923-083DAA4A6F75"), ProgId("Sage.Globals"), AppObject]
@@ -37,11 +39,13 @@ namespace SageTypes
     {
         static readonly Json json = new Json();
         static readonly Requests requests = new Requests();
+        static readonly Console console = new Console();
 
         public Globals() { }
 
         public Json Json { get { return json; } }
         public Requests Requests { get { return requests; } }
+        public Console Console { get { return console; } }
 
         // O usuário logado no Windows (pela API, como o GetUserName; não lê a variável
         // USERNAME, que pode ser alterada). Domain:=True devolve também o domínio:

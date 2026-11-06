@@ -286,6 +286,33 @@ Set r = Requests.Post("https://httpbin.org/post", Json:=dados, _
 - **Downloads:** `r.Save "C:\arquivo.pdf"`.
 - Usa TLS 1.2/1.3 e o proxy do Windows (com o usuário logado), como o navegador. A chamada é síncrona: o Excel espera a resposta.
 
+## Console
+
+Global, usado sem `Dim` (ou como `Sage.Console`). Escreve na aba **Terminal** do Painel (Ctrl+J), no estilo do `printf` do C:
+
+```vb
+Console.PrintF "Linha %d de %d: %s\n", i, total, nome
+Console.PrintF "Total: %.2f (%5.1f%%)\n", soma, taxa
+```
+
+| Marcador | Valor | Exemplo |
+|---|---|---|
+| `%d`, `%i` | Inteiro (um número com fração é cortado) | `42` |
+| `%u` | Inteiro sem sinal | `42` |
+| `%s` | Qualquer valor, como o `CStr` do VBA | `Ana` |
+| `%c` | Um caractere ou o código dele | `A` |
+| `%f`, `%e`, `%g` | Decimal, notação exponencial, o mais curto dos dois | `3.141590`, `1.500000e+03`, `3.14159` |
+| `%x`, `%X`, `%o` | Hexadecimal, octal | `ff`, `FF`, `377` |
+| `%%` | O próprio `%` | `%` |
+
+Entre o `%` e a letra: `%.2f` (2 casas), `%5d` (largura 5), `%-5d` (à esquerda), `%05d` (com zeros), `%+d` (sempre com sinal), `%#x` (com `0x`).
+
+- **Quebra de linha:** só com `\n`, como no C. Também valem `\t`, `\r` e `\\`; uma barra seguida de outra letra fica como está (`C:\dados`).
+- **Argumentos:** quantos forem precisos (`ParamArray`). Um `Range` vale o valor da célula. Faltar ou sobrar argumento dá erro, assim como um valor que não serve para o marcador (`%d` com texto). O `Err.Number` é 450, 13 ou 5, e `Err.Description` explica o motivo.
+- **Números:** `%d`, `%f` e os outros usam sempre ponto decimal; `%s` segue o Windows, como o `CStr`.
+- **Tela:** o primeiro print de uma sequência abre a aba Terminal, sem tirar o foco de onde ele está. Num laço rápido, os textos se juntam e saem de tempos em tempos; o que faltar aparece quando a macro terminar.
+- **Sem o SageEditor** não há Terminal: o texto é descartado e a macro segue normalmente.
+
 ## Funções globais: GetUser, Sleep, OfficeTheme e Resizable
 
 Como o `Json` e o `Requests`, usadas sem `Dim` (ou com o prefixo `Sage.`):
@@ -475,12 +502,12 @@ Mantidos de propósito, como no original: ao atribuir um valor, `\n` vira quebra
 
 Os nomes (classes, membros, parâmetros) seguem o PascalCase, sem sublinhado: `DatetimeS`, `ReadCsv`, `SortValues`. Os enums e seus membros seguem o camelCase com o prefixo `sg`, como as constantes do próprio VBA (`vbCrLf`, `xlUp`): `sgDateParts` (`sgMonth`...), `sgArrayTypes` (`sgList`, `sgTuple`).
 
-As interfaces (`_StringS`, `_DictionaryS`, `_ListS`, `_DataFrame`, `_DatetimeS`, `_Json`, `_Requests`, `_Session`, `_Response`, `_Globals`, `_SqlEngine`) são duais: o VBA as chama pela vtable. Acrescente membros **sempre no fim**, com o próximo `DispId`, e nunca reordene nem remova os existentes, senão o código VBA já compilado chama o método errado. Uma classe nova precisa de `[Guid]`, `[ProgId]`, interface própria e uma linha em `$Classes` no `install.ps1`.
+As interfaces (`_StringS`, `_DictionaryS`, `_ListS`, `_DataFrame`, `_DatetimeS`, `_Json`, `_Requests`, `_Session`, `_Response`, `_Globals`, `_SqlEngine`, `_Console`) são duais: o VBA as chama pela vtable. Acrescente membros **sempre no fim**, com o próximo `DispId`, e nunca reordene nem remova os existentes, senão o código VBA já compilado chama o método errado. Uma classe nova precisa de `[Guid]`, `[ProgId]`, interface própria e uma linha em `$Classes` no `install.ps1`.
 
 Limitações do exportador do .NET (`TypeLibConverter`) e como contorná-las:
 - **Propriedade Variant com `Let`:** o .NET exporta o setter só como `Property Set`. Declare também um método `LetNome(...)` com `[PropertyLet("Nome")]`, os mesmos parâmetros e mais o valor; o `install.ps1` o transforma no `Property Let` de `Nome` ao gerar o `.tlb`.
 - **Propriedade com parâmetros** (como `At(linha, coluna)`): o .NET só exporta o indexador. Declare um método `GetNome(...)` com `[PropertyGet("Nome")]`; no VBA ele é lido como `Nome(...)`.
-- **`ParamArray`:** o `params` do C# não é aceito pelo VBA; use parâmetros `[Optional]`.
+- **`ParamArray`:** o `params` do C# não é aceito pelo VBA. Use `[VarArg]` no método da interface, com o último parâmetro `ref object[]` marcado como `SafeArray` de `VT_VARIANT`, e uma classe com `params` para as chamadas por `Object` (ver `Console.cs`); ou parâmetros `[Optional]`.
 - **Membros de enum:** o .NET os exporta como `Enum_Membro` (`sgArrayTypes_sgTuple`); o `install.ps1` tira o prefixo, e o VBA vê `sgTuple`.
 - **Membros globais** (`Json`, `Requests`, `GetUser`, `Sleep`): ficam na classe `Globals`, com `[AppObject]`; o `install.ps1` a marca como *app object* no `.tlb`, e o VBA a cria sozinho.
 - **Nome igual a algo da biblioteca VBA** (como `Strings`): o VBA acha o dele primeiro, por isso o prefixo `Sage.`.

@@ -33,6 +33,7 @@ namespace SageEditor
         public static string Icons, IconsDescription, IconsKeywords;
         public static string Explorer, ExplorerDescription, ExplorerKeywords, ExplorerProperties, ExplorerTitle;
         public static string NewForm, NewModule, NewClass;
+        public static string MoveSideBarLeft, MoveSideBarRight, HideSideBar, HidePanel;
         public static string DefaultTheme;
 
         // Abas
@@ -137,6 +138,10 @@ namespace SageEditor
             NewForm = "Novo Formulário";
             NewModule = "Novo Módulo";
             NewClass = "Nova Classe";
+            MoveSideBarLeft = "Mover a Barra Lateral Primária para a Esquerda";
+            MoveSideBarRight = "Mover a Barra Lateral Primária para a Direita";
+            HideSideBar = "Ocultar Barra Lateral Primária";
+            HidePanel = "Ocultar Painel";
             Icons = "Ícones";
             IconsDescription = "Ícones coloridos (vscode-icons) na janela Projeto e nas abas do código: módulos, classes, " +
                 "formulários, planilhas e as pastas de cada tipo.";
@@ -235,6 +240,10 @@ namespace SageEditor
             NewForm = "New Form";
             NewModule = "New Module";
             NewClass = "New Class";
+            MoveSideBarLeft = "Move Primary Side Bar Left";
+            MoveSideBarRight = "Move Primary Side Bar Right";
+            HideSideBar = "Hide Primary Side Bar";
+            HidePanel = "Hide Panel";
             Icons = "Icons";
             IconsDescription = "Colored icons (vscode-icons) in the Project window and the code tabs: modules, classes, " +
                 "forms, sheets and a folder for each kind.";

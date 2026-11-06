@@ -110,11 +110,16 @@ namespace SageEditor
         // junto) ou abre e põe o foco na árvore
         public static void Toggle()
         {
+            PanelLayout.Frozen(ToggleNow);
+        }
+
+        static void ToggleNow()
+        {
             foreach (dynamic w in Vbe.Windows)
             {
                 if ((int)w.Type != vbext_wt_ProjectWindow) continue;
                 if ((bool)w.Visible && project != IntPtr.Zero && Native.IsWindowVisible(project)) { w.Visible = false; return; }
-                w.Visible = true;
+                PanelLayout.Open(delegate { w.Visible = true; });
                 // A barra do Sage já ao abrir, sem esperar a verificação periódica (até lá
                 // ficaria a do VBE, com "Projeto - ..."); as Propriedades voltam no Poll
                 IntPtr p = FindChild(vbeWindow, "PROJECT");
@@ -229,7 +234,8 @@ namespace SageEditor
         const int WM_SIZE = 0x0005, WM_WINDOWPOSCHANGING = 0x0046, WM_SETTEXT = 0x000C, WM_SETFOCUS = 0x0007, WM_KILLFOCUS = 0x0008;
         const int WM_MOUSEMOVE = 0x0200, WM_LBUTTONDOWN = 0x0201, WM_LBUTTONUP = 0x0202, WM_LBUTTONDBLCLK = 0x0203, WM_MOUSELEAVE = 0x02A3;
         const uint SWP_NOSIZE = 0x1, SWP_NOMOVE = 0x2, SWP_NOZORDER = 0x4, SWP_NOACTIVATE = 0x10, SWP_FRAMECHANGED = 0x20, SWP_SHOWWINDOW = 0x40, SWP_HIDEWINDOW = 0x80;
-        const int WM_NCCALCSIZE = 0x0083, WM_NCPAINT = 0x0085, WM_NCACTIVATE = 0x0086, WM_NCHITTEST = 0x0084, HTCAPTION = 2;
+        const int WM_NCCALCSIZE = 0x0083, WM_NCPAINT = 0x0085, WM_NCACTIVATE = 0x0086, WM_NCHITTEST = 0x0084, HTBORDER = 18;
+        const int WM_NCRBUTTONDOWN = 0x00A4, WM_NCRBUTTONUP = 0x00A5, WM_CONTEXTMENU = 0x007B;
 
         [StructLayout(LayoutKind.Sequential)]
         struct NCCALCSIZE_PARAMS { public Native.RECT r0, r1, r2; public IntPtr pos; }
@@ -245,8 +251,8 @@ namespace SageEditor
         static IntPtr ProjectProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, UIntPtr id, UIntPtr refData)
         {
             // Barra de título do Sage no lugar da do VBE: só o título, sem o botão de fechar
-            // (Ctrl+R abre e fecha a janela). Arrastar e o duplo clique nela seguem com o VBE
-            // (HTCAPTION), para acoplar e desacoplar.
+            // (Ctrl+R abre e fecha a janela). Sem arrastar nem duplo clique (a janela fica no
+            // lugar: PanelLayout); o clique direito abre o menu do Sage.
             if (hwnd == project && IsDocked())
             {
                 switch (msg)
@@ -274,9 +280,22 @@ namespace SageEditor
                         Native.RECT w;
                         Native.GetWindowRect(hwnd, out w);
                         int y = (short)(((long)lParam >> 16) & 0xFFFF);
-                        if (y >= w.Top && y < w.Top + TitleHeight) return (IntPtr)HTCAPTION;
+                        if (y >= w.Top && y < w.Top + TitleHeight) return (IntPtr)HTBORDER;
                         break;
                     }
+                    case WM_NCRBUTTONDOWN:
+                        return IntPtr.Zero;
+                    case WM_NCRBUTTONUP:
+                        PanelLayout.ShowExplorerMenu();
+                        return IntPtr.Zero;
+                    case WM_CONTEXTMENU:
+                        // Na árvore e nas Propriedades ficam os menus do VBE (sem o Encaixável)
+                        if (!OverTreeOrProperties(lParam))
+                        {
+                            PanelLayout.ShowExplorerMenu();
+                            return IntPtr.Zero;
+                        }
+                        break;
                     case WM_SETTEXT:
                     {
                         IntPtr r = Native.DefSubclassProc(hwnd, msg, wParam, lParam);
@@ -298,6 +317,18 @@ namespace SageEditor
             }
             catch (Exception ex) { Log.Error(ex); }
             return result;
+        }
+
+        static bool OverTreeOrProperties(IntPtr lParam)
+        {
+            if ((long)lParam == -1) return true; // pelo teclado
+            Point p = new Point((short)((long)lParam & 0xFFFF), (short)(((long)lParam >> 16) & 0xFFFF));
+            foreach (IntPtr h in new[] { tree, properties })
+            {
+                Native.RECT r;
+                if (h != IntPtr.Zero && Native.GetWindowRect(h, out r) && p.X >= r.Left && p.X < r.Right && p.Y >= r.Top && p.Y < r.Bottom) return true;
+            }
+            return false;
         }
 
         // Acoplada (dentro da janela principal); flutuando, a moldura flutuante tem a barra dela
@@ -533,7 +564,8 @@ namespace SageEditor
         public event Action DragDone;
         public bool Collapsed;
         string title = "";
-        bool down, dragging, hot;
+        const int EdgeSize = 5;
+        bool down, dragging, hot, onEdge;
         int downY;
         float scale = 1;
 
@@ -593,15 +625,20 @@ namespace SageEditor
             base.OnMouseDown(e);
             if (e.Button != MouseButtons.Left) return;
             down = true; dragging = false; downY = e.Y;
+            onEdge = OverEdge(e.Y);
             Capture = true;
         }
+
+        // A borda de cima é o divisor (seta dupla): lá o clique não recolhe, só o arrasto vale.
+        // Recolhida, a seção não tem altura para mudar.
+        bool OverEdge(int y) { return !Collapsed && y >= 0 && y < (int)Math.Round(EdgeSize * scale); }
 
         protected override void OnMouseMove(MouseEventArgs e)
         {
             base.OnMouseMove(e);
             if (!down)
             {
-                Cursor = Cursors.Hand;
+                Cursor = OverEdge(e.Y) ? Cursors.SizeNS : Cursors.Hand;
                 if (!hot) { hot = true; Invalidate(); }
                 return;
             }
@@ -619,10 +656,10 @@ namespace SageEditor
             if (!down) return;
             down = false;
             Capture = false;
-            if (!dragging && Toggle != null) Toggle();
+            if (!dragging && !onEdge && Toggle != null) Toggle();
             if (dragging && DragDone != null) DragDone();
             dragging = false;
-            Cursor = Cursors.Hand;
+            Cursor = OverEdge(e.Y) ? Cursors.SizeNS : Cursors.Hand;
         }
 
         protected override void OnMouseLeave(EventArgs e)

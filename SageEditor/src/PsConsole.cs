@@ -515,6 +515,45 @@ Remove-Variable start, SageStartFolders
 
         bool pendingNewLine;
 
+        // Console.PrintF do VBA. A macro ocupa a thread da janela, então a tela é pintada aqui
+        // mesmo; num laço rápido, os textos se juntam e saem de tempos em tempos: 50 ms, ou mais
+        // se escrever na tela demorar, para a escrita não tomar mais de 1/5 do tempo da macro.
+        // O que sobrar no fim sai no timer, assim que a thread ficar livre.
+        const int PrintInterval = 50, PrintWeight = 4;
+        const uint RDW_ALLCHILDREN = 0x0080, RDW_UPDATENOW = 0x0100;
+        readonly StringBuilder printed = new StringBuilder();
+        readonly System.Diagnostics.Stopwatch sincePrint = System.Diagnostics.Stopwatch.StartNew();
+        System.Windows.Forms.Timer printTimer;
+        long printWait = PrintInterval;
+
+        public void Print(string text)
+        {
+            UI(delegate
+            {
+                printed.Append(text);
+                if (sincePrint.ElapsedMilliseconds >= printWait) { FlushPrinted(); return; }
+                if (printTimer == null)
+                {
+                    printTimer = new System.Windows.Forms.Timer { Interval = PrintInterval };
+                    printTimer.Tick += delegate { FlushPrinted(); };
+                }
+                printTimer.Start();
+            });
+        }
+
+        void FlushPrinted()
+        {
+            if (printTimer != null) printTimer.Stop();
+            sincePrint.Restart();
+            if (printed.Length == 0) return;
+            string text = printed.ToString();
+            printed.Length = 0;
+            Write(text, null);
+            if (IsHandleCreated) Native.RedrawWindow(Handle, IntPtr.Zero, IntPtr.Zero, RDW_UPDATENOW | RDW_ALLCHILDREN);
+            printWait = Math.Max(PrintInterval, sincePrint.ElapsedMilliseconds * PrintWeight);
+            sincePrint.Restart();
+        }
+
         // O comando executado fica na tela com as mesmas cores da linha de comando
         void WriteCommand(string line, string suffix)
         {

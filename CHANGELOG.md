@@ -33,6 +33,21 @@ Ainda sem versão. Coisas que os UserForms não têm, ou têm de um jeito antigo
 - **Tabs**: abas no visual atual (o MultiPage do VBA tem visual antigo).
 - **Validação**: ícone de erro com a mensagem ao lado do controle inválido.
 
+## 1.5.0
+
+### SageEditor
+- Layout fixo, como no VS Code, com o Explorador unificado ligado:
+  - O Explorador ocupa a altura inteira, à esquerda ou à direita, e o Painel (Ctrl+J) fica sempre embaixo do código, ao lado dele. As janelas não se desacoplam mais: uma janela solta volta a acoplar.
+  - Clique direito na barra do Explorador: **Mover a Barra Lateral Primária para a Esquerda/Direita** e **Ocultar Barra Lateral Primária** (Ctrl+R).
+  - Clique direito nas abas do Painel: **Ocultar Painel** (Ctrl+J).
+  - Os divisores continuam ajustando os tamanhos, que ficam salvos nas configurações.
+  - O item *Encaixável* sai dos menus do VBE enquanto o Sage está carregado.
+- Propriedades do Explorador: a borda de cima da faixa mostra a seta dupla e arrasta para mudar a altura.
+- A biblioteca aparece em *Ferramentas > Referências* como **Sage Framework 1.5**.
+
+### SageTypes
+- **Console.PrintF**: escreve na aba Terminal do Painel, com os marcadores do `printf` do C (`%d`, `%s`, `%.2f`, `%x`...).
+
 ## 1.4.0
 
 ### SageEditor

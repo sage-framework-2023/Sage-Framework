@@ -104,6 +104,8 @@ namespace SageEditor
             ImmediateCommands.Start(main);
             TerminalWindow.Vbe = vbe;
             TerminalWindow.Start(main, addIn);
+            PanelLayout.Vbe = vbe;
+            PanelLayout.Start(main);
 
             menu = new SageMenu((object)vbe, new Action(OpenSettings));
             try { Syntax.Scan(vbe); }
@@ -117,7 +119,7 @@ namespace SageEditor
                 catch (Exception) { } // VBE ocupado (ex.: executando código)
                 try { EditorTabs.Poll(); ThemeEngine.PollForms(); MultiCursor.Poll(); ColorDecorators.Poll(); ProjectIcons.Poll(); UnifiedExplorer.Poll(); }
                 catch (Exception ex) { Log.Error(ex); }
-                try { TerminalWindow.Poll(); }
+                try { TerminalWindow.Poll(); PanelLayout.Poll(); }
                 catch (Exception ex) { Log.Error(ex); }
                 try { AutoReference.Poll(vbe); ImmediateCommands.Poll(); }
                 catch (Exception) { } // VBE ocupado; tenta no próximo ciclo
@@ -142,6 +144,7 @@ namespace SageEditor
                 MultiCursor.Vbe = null;
                 ColorDecorators.Vbe = null;
                 ImmediateCommands.Shutdown();
+                PanelLayout.Shutdown();
                 TerminalWindow.Shutdown();
                 TerminalWindow.Vbe = null;
                 addIn = null;

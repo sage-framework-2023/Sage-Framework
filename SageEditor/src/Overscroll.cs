@@ -139,6 +139,7 @@ namespace SageEditor
 
         static bool HookSetWindowPos(IntPtr hwnd, IntPtr after, int x, int y, int cx, int cy, uint flags)
         {
+            PanelLayout.Adjust(hwnd, ref x, ref y, ref cx, ref cy, ref flags);
             if (extra.Count > 0 && Adjust(hwnd, ref y, ref cy, (flags & SWP_NOMOVE) == 0, (flags & SWP_NOSIZE) == 0)) flags &= ~SWP_HIDEWINDOW;
             if (AlreadyThere(hwnd, x, y, cx, cy, flags)) return true;
             return origSetPos(hwnd, after, x, y, cx, cy, flags);
@@ -146,6 +147,8 @@ namespace SageEditor
 
         static bool HookMoveWindow(IntPtr hwnd, int x, int y, int w, int h, bool repaint)
         {
+            uint none = 0;
+            PanelLayout.Adjust(hwnd, ref x, ref y, ref w, ref h, ref none);
             if (extra.Count > 0) Adjust(hwnd, ref y, ref h, true, true);
             if (AlreadyThere(hwnd, x, y, w, h, 0)) return true;
             return origMove(hwnd, x, y, w, h, repaint);
@@ -153,6 +156,7 @@ namespace SageEditor
 
         static IntPtr HookDeferWindowPos(IntPtr info, IntPtr hwnd, IntPtr after, int x, int y, int cx, int cy, uint flags)
         {
+            PanelLayout.Adjust(hwnd, ref x, ref y, ref cx, ref cy, ref flags);
             if (extra.Count > 0 && Adjust(hwnd, ref y, ref cy, (flags & SWP_NOMOVE) == 0, (flags & SWP_NOSIZE) == 0)) flags &= ~SWP_HIDEWINDOW;
             if (AlreadyThere(hwnd, x, y, cx, cy, flags)) return info;
             return origDefer(info, hwnd, after, x, y, cx, cy, flags);

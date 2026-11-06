@@ -77,7 +77,7 @@ public static class SageTypeLib
         Version version = assembly.GetName().Version;
         AssemblyDescriptionAttribute description = (AssemblyDescriptionAttribute)Attribute.GetCustomAttribute(assembly, typeof(AssemblyDescriptionAttribute));
         lib.SetDocString((description != null ? description.Description : libraryName) + " " + version.Major + "." + version.Minor + "." + version.Build);
-        ApplyProperties((System.Runtime.InteropServices.ComTypes.ITypeLib)lib, PropertyMethods(assembly), AppObjects(assembly), Controls(assembly));
+        ApplyProperties((System.Runtime.InteropServices.ComTypes.ITypeLib)lib, PropertyMethods(assembly), VarArgMethods(assembly), AppObjects(assembly), Controls(assembly));
         lib.SaveAllChanges();
     }
 
@@ -123,6 +123,20 @@ public static class SageTypeLib
         return result;
     }
 
+    // Métodos das interfaces marcados com [VarArg]: "Interface.Método"
+    static Dictionary<string, bool> VarArgMethods(Assembly assembly)
+    {
+        var result = new Dictionary<string, bool>();
+        foreach (Type type in assembly.GetTypes())
+        {
+            if (!type.IsInterface) continue;
+            foreach (MethodInfo method in type.GetMethods())
+                foreach (CustomAttributeData data in CustomAttributeData.GetCustomAttributes(method))
+                    if (data.Constructor.DeclaringType.Name == "VarArgAttribute") result[type.Name + "." + method.Name] = true;
+        }
+        return result;
+    }
+
     // O .NET não exporta propriedades com parâmetros além do indexador, e exporta o
     // setter de uma propriedade Variant só como Property Set (propputref), com o que
     // "d(chave) = valor" não compila no VBA. Por isso:
@@ -131,8 +145,9 @@ public static class SageTypeLib
     // - [PropertyLet("X")] (LetValue): o método vira o Property Let (propput) de X:
     //   mesmo DispId de X, mesma posição na vtable (onde o .NET o implementou),
     //   parâmetros iguais.
+    // - [VarArg]: o último parâmetro, um array por referência, vira o ParamArray do VBA.
     static void ApplyProperties(System.Runtime.InteropServices.ComTypes.ITypeLib lib, Dictionary<string, KeyValuePair<bool, string>> methods,
-        Dictionary<string, bool> appObjects, Dictionary<string, bool> controls)
+        Dictionary<string, bool> varArgs, Dictionary<string, bool> appObjects, Dictionary<string, bool> controls)
     {
         for (int i = 0; i < lib.GetTypeInfoCount(); i++)
         {
@@ -171,6 +186,12 @@ public static class SageTypeLib
                 }
                 continue;
             }
+            // Interface que não é dual (_Console): não há visão IDispatch
+            if (attr.typekind == System.Runtime.InteropServices.ComTypes.TYPEKIND.TKIND_INTERFACE)
+            {
+                ApplyProperties(info, methods, varArgs);
+                continue;
+            }
             if (attr.typekind != System.Runtime.InteropServices.ComTypes.TYPEKIND.TKIND_DISPATCH ||
                 (attr.wTypeFlags & System.Runtime.InteropServices.ComTypes.TYPEFLAGS.TYPEFLAG_FDUAL) == 0) continue;
             // A interface da vtable por trás da visão IDispatch
@@ -178,11 +199,12 @@ public static class SageTypeLib
             info.GetRefTypeOfImplType(-1, out href);
             System.Runtime.InteropServices.ComTypes.ITypeInfo vtable;
             info.GetRefTypeInfo(href, out vtable);
-            ApplyProperties(vtable, methods);
+            ApplyProperties(vtable, methods, varArgs);
         }
     }
 
-    static void ApplyProperties(System.Runtime.InteropServices.ComTypes.ITypeInfo info, Dictionary<string, KeyValuePair<bool, string>> methods)
+    static void ApplyProperties(System.Runtime.InteropServices.ComTypes.ITypeInfo info, Dictionary<string, KeyValuePair<bool, string>> methods,
+        Dictionary<string, bool> varArgs)
     {
         string typeName, doc, helpFile;
         int helpContext;
@@ -200,6 +222,25 @@ public static class SageTypeLib
             string[] names = new string[desc.cParams + 1];
             int count;
             info.GetNames(desc.memid, names, names.Length, out count);
+            if (varArgs.ContainsKey(typeName + "." + names[0]))
+            {
+                desc.cParamsOpt = -1;
+                IntPtr varArgCopy = Marshal.AllocHGlobal(Marshal.SizeOf(desc));
+                try
+                {
+                    Marshal.StructureToPtr(desc, varArgCopy, false);
+                    ICreateTypeInfo2 create = (ICreateTypeInfo2)info;
+                    create.DeleteFuncDesc(f);
+                    create.AddFuncDesc(f, varArgCopy);
+                    create.SetFuncAndParamNames(f, names, count);
+                }
+                finally
+                {
+                    Marshal.FreeHGlobal(varArgCopy);
+                    info.ReleaseFuncDesc(pf);
+                }
+                continue;
+            }
             KeyValuePair<bool, string> mark;
             if (!methods.TryGetValue(typeName + "." + names[0], out mark) ||
                 desc.invkind != System.Runtime.InteropServices.ComTypes.INVOKEKIND.INVOKE_FUNC)
@@ -317,6 +358,7 @@ $Classes = @(
     @{ Class = 'SageTypes.Session'; Clsid = '{FCB13B55-C345-4703-89B6-F4635B7C5A9A}'; ProgId = 'Sage.Session' }
     @{ Class = 'SageTypes.Response'; Clsid = '{B028ADB0-40B2-461C-8AD1-B4236852C17E}'; ProgId = 'Sage.Response' }
     @{ Class = 'SageTypes.SqlEngine'; Clsid = '{6795C777-D195-4CBE-9E32-3DADA65AE733}'; ProgId = 'Sage.SqlEngine' }
+    @{ Class = 'SageTypes.Console'; Clsid = '{48E1D247-7261-4DBB-9B9A-FA601658FC2F}'; ProgId = 'Sage.Console' }
     # Membros globais (Json, Requests): o VBA cria esta classe sozinho
     @{ Class = 'SageTypes.Globals'; Clsid = '{3129D3A3-5535-4294-8923-083DAA4A6F75}'; ProgId = 'Sage.Globals' }
     # Controles para UserForms (Caixa de ferramentas > Controles adicionais)
