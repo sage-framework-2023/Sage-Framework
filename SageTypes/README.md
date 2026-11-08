@@ -546,7 +546,7 @@ Mantidos de propósito, como no original: ao atribuir um valor, `\n` vira quebra
 
 Os nomes (classes, membros, parâmetros) seguem o PascalCase, sem sublinhado: `Datetime`, `ReadCsv`, `SortValues`. Os enums e seus membros seguem o camelCase com o prefixo `sg`, como as constantes do próprio VBA (`vbCrLf`, `xlUp`): `sgDateParts` (`sgMonth`...), `sgArrayTypes` (`sgList`, `sgTuple`).
 
-As interfaces (`_StringS`, `_DictionaryS`, `_ListS`, `_DataFrame`, `_DatetimeS`, `_Json`, `_Requests`, `_Session`, `_Response`, `_Globals`, `_SqlEngine`, `_Console`) são duais: o VBA as chama pela vtable. Acrescente membros **sempre no fim**, com o próximo `DispId`, e nunca reordene nem remova os existentes, senão o código VBA já compilado chama o método errado. Uma classe nova precisa de `[Guid]`, `[ProgId]`, interface própria e uma linha em `$Classes` no `install.ps1`.
+As interfaces (`_String`, `_Dictionary`, `_List`, `_DataFrame`, `_Datetime`, `_Json`, `_Requests`, `_Session`, `_Response`, `_Globals`, `_SqlEngine`, `_Console`, `_Path`) são duais: o VBA as chama pela vtable. Acrescente membros **sempre no fim**, com o próximo `DispId`, e nunca reordene nem remova os existentes, senão o código VBA já compilado chama o método errado. Uma classe nova precisa de `[Guid]`, `[ProgId]`, interface própria e uma linha em `$Classes` no `install.ps1`.
 
 Limitações do exportador do .NET (`TypeLibConverter`) e como contorná-las:
 - **Propriedade Variant com `Let`:** o .NET exporta o setter só como `Property Set`. Declare também um método `LetNome(...)` com `[PropertyLet("Nome")]`, os mesmos parâmetros e mais o valor; o `install.ps1` o transforma no `Property Let` de `Nome` ao gerar o `.tlb`.
