@@ -112,7 +112,7 @@ namespace SageEditor
                 "Clique para ativar, arraste para mudar de lugar, \"×\" ou botão do meio para fechar e botão direito para mais opções.";
             ShowTabsKeywords = "abas aba guias tabs janelas abertas módulos workbench editor show tabs";
             AutoReference = "Referência Automática";
-            AutoReferenceDescription = "Pastas de trabalho novas já vêm com a biblioteca Sage Framework (Sage.StringS...) " +
+            AutoReferenceDescription = "Pastas de trabalho novas já vêm com a biblioteca Sage Framework (Sage.String...) " +
                 "marcada em Ferramentas > Referências. Arquivos já salvos não são alterados: para não usar o Sage num arquivo, " +
                 "desmarque a referência e salve.";
             AutoReferenceKeywords = "referência referências biblioteca sage framework stringS tipos references library";
@@ -214,7 +214,7 @@ namespace SageEditor
                 "Click to activate, drag to reorder, \"×\" or middle button to close and right button for more options.";
             ShowTabsKeywords = "tabs open windows modules workbench editor show tabs";
             AutoReference = "Automatic Reference";
-            AutoReferenceDescription = "New workbooks come with the Sage Framework library (Sage.StringS...) " +
+            AutoReferenceDescription = "New workbooks come with the Sage Framework library (Sage.String...) " +
                 "checked in Tools > References. Saved files are not changed: to not use Sage in a file, " +
                 "uncheck the reference and save.";
             AutoReferenceKeywords = "reference references library sage framework strings types";

@@ -2,17 +2,18 @@
 
 Tipos para o VBA escritos em C#, no lugar das classes do `Sage.xlam` (legado, que será aposentado). Funcionam em qualquer pasta de trabalho sem precisar do suplemento.
 
-O VBA os vê como a biblioteca **Sage**, então o código continua escrevendo `Sage.StringS`, como já fazia com o `Sage.xlam`.
+O VBA os vê como a biblioteca **Sage**: `Sage.String`, `Sage.List`, `Sage.Dictionary`, `Sage.Datetime`. No `Sage.xlam` (e até a versão 1.4) os nomes tinham um S no fim (`Sage.StringS`); no código antigo, troque com *Editar > Substituir* do VBE, em *Projeto atual*.
 
 Por enquanto:
-- **StringS**, com a mesma API do `StringS` do `Sage.xlam`;
-- **DictionaryS**, com a API do `DictionaryS` do `Sage.xlam` e o comportamento e os métodos do dicionário do Python;
-- **ListS**, com a API do `ListS` do `Sage.xlam` e o comportamento e os métodos da lista do Python.
+- **String**, com a mesma API do `StringS` do `Sage.xlam`;
+- **Dictionary**, com a API do `DictionaryS` do `Sage.xlam` e o comportamento e os métodos do dicionário do Python;
+- **List**, com a API do `ListS` do `Sage.xlam` e o comportamento e os métodos da lista do Python.
 - **DataFrame**, tabela no estilo do pandas sobre o DuckDB, para milhões de linhas;
-- **DatetimeS**, data e hora como o `datetime` do Python, com fuso horário;
+- **Datetime**, data e hora como o `datetime` do Python, com fuso horário;
 - **Json**, o módulo `json` do Python;
 - **Requests**, a biblioteca `requests` do Python, para chamar APIs (com **Response** e **Session**);
-- **SqlEngine**, conexão a bancos de dados (PostgreSQL, MySQL, SQLite, SQL Server, Access, ODBC), como o `Engine` do SQLAlchemy usado pelo pandas.
+- **SqlEngine**, conexão a bancos de dados (PostgreSQL, MySQL, SQLite, SQL Server, Access, ODBC), como o `Engine` do SQLAlchemy usado pelo pandas;
+- **Path**, arquivos e pastas, no lugar do `FileSystemObject` da biblioteca Scripting.
 
 ## Instalar
 
@@ -35,40 +36,40 @@ A `duckdb.dll` (64 bits, assinada pela DuckDB Foundation) vem em `lib\` no pacot
 ## Uso
 
 ```vb
-Dim s As Sage.StringS
-Set s = New Sage.StringS
+Dim s As Sage.String
+Set s = New Sage.String
 s = "  olá\tmundo  "                  ' membro padrão (Value)
 Debug.Print s.Upper.Replace("MUNDO", "VBA")
 
 Dim t As Object                       ' sem referência (late binding)
-Set t = CreateObject("Sage.StringS")
+Set t = CreateObject("Sage.String")
 ```
 
-O nome precisa do prefixo `Sage.` no `Dim` e no `New`. O VBA não diferencia maiúsculas de minúsculas, e `StringS` é igual a `Strings`, um módulo da própria biblioteca VBA, que sempre vem antes das outras referências. Nas chamadas de métodos (`s.Upper`) o prefixo não é necessário.
+O nome precisa do prefixo `Sage.` no `Dim` e no `New`: sem ele, `As String` é o texto comum do VBA, e `As Dictionary` pode ser o da biblioteca *Scripting*, se ela estiver marcada. Nas chamadas de métodos (`s.Upper`) o prefixo não é necessário.
 
-## Valores dentro de ListS e DictionaryS
+## Valores dentro de List e Dictionary
 
 Os tipos devolvem os tipos do Sage sempre que possível, como o `Sage.xlam` fazia:
 
 ```vb
-Dim lst As New Sage.ListS
+Dim lst As New Sage.List
 lst = Array("Teste 2", "Teste 1", Array(1, 2))
-Debug.Print lst(0).Upper()            ' TESTE 2: texto volta como StringS
-lst(2).Append 3                       ' array guardado vira ListS e é alterado no lugar
+Debug.Print lst(0).Upper()            ' TESTE 2: texto volta como String
+lst(2).Append 3                       ' array guardado vira List e é alterado no lugar
 ```
 
-- **Ao ler** (`l(i)`, `d(chave)`, `Item`, `GetItem`, `Pop`, `Min`, `Max`, `For Each`...), texto volta como `StringS`. Onde o VBA espera texto (`Debug.Print`, `x = lst(0)`, `lst(0) = "a"`, `Len`, `&`), ele usa o `Value` do `StringS`; `TypeName(lst(0))` é `"StringS"`.
-- **Ao guardar**, array vira `ListS` (os de dentro também; um array 2D, como `Range.Value`, vira lista de linhas), e um `StringS` é guardado como texto.
+- **Ao ler** (`l(i)`, `d(chave)`, `Item`, `GetItem`, `Pop`, `Min`, `Max`, `For Each`...), texto volta como `String`. Onde o VBA espera texto (`Debug.Print`, `x = lst(0)`, `lst(0) = "a"`, `Len`, `&`), ele usa o `Value` do `String`; `TypeName(lst(0))` é `"String"`.
+- **Ao guardar**, array vira `List` (os de dentro também; um array 2D, como `Range.Value`, vira lista de linhas), e um `String` é guardado como texto.
 - **Ficam como estão:** números, datas e objetos (`Scripting.Dictionary`, `Collection`, `Range`...), guardados por referência.
 - **VBA "puro":** `l.Value` sem índice, `l.ToArray` e `d.Value` sem chave devolvem arrays e texto comuns, com as listas internas também como arrays, para `UBound`, `Join` do VBA etc.
 
-## DictionaryS
+## Dictionary
 
 ```vb
-Dim d As New Sage.DictionaryS
+Dim d As New Sage.Dictionary
 d("nome") = "Ana"                     ' membro padrão (Value)
 d(1) = 10                             ' chave de qualquer tipo
-Set d("filho") = New Sage.DictionaryS ' objetos com Set
+Set d("filho") = New Sage.Dictionary ' objetos com Set
 Debug.Print d.ToString                ' {'nome': 'Ana', 1: 10, 'filho': {}}
 
 Dim k As Variant
@@ -77,7 +78,7 @@ For Each k In d                       ' chaves, na ordem de inserção
 Next k
 ```
 
-| Python | DictionaryS |
+| Python | Dictionary |
 |---|---|
 | `d[k]`, `d[k] = v` | `d(k)`, `d(k) = v` / `Set d(k) = objeto` |
 | `d[k]` com chave inexistente: `KeyError` | erro 9, "KeyError: 'k'" |
@@ -92,29 +93,29 @@ Next k
 | `Scripting.Dictionary`: `Add`, `Exists`, `RemoveAll` | `d.Add k, v` (erro 457 se a chave já existir), `d.Exists(k)`, `d.RemoveAll` |
 | `repr(d)` | `d.ToString` |
 
-- **Chaves:** como no Python, números são comparados pelo valor (`1`, `1#` e `CLng(1)` são a mesma chave) e texto diferencia maiúsculas; `"1"` é outra chave. Um `StringS` como chave vira o texto dele. Arrays não podem ser chave (erro 13).
-- **Fontes aceitas** por `Update`, `Append` e `d = ...`: outro `DictionaryS`, um `Scripting.Dictionary`, `Array(k1, v1, k2, v2...)` ou `Array(Array(k1, v1), ...)`.
+- **Chaves:** como no Python, números são comparados pelo valor (`1`, `1#` e `CLng(1)` são a mesma chave) e texto diferencia maiúsculas; `"1"` é outra chave. Um `String` como chave vira o texto dele. Arrays não podem ser chave (erro 13).
+- **Fontes aceitas** por `Update`, `Append` e `d = ...`: outro `Dictionary`, um `Scripting.Dictionary`, `Array(k1, v1, k2, v2...)` ou `Array(Array(k1, v1), ...)`.
 - **Sem chave:** `d = fonte` substitui todo o conteúdo; ler `d.Value` devolve um `Scripting.Dictionary` com tudo, como no `Sage.xlam`.
 
 ### Diferenças em relação ao DictionaryS do Sage.xlam
 
 - Chave inexistente gera erro (`KeyError`) em vez de devolver `Empty`, como no Python. Para ler com valor padrão: `GetItem(chave, padrão)`.
 - As chaves mantêm o tipo (o `Sage.xlam` convertia tudo para texto): `d(1)` e `d("1")` são chaves diferentes.
-- Arrays guardados viram `ListS` (no `Sage.xlam`, só ao ler); `Items` e `PopItem` devolvem pares como `ListS`.
+- Arrays guardados viram `List` (no `Sage.xlam`, só ao ler); `Items` e `PopItem` devolvem pares como `List`.
 
-## ListS
+## List
 
 ```vb
-Dim l As New Sage.ListS
+Dim l As New Sage.List
 l = Array(3, 1, 2)                    ' membro padrão (Value)
 l.Append 4                            ' altera a própria lista
 Debug.Print l(0), l(-1)               ' 3  4 (negativo conta do fim)
 Debug.Print l.Slice(1, 3).ToString    ' [1, 2]
 Debug.Print l.Sort.ToString           ' [1, 2, 3, 4]
-Debug.Print l.Join(", ")              ' 1, 2, 3, 4 (StringS)
+Debug.Print l.Join(", ")              ' 1, 2, 3, 4 (String)
 ```
 
-| Python | ListS |
+| Python | List |
 |---|---|
 | `l[i]`, `l[i] = v`, `l[-1]` | `l(i)`, `l(i) = v` / `Set l(i) = objeto`, `l(-1)` |
 | índice fora do intervalo: `IndexError` | erro 9, "IndexError: list index out of range" |
@@ -132,7 +133,7 @@ Debug.Print l.Join(", ")              ' 1, 2, 3, 4 (StringS)
 | `repr(l)`, `tuple(l)` | `l.ToString`, `l.ArrayType = sgTuple` |
 
 - **Métodos que alteram a lista** (`Append`, `Remove`, `Extend`, `Insert`, `RemoveValue`, `Clear`, `Sort`, `Reverse`) também a devolvem. Funciona tanto `l.Append x` quanto o encadeamento do `Sage.xlam`: `.Split(vbNewLine).Remove(-1).Join(vbNewLine)`.
-- **Iteráveis** aceitos por `l = ...`, `Extend` e `Concat`: array (2D: cada linha vira uma `ListS`), outro `ListS`, `DictionaryS` (as chaves), `Collection`, `Range` e texto (os caracteres).
+- **Iteráveis** aceitos por `l = ...`, `Extend` e `Concat`: array (2D: cada linha vira uma `List`), outro `List`, `Dictionary` (as chaves), `Collection`, `Range` e texto (os caracteres).
 - **Comparação** (`Contains`, `Index`, `CountOf`, `RemoveValue`): números pelo valor (`21 = 21#`), texto diferenciando maiúsculas, objetos pela identidade.
 - **Ordenação** estável, como no Python: números pelo valor, texto pela ordem dos caracteres (maiúsculas antes das minúsculas); texto e número misturados geram erro 13.
 - **Tupla:** com `ArrayType = sgTuple`, qualquer alteração gera erro 13; `ToString` mostra `(1, 2)`.
@@ -142,7 +143,7 @@ Debug.Print l.Join(", ")              ' 1, 2, 3, 4 (StringS)
 
 - `Append` e `Remove` alteram a própria lista (no `Sage.xlam` devolviam uma cópia e a original ficava igual). Como continuam devolvendo a lista, `l = l.Append(x)` dá o mesmo resultado.
 - Índice fora do intervalo gera `IndexError` (erro 9) com a mensagem do Python.
-- Arrays viram `ListS` ao guardar (no `Sage.xlam`, uma cópia a cada leitura), então alterar uma lista interna altera a lista guardada.
+- Arrays viram `List` ao guardar (no `Sage.xlam`, uma cópia a cada leitura), então alterar uma lista interna altera a lista guardada.
 
 ## DataFrame
 
@@ -169,19 +170,19 @@ Do Until df.EOF
 Loop
 ```
 
-**Carregar:** `ReadCsv(Caminho, [Cabeçalho], [Delimitador], [SeparadorDecimal], [Codificação])`, `ReadParquet`, `ReadExcel(Caminho, [Planilha], [Cabeçalho])`, `FromRange`, `FromArray` (2D ou array de linhas), `FromRecords` (lista de `DictionaryS`), `Sql("SELECT ... FROM {0} JOIN {1} ...", outroDf)`. Os `Read` aceitam caminho relativo (`ReadCsv "vendas.csv"`, `"dados\vendas.csv"`), a partir da pasta da pasta de trabalho ativa (se ela não foi salva, da pasta atual do Excel).
+**Carregar:** `ReadCsv(Caminho, [Cabeçalho], [Delimitador], [SeparadorDecimal], [Codificação])`, `ReadParquet`, `ReadExcel(Caminho, [Planilha], [Cabeçalho])`, `FromRange`, `FromArray` (2D ou array de linhas), `FromRecords` (lista de `Dictionary`), `Sql("SELECT ... FROM {0} JOIN {1} ...", outroDf)`. Os `Read` aceitam caminho relativo (`ReadCsv "vendas.csv"`, `"dados\vendas.csv"`), a partir da pasta da pasta de trabalho ativa (se ela não foi salva, da pasta atual do Excel).
 
 **Gravar e ver:** `ToCsv`, `ToParquet`, `ToExcel` (formato pela extensão), `ToSql` (banco de dados, pelo `SqlEngine`), `ToRange`, `ToArray`, `ToString` / `Debug.Print df`, `Show` (mostra o DataFrame na aba *Resultado do DataFrame* da janela Terminal do editor, numa grade lida aos poucos: abre na hora mesmo com milhões de linhas, e a macro continua; sem o SageEditor, abre uma janela própria).
 
 **Explorar:** `Count`, `Columns`, `DTypes`, `Shape`, `Info`, `Describe`, `Head`, `Tail`, `Slice`, `Sample`, `Col`, `Unique`, `ValueCounts`, `Sum`, `Mean`, `Min`, `Max`, `Median`, `Std`, `NUnique`.
 
-**Transformar** (devolvem um DataFrame novo; o original fica igual, menos em `Eval` com `=` e atribuições): `Query`, `Select` (aceita `"Nova = expressão"`), `Drop`, `Rename`, `SortValues`, `DropDuplicates`, `DropNA`, `FillNA`, `GroupBy(Chaves, "Nome = agregação, ...")` ou com um `DictionaryS` `{coluna: "sum"}`, `Pivot`, `Merge(Outro, On, How, LeftOn, RightOn)` (sufixos `_x`/`_y`), `Concat` (por nome de coluna), `Copy`.
+**Transformar** (devolvem um DataFrame novo; o original fica igual, menos em `Eval` com `=` e atribuições): `Query`, `Select` (aceita `"Nova = expressão"`), `Drop`, `Rename`, `SortValues`, `DropDuplicates`, `DropNA`, `FillNA`, `GroupBy(Chaves, "Nome = agregação, ...")` ou com um `Dictionary` `{coluna: "sum"}`, `Pivot`, `Merge(Outro, On, How, LeftOn, RightOn)` (sufixos `_x`/`_y`), `Concat` (por nome de coluna), `Copy`.
 
 Nas expressões (`Query`, `Eval`, `Select`, `GroupBy`), texto vai entre aspas duplas como no VBA (`"SP"`) e nomes com espaço entre colchetes (`[Valor Total]`); o resto é SQL do DuckDB (`round`, `year(Data)`, `Is Null`, `Like`...).
 
-**Linhas e células:** `df.At(linha, "Coluna")` lê e grava uma célula; `df.Loc(linha)` devolve a linha como `DictionaryS`; `df.Loc(df.Count) = Array(...)` acrescenta uma linha, como `df.loc[len(df)] = [...]`; `For Each linha In df` percorre as linhas como `DictionaryS`. O cursor (`MoveFirst`, `MoveNext`, `MovePrevious`, `MoveLast`, `Move`, `EOF`, `BOF`, `Index`) lê blocos de 65.536 linhas e grava as alterações em lote, mas ainda passa por cada linha no VBA: para milhões de linhas, prefira `Eval`/`Query`/`GroupBy`, que rodam no DuckDB.
+**Linhas e células:** `df.At(linha, "Coluna")` lê e grava uma célula; `df.Loc(linha)` devolve a linha como `Dictionary`; `df.Loc(df.Count) = Array(...)` acrescenta uma linha, como `df.loc[len(df)] = [...]`; `For Each linha In df` percorre as linhas como `Dictionary`. O cursor (`MoveFirst`, `MoveNext`, `MovePrevious`, `MoveLast`, `Move`, `EOF`, `BOF`, `Index`) lê blocos de 65.536 linhas e grava as alterações em lote, mas ainda passa por cada linha no VBA: para milhões de linhas, prefira `Eval`/`Query`/`GroupBy`, que rodam no DuckDB.
 
-`df("Coluna")` devolve a coluna como `ListS` fora do cursor e a célula da linha atual dentro dele. Uma coluna inteira recebe um valor (`df("X") = 0`) ou um array/`ListS` com um valor por linha.
+`df("Coluna")` devolve a coluna como `List` fora do cursor e a célula da linha atual dentro dele. Uma coluna inteira recebe um valor (`df("X") = 0`) ou um array/`List` com um valor por linha.
 
 ### No lugar das funções do DataFrame do Sage.xlam
 
@@ -194,20 +195,21 @@ Nas expressões (`Query`, `Eval`, `Select`, `GroupBy`), texto vai entre aspas du
 
 O tipo de uma coluna se alarga sozinho: um inteiro que recebe um decimal vira `DOUBLE`; um número que recebe texto vira `VARCHAR`.
 
-## DatetimeS
+## Datetime
 
 ```vb
-Dim d As New Sage.DatetimeS
+Dim d As New Sage.Datetime
 d = Now                                          ' ou Date, "2024-01-05T10:30:00Z", "15/03/2024"
+Debug.Print d.StrFTime("dd/mm/yyyy hh:nn:ss.fff") ' códigos do Format do VBA, com milissegundos
 Debug.Print d.StrFTime("%d/%m/%Y %H:%M")         ' códigos do strftime do Python
 Debug.Print d.AddMonths(1).IsoFormat             ' 31/01 + 1 mês = 29/02
 Debug.Print d.Add(Days:=7, Hours:=-2).ToString
 Debug.Print d.UtcNow.AsTimeZone("E. South America Standard Time").IsoFormat   ' ...-03:00
 ```
 
-Como no Python, uma data não muda: os métodos devolvem um `DatetimeS` novo (`Set d = d.AddMonths(1)`). O membro padrão (`Value`) é um `Date` do VBA, então `d > DateSerial(2024, 1, 1)`, `Format(d, ...)` e `Range("A1") = d.Value` funcionam.
+Como no Python, uma data não muda: os métodos devolvem um `Datetime` novo (`Set d = d.AddMonths(1)`). O membro padrão (`Value`) é um `Date` do VBA, então `d > DateSerial(2024, 1, 1)`, `Format(d, ...)` e `Range("A1") = d.Value` funcionam.
 
-| Python | DatetimeS |
+| Python | Datetime |
 |---|---|
 | `datetime.now()`, `date.today()`, `datetime.now(timezone.utc)` | `d.Now`, `d.Today`, `d.UtcNow` |
 | `datetime(2024, 1, 5, 10, 30)` | `d.Create(2024, 1, 5, 10, 30)` |
@@ -225,7 +227,8 @@ Como no Python, uma data não muda: os métodos devolvem um `DatetimeS` novo (`S
 | SQL Server: `DATETRUNC(month, d)`; DuckDB: `date_trunc('month', d)` | `d.Trunc(sgMonth)` (`sgYear`, `sgQuarter`, `sgMonth`, `sgWeek`, `sgDay`, `sgHour`, `sgMinute`, `sgSecond`, `sgMillisecond`, `sgMicrosecond`; a semana começa na segunda) |
 
 - **Fuso horário:** sem fuso (`TimeZone = ""`) a data é "ingênua", como no Python. Fusos aceitos: `"UTC"`, `"local"`, deslocamentos (`"-03:00"`) e nomes do Windows (`"E. South America Standard Time"`; lista com `tzutil /l`). Os nomes da IANA (`"America/Sao_Paulo"`) não existem no .NET Framework.
-- **Nomes de mês e dia** (`%b`, `%A`) seguem o idioma do Windows, ao escrever e ao ler.
+- **`StrFTime(Formato)`** aceita dois jogos de códigos. **Sem `%`**, os do `Format` do VBA, com o mesmo motor dele e o mesmo resultado: `d.StrFTime("dd/mm/yyyy hh:nn")`. `mm` é o mês, ou o minuto logo depois de `h` (`hh:mm`); `nn` é sempre o minuto; valem também `dddd`, `mmmm`, `q`, `ww`, `AM/PM`, `c`, `"texto"` e `\x`. A mais que o VBA: `f` a `fffffff` são as frações de segundo (`fff` = milissegundos): `d.Now.StrFTime("yyyy-mm-dd hh:mm:ss.fff")` dá `2026-11-08 19:01:48.814`; para escrever a letra f, use `\f` ou `"f"`. **Com `%`**, os do strftime: `%Y-%m-%d %H:%M:%S.%f` (`%f` são os microssegundos, com 6 dígitos).
+- **Nomes de mês e dia** (`%b`, `%A`, `mmmm`, `dddd`) seguem o idioma do Windows, ao escrever e ao ler.
 - **Texto** atribuído (`d = "..."`) é lido como ISO 8601; se não for, no formato do Windows (dd/mm/aaaa no pt-BR).
 
 ## Json
@@ -233,7 +236,7 @@ Como no Python, uma data não muda: os métodos devolvem um `DatetimeS` novo (`S
 Global, como o módulo do Python: usado sem `Dim` (ou como `Sage.Json`).
 
 ```vb
-Dim d As Sage.DictionaryS
+Dim d As Sage.Dictionary
 Set d = Json.Loads("{""nome"": ""Ana"", ""itens"": [1, 2.5, null]}")
 Debug.Print d("nome").Upper, d("itens")(1)       ' ANA  2,5
 Debug.Print Json.Dumps(d, Indent:=2, SortKeys:=True)
@@ -243,12 +246,12 @@ Set d = Json.Load("C:\dados\saida.json")
 
 | JSON | VBA (Loads) |
 |---|---|
-| objeto, lista | `DictionaryS`, `ListS` (na ordem do texto) |
-| texto | `StringS` |
+| objeto, lista | `Dictionary`, `List` (na ordem do texto) |
+| texto | `String` |
 | número inteiro / decimal | `Long` (ou `LongLong`, se não couber) / `Double` |
 | `true`, `false`, `null` | `True`, `False`, `Empty` |
 
-`Dumps` aceita também `Scripting.Dictionary`, arrays (2D: lista de linhas), `Collection`, `Date` e `DatetimeS` (texto ISO 8601) e `DataFrame` (lista de linhas). Erros no texto geram `JSONDecodeError` com linha e coluna, como no Python. Diferença do Python: `EnsureAscii` é `False` por padrão (acentos ficam como estão); com `EnsureAscii:=True`, saem como `\u00e7`.
+`Dumps` aceita também `Scripting.Dictionary`, arrays (2D: lista de linhas), `Collection`, `Date` e `Datetime` (texto ISO 8601) e `DataFrame` (lista de linhas). Erros no texto geram `JSONDecodeError` com linha e coluna, como no Python. Diferença do Python: `EnsureAscii` é `False` por padrão (acentos ficam como estão); com `EnsureAscii:=True`, saem como `\u00e7`.
 
 ## Requests
 
@@ -260,7 +263,7 @@ Set r = Requests.Get("https://economia.awesomeapi.com.br/json/last/USD-BRL")
 r.RaiseForStatus                                 ' erro se o status for 4xx ou 5xx
 Debug.Print Val(r.Json()("USDBRL")("bid"))       ' cotação do dólar (texto com ponto: Val, não CDbl)
 
-Dim dados As New Sage.DictionaryS
+Dim dados As New Sage.Dictionary
 dados("nome") = "Ana"
 Set r = Requests.Post("https://httpbin.org/post", Json:=dados, _
                       Headers:=Array("Authorization", "Bearer " & token), Timeout:=30)
@@ -272,13 +275,13 @@ Set r = Requests.Post("https://httpbin.org/post", Json:=dados, _
 | `requests.post(url, data=..., json=...)` (e `put`, `patch`) | `Requests.Post(url, Data:=..., Json:=...)` (e `Put`, `Patch`) |
 | `requests.delete`, `head`, `request(método, url, ...)` | `Requests.Delete`, `Head`, `Request(método, url, ...)` |
 | `r.status_code`, `r.ok`, `r.reason` | `r.StatusCode`, `r.Ok`, `r.Reason` |
-| `r.text`, `r.content`, `r.json()` | `r.Text` (`StringS`), `r.Content` (`Byte()`), `r.Json()` |
+| `r.text`, `r.content`, `r.json()` | `r.Text` (`String`), `r.Content` (`Byte()`), `r.Json()` |
 | `json.dumps(r.json(), indent=2)` | `r.JsonString` (uma linha) ou `r.JsonString(Indent:=2)` (formatado); também `SortKeys`, `EnsureAscii` |
-| `r.headers["content-type"]` | `r.Header("content-type")` (sem diferenciar maiúsculas) ou `r.Headers` (`DictionaryS`) |
+| `r.headers["content-type"]` | `r.Header("content-type")` (sem diferenciar maiúsculas) ou `r.Headers` (`Dictionary`) |
 | `r.url`, `r.elapsed`, `r.encoding`, `r.raise_for_status()` | `r.Url`, `r.Elapsed` (segundos), `r.Encoding`, `r.RaiseForStatus` |
 | `s = requests.Session()` | `Set s = Requests.Session()` (`Sage.Session`) |
 
-- **Params, Headers e Data** aceitam `DictionaryS`, `Scripting.Dictionary` ou `Array(chave1, valor1, ...)`. Um valor lista repete a chave (`?id=1&id=2`).
+- **Params, Headers e Data** aceitam `Dictionary`, `Scripting.Dictionary` ou `Array(chave1, valor1, ...)`. Um valor lista repete a chave (`?id=1&id=2`).
 - **Corpo:** `Json:=` envia JSON (`application/json`); `Data:=` com dicionário envia formulário; com texto ou `Byte()`, envia como está.
 - **Auth:** `Array("usuário", "senha")` (autenticação básica). Tokens vão em `Headers`.
 - **Status 4xx/5xx** não geram erro, como no requests: confira `r.Ok` ou chame `r.RaiseForStatus`. Falha de rede gera `ConnectionError`; tempo esgotado, `Timeout` (erro 5).
@@ -288,11 +291,12 @@ Set r = Requests.Post("https://httpbin.org/post", Json:=dados, _
 
 ## Console
 
-Global, usado sem `Dim` (ou como `Sage.Console`). Escreve na aba **Terminal** do Painel (Ctrl+J), no estilo do `printf` do C:
+Global, usado sem `Dim` (ou como `Sage.Console`). Escreve na aba **Terminal** do Painel (Ctrl+J), com os marcadores do `printf` do C. Cada `PrintF` escreve uma linha:
 
 ```vb
-Console.PrintF "Linha %d de %d: %s\n", i, total, nome
-Console.PrintF "Total: %.2f (%5.1f%%)\n", soma, taxa
+Console.PrintF "Linha %d de %d: %s", i, total, nome
+Console.PrintF "Total: %.2f (%5.1f%%)", soma, taxa
+Console.PrintF "%s", texto            ' um texto qualquer, mesmo com %
 ```
 
 | Marcador | Valor | Exemplo |
@@ -307,11 +311,51 @@ Console.PrintF "Total: %.2f (%5.1f%%)\n", soma, taxa
 
 Entre o `%` e a letra: `%.2f` (2 casas), `%5d` (largura 5), `%-5d` (à esquerda), `%05d` (com zeros), `%+d` (sempre com sinal), `%#x` (com `0x`).
 
-- **Quebra de linha:** só com `\n`, como no C. Também valem `\t`, `\r` e `\\`; uma barra seguida de outra letra fica como está (`C:\dados`).
+- **Quebra de linha:** cada `PrintF` termina a linha sozinho. Se o texto já terminar com `\n`, não entra outra (o estilo do C continua funcionando sem linhas em branco). `\n` no meio do texto quebra a linha ali. Também valem `\t`, `\r` e `\\`; uma barra seguida de outra letra fica como está (`C:\dados`).
+- **Texto do usuário:** o primeiro argumento é o formato. Para mostrar um texto que pode ter `%` (`"50% de desconto"`), use `Console.PrintF "%s", texto`.
 - **Argumentos:** quantos forem precisos (`ParamArray`). Um `Range` vale o valor da célula. Faltar ou sobrar argumento dá erro, assim como um valor que não serve para o marcador (`%d` com texto). O `Err.Number` é 450, 13 ou 5, e `Err.Description` explica o motivo.
 - **Números:** `%d`, `%f` e os outros usam sempre ponto decimal; `%s` segue o Windows, como o `CStr`.
 - **Tela:** o primeiro print de uma sequência abre a aba Terminal, sem tirar o foco de onde ele está. Num laço rápido, os textos se juntam e saem de tempos em tempos; o que faltar aparece quando a macro terminar.
 - **Sem o SageEditor** não há Terminal: o texto é descartado e a macro segue normalmente.
+
+## Path
+
+Um caminho de arquivo ou pasta, com tudo o que se faz com ele: no lugar do `FileSystemObject`, do `Dir`, do `Open ... For Input` e do `Kill`. O membro padrão é o caminho (`Value`), então um `Path` vale o texto dele.
+
+```vb
+Dim arquivo As New Sage.Path
+arquivo = "vendas.csv"                          ' sem pasta: a da pasta de trabalho ativa
+If arquivo.Exists Then Debug.Print arquivo.ReadText()
+
+Set saida = PathOf(sgDesktop).Join("relatórios", "2026.txt")
+saida.Parent.Mkdir                              ' cria as pastas que faltarem
+saida.WriteText "Total: " & total
+
+For Each f In PathOf("dados").Glob("**\*.csv")  ' também nas subpastas
+    Debug.Print f.Name, f.Size, f.Modified
+Next
+```
+
+- **Caminho sem pasta:** completado na atribuição a partir da pasta da pasta de trabalho ativa, como nos `Read` do `DataFrame` (não salva ou na nuvem: a pasta atual do Excel). `..` e `/` também valem.
+- **`PathOf(Valor)`** (global): texto, `String`, outro `Path` ou uma pasta do Windows: `sgCurrentFolder`, `sgTemp`, `sgHome`, `sgDesktop`, `sgDocuments`, `sgDownloads`, `sgAppData`, `sgLocalAppData`. Não se chama `Path` porque, sozinho, `Path` é o `Application.Path` do Excel.
+- **Partes:** `Name`, `Stem`, `Extension` (com o ponto), `Parent`, `Join(Partes...)` (até 10), `WithName`, `WithExtension`.
+- **Informações:** `Exists`, `IsFile`, `IsFolder`, `Size` (bytes; de uma pasta, a soma de tudo dentro), `Modified` e `Created` (`Datetime` no fuso local).
+- **Texto:** `ReadText` (`String`), `ReadLines` (`List`, sem as quebras), `WriteText`, `WriteLines` (array, `List` ou `Range`, com `vbCrLf`), `AppendText`. Sem `Encoding`, a leitura usa o BOM, senão UTF-8, e cai para ANSI se o arquivo não for UTF-8 válido; a gravação é UTF-8 sem BOM. `"utf-8-sig"` grava com BOM (o Excel reconhece os acentos de um CSV); também `"utf-16"`, `"ansi"`, `"latin-1"`.
+- **Pastas:** `Files([Padrão])` e `Folders([Padrão])` em ordem de nome; `Glob(Padrão)` com pastas no padrão e `**` para todas as subpastas; `Mkdir` cria as de cima e não reclama se já existir.
+- **Copiar, mover, apagar:** `CopyTo` e `MoveTo(Destino, [Overwrite])` devolvem o `Path` novo; um destino que é uma pasta existente recebe o item dentro dela. `Delete` apaga arquivo ou pasta vazia; `Delete True`, a pasta com tudo.
+- **Erros:** `FileNotFoundError` (53), `FileExistsError` (58), `PermissionError` (70), `OSError` (75), com o caminho na mensagem: os mesmos números do VBA para os mesmos casos.
+
+| FileSystemObject / VBA | Sage |
+|---|---|
+| `fso.FileExists(c)`, `fso.FolderExists(c)` | `PathOf(c).IsFile`, `.IsFolder` |
+| `fso.GetFileName`, `GetBaseName`, `GetExtensionName`, `GetParentFolderName` | `.Name`, `.Stem`, `.Extension`, `.Parent` |
+| `fso.BuildPath(a, b)` | `PathOf(a).Join(b)` |
+| `fso.OpenTextFile(c).ReadAll`, `CreateTextFile(c).Write t` | `.ReadText()`, `.WriteText t` |
+| `fso.CreateFolder`, `CopyFile`/`CopyFolder`, `MoveFile`/`Name ... As` | `.Mkdir`, `.CopyTo`, `.MoveTo` |
+| `fso.DeleteFile`, `Kill`, `DeleteFolder`, `RmDir` | `.Delete`, `.Delete True` |
+| `fso.GetFolder(c).Files`, `Dir(c & "\*.csv")`, `SubFolders` | `.Files("*.csv")`, `.Folders()` |
+| `FileLen(c)`, `FileDateTime(c)` | `.Size`, `.Modified` |
+| `fso.GetSpecialFolder(TemporaryFolder)`, `Environ("TEMP")` | `PathOf(sgTemp)` |
 
 ## Funções globais: GetUser, Sleep, OfficeTheme e Resizable
 
@@ -319,9 +363,9 @@ Como o `Json` e o `Requests`, usadas sem `Dim` (ou com o prefixo `Sage.`):
 
 | Python | Sage |
 |---|---|
-| `getpass.getuser()` | `GetUser()`: o usuário logado no Windows, pela API do sistema (não lê a variável `USERNAME`). `GetUser(True)` devolve também o domínio: `EMPRESA\rodrigo` (fora de domínio, o nome do computador). Devolve `StringS` |
+| `getpass.getuser()` | `GetUser()`: o usuário logado no Windows, pela API do sistema (não lê a variável `USERNAME`). `GetUser(True)` devolve também o domínio: `EMPRESA\rodrigo` (fora de domínio, o nome do computador). Devolve `String` |
 | `time.sleep(1.5)` | `Sleep 1.5`: espera em segundos, com frações. O Excel continua redesenhando a tela e não aparece como "Não respondendo"; cliques e teclas esperam o fim da macro, como em qualquer macro ocupada. Valor negativo: `ValueError` (erro 5) |
-| — | `OfficeTheme()`: o tema do Office em uso (*Arquivo > Conta > Tema do Office*), em nomes fixos em inglês, para comparar no código sem depender do idioma: `"Colorful"` (Colorido), `"Dark Gray"` (Cinza-Escuro), `"Black"` (Preto) ou `"White"` (Branco). Com *Usar configuração do sistema*, devolve o tema que o Office aplica: `"White"` com o Windows no modo claro e `"Black"` no escuro. Devolve `StringS` |
+| — | `OfficeTheme()`: o tema do Office em uso (*Arquivo > Conta > Tema do Office*), em nomes fixos em inglês, para comparar no código sem depender do idioma: `"Colorful"` (Colorido), `"Dark Gray"` (Cinza-Escuro), `"Black"` (Preto) ou `"White"` (Branco). Com *Usar configuração do sistema*, devolve o tema que o Office aplica: `"White"` com o Windows no modo claro e `"Black"` no escuro. Devolve `String` |
 
 Um `Declare ... Sleep Lib "kernel32"` no próprio módulo tem prioridade sobre o `Sleep` do Sage.
 
@@ -345,7 +389,7 @@ O form ganha borda para redimensionar e os botões de maximizar e minimizar; os 
 | `Width`, `Height` | Esticam junto com o form |
 | `Fill` | `Width Height` |
 
-Separe as âncoras com espaço (`"Bottom Right"`). `Anchors` aceita `Array("controle", "âncora", ...)` ou um `DictionaryS`; controle que não existe no form: `KeyError` (erro 9). `MinWidth` e `MinHeight` (em pontos, como `Width`/`Height` do form) limitam o tamanho mínimo, que por padrão é o do designer; `MaxButton:=False` e `MinButton:=False` tiram os botões. Funciona com qualquer controle (do MSForms ou do Sage); o `UserForm_Resize` continua disparando. A janela é a do próprio form (não procurada pelo título); tudo é solto quando o form fecha.
+Separe as âncoras com espaço (`"Bottom Right"`). `Anchors` aceita `Array("controle", "âncora", ...)` ou um `Dictionary`; controle que não existe no form: `KeyError` (erro 9). `MinWidth` e `MinHeight` (em pontos, como `Width`/`Height` do form) limitam o tamanho mínimo, que por padrão é o do designer; `MaxButton:=False` e `MinButton:=False` tiram os botões. Funciona com qualquer controle (do MSForms ou do Sage); o `UserForm_Resize` continua disparando. A janela é a do próprio form (não procurada pelo título); tudo é solto quando o form fecha.
 
 ## TextBox (controle para UserForms)
 
@@ -357,14 +401,14 @@ Private Sub txtObs_Change()
 End Sub
 
 txtObs.Language = "en-US"                    ' padrão: o idioma do Windows
-Debug.Print txtObs.Misspellings.Join(", ")   ' ListS com as palavras erradas
+Debug.Print txtObs.Misspellings.Join(", ")   ' List com as palavras erradas
 ```
 
 | Membro | |
 |---|---|
 | `Value` (padrão), `Text` | O texto |
 | `SpellCheck`, `Language` | Liga a correção (padrão: ligada) e o idioma (`"pt-BR"`; vazio = o do Windows). Idioma não instalado: `ValueError` (erro 5) |
-| `Misspellings()` | `ListS` com as palavras erradas, sem repetir |
+| `Misspellings()` | `List` com as palavras erradas, sem repetir |
 | `Placeholder` | Texto de dica, em cinza, enquanto a caixa está vazia |
 | `MultiLine`, `WordWrap`, `ScrollBars`, `MaxLength`, `PasswordChar`, `Locked`, `Enabled`, `TextAlign` | Como no TextBox do MSForms (`sgScrollBars`, `sgTextAlign`). Com `PasswordChar`, sem correção |
 | `BackColor`, `ForeColor`, `BorderColor`, `BorderStyle` | Cores e borda (`sgBorderStyleSingle`, fina; com o foco, azul) |
@@ -398,7 +442,7 @@ End Sub
 | `Page`, `PageCount`, `RowsPerPage`, `NextPage`, `PreviousPage` | Página atual (a partir de 1), quantas há, quantas linhas cabem |
 | `SelectedRow`, `SelectedColumn`, `RowCount`, `Cell(Linha, Coluna)` | Linha e coluna da célula ativa (linha a partir de 0, como o índice; `-1` e `""` sem seleção; atribuir `SelectedRow` seleciona a linha inteira), total de linhas e o valor de uma célula (coluna pelo nome ou pela posição; índices negativos contam do fim) |
 | `Copy` | Copia a seleção, como o Ctrl+C |
-| `ColumnFormats` | Formato de colunas, com os formatos da função `Format` do VBA (o mesmo motor, com as configurações regionais do Windows): um `DictionaryS` ou `Array("coluna", "formato", ...)`, como o `DictionaryS` recebe. Os nomes têm que ser colunas do DataFrame (senão, `KeyError`, erro 9). Vale para a grade e o Ctrl+C; `Cell` devolve o valor original. Fica só no código, não no form |
+| `ColumnFormats` | Formato de colunas, com os formatos da função `Format` do VBA (o mesmo motor, com as configurações regionais do Windows): um `Dictionary` ou `Array("coluna", "formato", ...)`, como o `Dictionary` recebe. Os nomes têm que ser colunas do DataFrame (senão, `KeyError`, erro 9). Vale para a grade e o Ctrl+C; `Cell` devolve o valor original. Fica só no código, não no form |
 | `ShowIndex`, `FontName`, `FontSize`, `BackColor`, `ForeColor`, `BorderColor`, `HeaderBackColor`, `SelectionColor` | Aparência (`SelectionColor`: a cor da seleção, padrão `RGB(204, 228, 247)`; sem o foco, a mesma cor acinzentada) |
 | Eventos | `Click`, `DblClick`, `SelChange`, `PageChange` |
 
@@ -500,7 +544,7 @@ Mantidos de propósito, como no original: ao atribuir um valor, `\n` vira quebra
 
 ## Para acrescentar membros
 
-Os nomes (classes, membros, parâmetros) seguem o PascalCase, sem sublinhado: `DatetimeS`, `ReadCsv`, `SortValues`. Os enums e seus membros seguem o camelCase com o prefixo `sg`, como as constantes do próprio VBA (`vbCrLf`, `xlUp`): `sgDateParts` (`sgMonth`...), `sgArrayTypes` (`sgList`, `sgTuple`).
+Os nomes (classes, membros, parâmetros) seguem o PascalCase, sem sublinhado: `Datetime`, `ReadCsv`, `SortValues`. Os enums e seus membros seguem o camelCase com o prefixo `sg`, como as constantes do próprio VBA (`vbCrLf`, `xlUp`): `sgDateParts` (`sgMonth`...), `sgArrayTypes` (`sgList`, `sgTuple`).
 
 As interfaces (`_StringS`, `_DictionaryS`, `_ListS`, `_DataFrame`, `_DatetimeS`, `_Json`, `_Requests`, `_Session`, `_Response`, `_Globals`, `_SqlEngine`, `_Console`) são duais: o VBA as chama pela vtable. Acrescente membros **sempre no fim**, com o próximo `DispId`, e nunca reordene nem remova os existentes, senão o código VBA já compilado chama o método errado. Uma classe nova precisa de `[Guid]`, `[ProgId]`, interface própria e uma linha em `$Classes` no `install.ps1`.
 
@@ -510,4 +554,4 @@ Limitações do exportador do .NET (`TypeLibConverter`) e como contorná-las:
 - **`ParamArray`:** o `params` do C# não é aceito pelo VBA. Use `[VarArg]` no método da interface, com o último parâmetro `ref object[]` marcado como `SafeArray` de `VT_VARIANT`, e uma classe com `params` para as chamadas por `Object` (ver `Console.cs`); ou parâmetros `[Optional]`.
 - **Membros de enum:** o .NET os exporta como `Enum_Membro` (`sgArrayTypes_sgTuple`); o `install.ps1` tira o prefixo, e o VBA vê `sgTuple`.
 - **Membros globais** (`Json`, `Requests`, `GetUser`, `Sleep`): ficam na classe `Globals`, com `[AppObject]`; o `install.ps1` a marca como *app object* no `.tlb`, e o VBA a cria sozinho.
-- **Nome igual a algo da biblioteca VBA** (como `Strings`): o VBA acha o dele primeiro, por isso o prefixo `Sage.`.
+- **Nome igual a algo da biblioteca VBA** (como `String`): o VBA acha o dele primeiro, por isso o prefixo `Sage.`.

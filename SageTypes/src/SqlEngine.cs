@@ -28,16 +28,16 @@ namespace SageTypes
     // usa o cliente do .NET (sem driver ODBC; gravação por bulk copy); Access, ODBC e OLE DB, os
     // drivers do Windows. As consultas vão no SQL do próprio banco; parâmetros com "?".
     //
-    // Interface dual: acrescente membros só no fim, com o próximo DispId (ver StringS).
+    // Interface dual: acrescente membros só no fim, com o próximo DispId (ver String).
     [ComVisible(true), Guid("9FEA3852-E1D7-4FB1-B27B-84749D9C2DB8"), InterfaceType(ComInterfaceType.InterfaceIsDual)]
     public interface _SqlEngine
     {
         [DispId(1)] SqlEngine Connect(string ConnectionString);
         [DispId(2)] DataFrame ReadSql(string Query, [Optional] object Params);
         [DispId(3)] long Execute(string Sql, [Optional] object Params);
-        [DispId(4)] ListS Tables();
+        [DispId(4)] List Tables();
         [DispId(5)] void Close();
-        [DispId(6)] StringS Kind { get; }
+        [DispId(6)] String Kind { get; }
         [DispId(7)] bool Connected { get; }
         [DispId(8)] string ToString();
     }
@@ -60,7 +60,7 @@ namespace SageTypes
 
         public SqlEngine() { }
 
-        public StringS Kind { get { return (StringS)Interop.Wrap(kind); } }
+        public String Kind { get { return (String)Interop.Wrap(kind); } }
         public bool Connected { get { return route != Route.None; } }
         public override string ToString() { return route == Route.None ? "<SqlEngine (desconectado)>" : "<SqlEngine " + kind + ">"; }
 
@@ -141,7 +141,7 @@ namespace SageTypes
         {
             if (extension != null) Engine.LoadExtension(extension);
             alias = NewAlias();
-            Engine.Run("ATTACH " + Engine.Literal(Path.GetFullPath(path)) + " AS " + Engine.Quote(alias) +
+            Engine.Run("ATTACH " + Engine.Literal(System.IO.Path.GetFullPath(path)) + " AS " + Engine.Quote(alias) +
                 (extension != null ? " (TYPE " + name + ")" : ""));
             attached = new Engine.Connection();
             attached.Run("USE " + Engine.Quote(alias));
@@ -216,7 +216,7 @@ namespace SageTypes
         // O provedor do Office mais novo instalado (16.0, depois 12.0)
         static DbConnection AccessConnection(string path)
         {
-            string full = Path.GetFullPath(FilePath(path, "access:"));
+            string full = System.IO.Path.GetFullPath(FilePath(path, "access:"));
             Exception last = null;
             foreach (string provider in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
             {
@@ -306,7 +306,7 @@ namespace SageTypes
             catch (DbException ex) { throw Interop.Error(5, "DatabaseError: " + ex.Message); }
         }
 
-        public ListS Tables()
+        public List Tables()
         {
             Require();
             List<object> names = new List<object>();
@@ -333,7 +333,7 @@ namespace SageTypes
                         names.Add(schema == "main" || schema == "public" ? Interop.Text(row[1]) : schema + "." + Interop.Text(row[1]));
                     }
             }
-            return ListS.From(names);
+            return List.From(names);
         }
 
         static string Column(DataRow row, string name)
@@ -345,13 +345,13 @@ namespace SageTypes
         // Parâmetros ("?")
         // ------------------------------------------------------------------
 
-        // Array(...) / ListS com os valores, na ordem dos "?"; um valor só também vale
+        // Array(...) / List com os valores, na ordem dos "?"; um valor só também vale
         static List<object> ParamList(object values)
         {
             if (Interop.IsMissing(values) || values == null) return new List<object>();
             object raw = Interop.Unwrap(values);
-            if (raw is Array || values is ListS) return Interop.Items(values).Select(v => Interop.Unwrap(v)).ToList();
-            if (values is DictionaryS) throw Interop.Error(13, "TypeError: parâmetros por posição: use Array(valor1, valor2...), na ordem dos \"?\".");
+            if (raw is Array || values is List) return Interop.Items(values).Select(v => Interop.Unwrap(v)).ToList();
+            if (values is Dictionary) throw Interop.Error(13, "TypeError: parâmetros por posição: use Array(valor1, valor2...), na ordem dos \"?\".");
             return new List<object> { raw };
         }
 

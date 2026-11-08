@@ -8,7 +8,7 @@ using System.Runtime.InteropServices;
 
 namespace SageTypes
 {
-    // Tipo de ListS: lista (pode mudar) ou tupla (não pode), como no Sage.xlam
+    // Tipo de List: lista (pode mudar) ou tupla (não pode), como no Sage.xlam
     [ComVisible(true), Guid("8D3F5A72-1E94-4C6B-A0D8-2F7B9E4C1A53")]
     public enum sgArrayTypes
     {
@@ -16,10 +16,10 @@ namespace SageTypes
         sgTuple = 1,
     }
 
-    // ListS: lista como a do Python, no lugar do ListS do Sage.xlam (mesma API, mais os
+    // List: lista como a do Python, no lugar do List do Sage.xlam (mesma API, mais os
     // métodos do Python).
     //
-    //   Dim l As New Sage.ListS
+    //   Dim l As New Sage.List
     //   l = Array(3, 1, 2)
     //   l.Append 4                         ' altera a própria lista (e a devolve)
     //   Debug.Print l(-1), l.Slice(1, 3).ToString, l.Sort.ToString   ' 4  [1, 2]  [1, 2, 3, 4]
@@ -28,33 +28,33 @@ namespace SageTypes
     // (erro 9). Os métodos que alteram a lista também a devolvem, então tanto
     // "l.Append x" quanto o encadeamento do Sage.xlam (".Remove(-1).Join(...)") funcionam.
     //
-    // Interface dual: acrescente membros só no fim, com o próximo DispId (ver StringS).
+    // Interface dual: acrescente membros só no fim, com o próximo DispId (ver String).
     [ComVisible(true), Guid("5A1C8E3D-7B26-4F90-9D4E-B3C6A8F2D715"), InterfaceType(ComInterfaceType.InterfaceIsDual)]
-    public interface _ListS
+    public interface _List
     {
         // l(i) lê; Set l(i) = objeto grava; l(i) = valor é o LetValue abaixo.
         // Sem índice: lê um array do VBA; l = Array(...) / outraLista substitui tudo.
         [DispId(0), IndexerName("Value")] object this[[Optional] object Index] { get; set; }
         [DispId(1)] sgArrayTypes ArrayType { get; set; }
-        [DispId(2)] StringS Join([Optional] object Delimiter);
+        [DispId(2)] String Join([Optional] object Delimiter);
         [DispId(3)] int Length();
-        [DispId(4)] ListS Remove(object Index);
-        [DispId(5)] ListS Append(object Element);
+        [DispId(4)] List Remove(object Index);
+        [DispId(5)] List Append(object Element);
         [DispId(6)] int Count { get; }
-        [DispId(7)] ListS Extend(object Iterable);
-        [DispId(8)] ListS Insert(object Index, object Element);
+        [DispId(7)] List Extend(object Iterable);
+        [DispId(8)] List Insert(object Index, object Element);
         [DispId(9)] object Pop([Optional] object Index);
-        [DispId(10)] ListS RemoveValue(object Value);
-        [DispId(11)] ListS Clear();
+        [DispId(10)] List RemoveValue(object Value);
+        [DispId(11)] List Clear();
         [DispId(12)] int Index(object Value, [Optional] object Start, [Optional] object Stop);
         [DispId(13)] int CountOf(object Value);
-        [DispId(14)] ListS Sort([Optional] object Reverse);
-        [DispId(15)] ListS Reverse();
-        [DispId(16)] ListS Copy();
+        [DispId(14)] List Sort([Optional] object Reverse);
+        [DispId(15)] List Reverse();
+        [DispId(16)] List Copy();
         [DispId(17)] bool Contains(object Value);
-        [DispId(18)] ListS Slice([Optional] object Start, [Optional] object Stop, [Optional] object Step);
-        [DispId(19)] ListS Concat(object Other);
-        [DispId(20)] ListS Repeat(int Times);
+        [DispId(18)] List Slice([Optional] object Start, [Optional] object Stop, [Optional] object Step);
+        [DispId(19)] List Concat(object Other);
+        [DispId(20)] List Repeat(int Times);
         [DispId(21)] object Sum();
         [DispId(22)] object Min();
         [DispId(23)] object Max();
@@ -66,26 +66,26 @@ namespace SageTypes
         [DispId(1000), PropertyLet("Value")] void LetValue([Optional] object Index, object Value);
 
         // sort(key=lambda r: r[chave]) para listas de linhas (listas ou dicionários); altera a própria lista
-        [DispId(26)] ListS SortBy(object Key, [Optional] object Reverse);
+        [DispId(26)] List SortBy(object Key, [Optional] object Reverse);
         // list(dict.fromkeys(l)): sem repetidos, na ordem em que aparecem
-        [DispId(27)] ListS Unique();
+        [DispId(27)] List Unique();
         // sorted(l) e list(reversed(l)): listas novas; a original fica igual
-        [DispId(28)] ListS Sorted([Optional] object Reverse);
-        [DispId(29)] ListS Reversed();
+        [DispId(28)] List Sorted([Optional] object Reverse);
+        [DispId(29)] List Reversed();
     }
 
-    [ComVisible(true), Guid("E7A42C19-6D3B-4E85-8F1A-0C9B5D2E7A64"), ProgId("Sage.ListS")]
-    [ClassInterface(ClassInterfaceType.None), ComDefaultInterface(typeof(_ListS))]
-    public sealed class ListS : _ListS, IEnumerable
+    [ComVisible(true), Guid("E7A42C19-6D3B-4E85-8F1A-0C9B5D2E7A64"), ProgId("Sage.List")]
+    [ClassInterface(ClassInterfaceType.None), ComDefaultInterface(typeof(_List))]
+    public sealed class List : _List, IEnumerable
     {
         readonly List<object> items = new List<object>();
         sgArrayTypes type = sgArrayTypes.sgList;
 
-        public ListS() { }
+        public List() { }
 
-        internal static ListS From(IEnumerable<object> source)
+        internal static List From(IEnumerable<object> source)
         {
-            ListS list = new ListS();
+            List list = new List();
             list.items.AddRange(source.Select(Interop.Store));
             return list;
         }
@@ -97,7 +97,7 @@ namespace SageTypes
         // Valor (membro padrão)
         // ------------------------------------------------------------------
 
-        // Texto volta como StringS (l(0).Upper); sem índice, array do VBA "puro"
+        // Texto volta como String (l(0).Upper); sem índice, array do VBA "puro"
         [IndexerName("Value")]
         public object this[object Index]
         {
@@ -131,10 +131,10 @@ namespace SageTypes
         // ------------------------------------------------------------------
 
         // Separador padrão " ", como no Sage.xlam
-        public StringS Join(object Delimiter)
+        public String Join(object Delimiter)
         {
             string delimiter = Interop.IsMissing(Delimiter) ? " " : Interop.Text(Delimiter);
-            StringS result = new StringS();
+            String result = new String();
             result.SetRaw(string.Join(delimiter, items.Select(Interop.Text).ToArray()));
             return result;
         }
@@ -143,14 +143,14 @@ namespace SageTypes
 
         // Por índice (negativo conta do fim), como no Sage.xlam; RemoveValue remove por
         // valor, como remove() do Python
-        public ListS Remove(object Index)
+        public List Remove(object Index)
         {
             Mutable();
             items.RemoveAt(Position(Index));
             return this;
         }
 
-        public ListS Append(object Element)
+        public List Append(object Element)
         {
             Mutable();
             items.Add(Interop.Store(Element));
@@ -163,8 +163,8 @@ namespace SageTypes
 
         public int Count { get { return items.Count; } }
 
-        // Acrescenta cada elemento de um array, ListS, DictionaryS (chaves), Collection...
-        public ListS Extend(object Iterable)
+        // Acrescenta cada elemento de um array, List, Dictionary (chaves), Collection...
+        public List Extend(object Iterable)
         {
             Mutable();
             items.AddRange(Interop.Items(Iterable).Select(Interop.Store).ToList());
@@ -172,7 +172,7 @@ namespace SageTypes
         }
 
         // Como insert() do Python: índice além do fim acrescenta no fim
-        public ListS Insert(object Index, object Element)
+        public List Insert(object Index, object Element)
         {
             Mutable();
             int i = Interop.Integer(Index);
@@ -192,7 +192,7 @@ namespace SageTypes
             return Interop.Wrap(value);
         }
 
-        public ListS RemoveValue(object Value)
+        public List RemoveValue(object Value)
         {
             Mutable();
             int i = Find(Value, 0, items.Count);
@@ -201,7 +201,7 @@ namespace SageTypes
             return this;
         }
 
-        public ListS Clear()
+        public List Clear()
         {
             Mutable();
             items.Clear();
@@ -225,7 +225,7 @@ namespace SageTypes
 
         // Ordenação estável, como sort() do Python: números pelo valor, texto pela ordem
         // dos caracteres (maiúsculas antes); misturar texto e número é TypeError
-        public ListS Sort(object Reverse)
+        public List Sort(object Reverse)
         {
             Mutable();
             bool descending = !Interop.IsMissing(Reverse) && Convert.ToBoolean(Reverse, CultureInfo.InvariantCulture);
@@ -237,7 +237,7 @@ namespace SageTypes
             return this;
         }
 
-        public ListS Reverse()
+        public List Reverse()
         {
             Mutable();
             items.Reverse();
@@ -247,11 +247,11 @@ namespace SageTypes
         // Linhas que são listas (Key = número da coluna, negativo conta do fim) ou dicionários
         // (Key = chave); Key também pode ser Array(...) com várias, em ordem de prioridade.
         // Estável, como o sort do Python.
-        public ListS SortBy(object Key, object Reverse)
+        public List SortBy(object Key, object Reverse)
         {
             Mutable();
             object raw = Interop.Unwrap(Key);
-            List<object> keys = (raw is Array || Key is ListS) ? Interop.Items(Key).ToList() : new List<object> { Key };
+            List<object> keys = (raw is Array || Key is List) ? Interop.Items(Key).ToList() : new List<object> { Key };
             if (keys.Count == 0) throw Interop.Error(5, "ValueError: informe a coluna (ou a chave) para ordenar.");
             bool descending = !Interop.IsMissing(Reverse) && Convert.ToBoolean(Reverse, CultureInfo.InvariantCulture);
             List<KeyValuePair<object[], object>> rows = items.Select(item => new KeyValuePair<object[], object>(keys.Select(k => Field(item, k)).ToArray(), item)).ToList();
@@ -264,9 +264,9 @@ namespace SageTypes
 
         static object Field(object row, object key)
         {
-            ListS list = row as ListS;
+            List list = row as List;
             if (list != null) return Interop.Unwrap(list[key]);
-            DictionaryS dict = row as DictionaryS;
+            Dictionary dict = row as Dictionary;
             if (dict != null) return Interop.Unwrap(dict[key]);
             throw Interop.Error(13, "TypeError: SortBy ordena listas de linhas (listas ou dicionários), não " + Interop.TypeLabel(row) + ".");
         }
@@ -286,13 +286,13 @@ namespace SageTypes
 
         // Números iguais pelo valor (1 = 1.0), texto diferenciando maiúsculas, como no Python;
         // listas e dicionários iguais pelo conteúdo
-        public ListS Unique()
+        public List Unique()
         {
             HashSet<object> seen = new HashSet<object>(new UniqueKey());
             List<object> result = new List<object>();
             foreach (object item in items)
             {
-                object key = item is ListS || item is DictionaryS ? (object)("\u0001" + Interop.Repr(item)) : (item ?? KeyComparer.Empty);
+                object key = item is List || item is Dictionary ? (object)("\u0001" + Interop.Repr(item)) : (item ?? KeyComparer.Empty);
                 if (seen.Add(key)) result.Add(item);
             }
             return From(result);
@@ -304,20 +304,20 @@ namespace SageTypes
             public int GetHashCode(object o) { return KeyComparer.Instance.GetHashCode(o); }
         }
 
-        public ListS Sorted(object Reverse) { return Copy().AsList().Sort(Reverse); }
+        public List Sorted(object Reverse) { return Copy().AsList().Sort(Reverse); }
 
-        public ListS Reversed() { return Copy().AsList().Reverse(); }
+        public List Reversed() { return Copy().AsList().Reverse(); }
 
         // Cópia que pode ser alterada (a de uma tupla também é tupla)
-        ListS AsList()
+        List AsList()
         {
             type = sgArrayTypes.sgList;
             return this;
         }
 
-        public ListS Copy()
+        public List Copy()
         {
-            ListS copy = From(items);
+            List copy = From(items);
             copy.type = type;
             return copy;
         }
@@ -325,7 +325,7 @@ namespace SageTypes
         public bool Contains(object Value) { return Find(Value, 0, items.Count) >= 0; }
 
         // Como l[start:stop:step] do Python; os omitidos seguem as mesmas regras
-        public ListS Slice(object Start, object Stop, object Step)
+        public List Slice(object Start, object Stop, object Step)
         {
             int step = Interop.IsMissing(Step) ? 1 : Interop.Integer(Step);
             if (step == 0) throw Interop.Error(5, "ValueError: slice step cannot be zero");
@@ -341,7 +341,7 @@ namespace SageTypes
                 start = Interop.IsMissing(Start) ? n - 1 : Clamp(Interop.Integer(Start), n, -1, n - 1);
                 stop = Interop.IsMissing(Stop) ? -1 : Clamp(Interop.Integer(Stop), n, -1, n - 1);
             }
-            ListS result = new ListS();
+            List result = new List();
             for (int i = start; step > 0 ? i < stop : i > stop; i += step) result.items.Add(items[i]);
             result.type = type;
             return result;
@@ -355,17 +355,17 @@ namespace SageTypes
         }
 
         // Como lista1 + lista2: nova lista
-        public ListS Concat(object Other)
+        public List Concat(object Other)
         {
-            ListS result = Copy();
+            List result = Copy();
             result.items.AddRange(Interop.Items(Other).Select(Interop.Store).ToList());
             return result;
         }
 
         // Como lista * n: nova lista
-        public ListS Repeat(int Times)
+        public List Repeat(int Times)
         {
-            ListS result = new ListS();
+            List result = new List();
             for (int i = 0; i < Times; i++) result.items.AddRange(items);
             result.type = type;
             return result;
@@ -408,7 +408,7 @@ namespace SageTypes
         // Array do VBA (base 0), com as listas de dentro também como arrays e texto como String
         public object ToArray() { return Interop.Plain(this); }
 
-        // For Each percorre uma cópia (a lista pode mudar no laço); texto vem como StringS
+        // For Each percorre uma cópia (a lista pode mudar no laço); texto vem como String
         public IEnumerator GetEnumerator() { return items.Select(Interop.Wrap).ToArray().GetEnumerator(); }
 
         // ------------------------------------------------------------------

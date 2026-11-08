@@ -24,7 +24,7 @@ namespace SageTypes
     // embaixo (e refaz a conta quando o controle muda de tamanho). Sem AutoPaging, rola. Só as
     // linhas à vista são lidas do DuckDB, então funciona com milhões de linhas.
     //
-    // Interface dual: acrescente membros só no fim, com o próximo DispId (ver StringS). As
+    // Interface dual: acrescente membros só no fim, com o próximo DispId (ver String). As
     // propriedades gravadas no arquivo usam os nomes de SaveProperties: não os mude.
     [ComVisible(true), Guid("44893F4B-2FF3-4412-B6B2-5F942C3C4C34"), InterfaceType(ComInterfaceType.InterfaceIsDual)]
     public interface _DataGrid
@@ -197,13 +197,13 @@ namespace SageTypes
             }
         }
 
-        // ColumnFormats: DictionaryS, Scripting.Dictionary ou Array("coluna", "formato", ...),
-        // como o DictionaryS recebe; os formatos são os da função Format do VBA
+        // ColumnFormats: Dictionary, Scripting.Dictionary ou Array("coluna", "formato", ...),
+        // como o Dictionary recebe; os formatos são os da função Format do VBA
         public object ColumnFormats
         {
             get
             {
-                DictionaryS result = new DictionaryS();
+                Dictionary result = new Dictionary();
                 foreach (KeyValuePair<string, string> f in formats) result.LetValue(f.Key, f.Value);
                 return result;
             }

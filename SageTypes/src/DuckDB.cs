@@ -75,14 +75,14 @@ namespace SageTypes
         {
             if (connection != IntPtr.Zero) return;
             // A duckdb.dll fica ao lado do SageTypes.dll; o Windows não a procura ali sozinho
-            string folder = Path.GetDirectoryName(typeof(Engine).Assembly.Location);
-            if (LoadLibrary(Path.Combine(folder, Dll)) == IntPtr.Zero)
+            string folder = System.IO.Path.GetDirectoryName(typeof(Engine).Assembly.Location);
+            if (LoadLibrary(System.IO.Path.Combine(folder, Dll)) == IntPtr.Zero)
                 throw Interop.Error(53, "duckdb.dll não encontrada em " + folder + " (reinstale o SageTypes).");
-            string temp = Path.Combine(Path.GetTempPath(), "SageDuckDB");
+            string temp = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "SageDuckDB");
             Directory.CreateDirectory(temp);
             RemoveOrphans(temp);
             int pid = System.Diagnostics.Process.GetCurrentProcess().Id;
-            databaseFile = Path.Combine(temp, "sage_" + pid.ToString(CultureInfo.InvariantCulture) + ".duckdb");
+            databaseFile = System.IO.Path.Combine(temp, "sage_" + pid.ToString(CultureInfo.InvariantCulture) + ".duckdb");
             DeleteDatabase(databaseFile); // de um processo anterior com o mesmo número
             if (duckdb_open(Utf8(databaseFile), out database) != 0) throw Interop.Error(5, "Não foi possível abrir o DuckDB em " + databaseFile + ".");
             if (duckdb_connect(database, out connection) != 0) throw Interop.Error(5, "Não foi possível conectar ao DuckDB.");
@@ -99,7 +99,7 @@ namespace SageTypes
 
             // Extensões (PostgreSQL, MySQL, SQLite) que vêm no pacote, ao lado do SageTypes.dll
             // (extensions\v<versão>\windows_amd64); sem elas, o DuckDB baixa na primeira vez
-            string extensions = Path.Combine(folder, "extensions");
+            string extensions = System.IO.Path.Combine(folder, "extensions");
             if (Directory.Exists(extensions)) Run("SET extension_directory = " + Literal(extensions));
         }
 
@@ -137,7 +137,7 @@ namespace SageTypes
             foreach (string file in Directory.GetFiles(folder, "sage_*.duckdb"))
             {
                 int pid;
-                string id = Path.GetFileNameWithoutExtension(file).Substring(5);
+                string id = System.IO.Path.GetFileNameWithoutExtension(file).Substring(5);
                 if (!int.TryParse(id, NumberStyles.None, CultureInfo.InvariantCulture, out pid)) continue;
                 bool running;
                 try { running = !System.Diagnostics.Process.GetProcessById(pid).HasExited; }

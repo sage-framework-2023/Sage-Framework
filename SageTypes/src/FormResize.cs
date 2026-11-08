@@ -61,7 +61,7 @@ namespace SageTypes
             state.InsideHeight0 = client.Bottom;
             object controls = Get(form, "Controls");
 
-            // Âncoras: nome do controle, posição: Array("nome", "Fill", ...) ou DictionaryS
+            // Âncoras: nome do controle, posição: Array("nome", "Fill", ...) ou Dictionary
             if (anchors != null && !Interop.IsMissing(anchors) && !(anchors is DBNull))
                 foreach (KeyValuePair<object, object> pair in Interop.PairsOf(Interop.Unwrap(anchors)))
                 {

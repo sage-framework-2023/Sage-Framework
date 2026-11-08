@@ -23,7 +23,7 @@ namespace SageTypes
     // TabIndex, Tag, ControlTipText, SetFocus e os eventos Enter, Exit, BeforeUpdate e
     // AfterUpdate vêm do próprio UserForm, como em qualquer controle.
     //
-    // Interface dual: acrescente membros só no fim, com o próximo DispId (ver StringS). As
+    // Interface dual: acrescente membros só no fim, com o próximo DispId (ver String). As
     // propriedades gravadas no arquivo usam os nomes de SaveProperties: não os mude.
     [ComVisible(true), Guid("62D4E4F3-9AED-44EC-B465-9DFD5733D62E"), InterfaceType(ComInterfaceType.InterfaceIsDual)]
     public interface _TextBox
@@ -52,7 +52,7 @@ namespace SageTypes
         [DispId(18)] int SelStart { get; set; }
         [DispId(19)] int SelLength { get; set; }
         [DispId(20)] string SelText { get; set; }
-        [DispId(21)] ListS Misspellings();
+        [DispId(21)] List Misspellings();
         [DispId(22)] void Copy();
         [DispId(23)] void Cut();
         [DispId(24)] void Paste();
@@ -581,7 +581,7 @@ namespace SageTypes
         public int TextLength { get { return Value.Length; } }
 
         // As palavras erradas do texto, na ordem (sem repetir)
-        public ListS Misspellings()
+        public List Misspellings()
         {
             string current = Value;
             List<object> words = new List<object>();
@@ -592,7 +592,7 @@ namespace SageTypes
                     string w = current.Substring(e.Start, e.Length);
                     if (seen.Add(w)) words.Add(w);
                 }
-            return ListS.From(words);
+            return List.From(words);
         }
 
         public void Copy() { if (edit != null && passwordChar.Length == 0) edit.Copy(); }

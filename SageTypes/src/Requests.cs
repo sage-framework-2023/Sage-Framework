@@ -21,7 +21,7 @@ namespace SageTypes
     //
     // Session guarda cabeçalhos, autenticação e cookies entre as chamadas (login, depois as consultas).
     //
-    // Interfaces duais: acrescente membros só no fim, com o próximo DispId (ver StringS).
+    // Interfaces duais: acrescente membros só no fim, com o próximo DispId (ver String).
     [ComVisible(true), Guid("9CC2C2FF-5C73-44CC-8614-B4A15860D2D4"), InterfaceType(ComInterfaceType.InterfaceIsDual)]
     public interface _Requests
     {
@@ -85,11 +85,11 @@ namespace SageTypes
             [Optional] object Headers, [Optional] object Auth, [Optional] object Timeout, [Optional] object AllowRedirects);
 
         // Valem para todas as chamadas da sessão (os da chamada são somados / têm prioridade)
-        [DispId(10)] DictionaryS Headers { get; }
-        [DispId(11)] DictionaryS Params { get; }
+        [DispId(10)] Dictionary Headers { get; }
+        [DispId(11)] Dictionary Params { get; }
         [DispId(12)] object Auth { get; set; }
         [DispId(13)] object Timeout { get; set; }
-        [DispId(14)] DictionaryS Cookies([Optional] object Url);
+        [DispId(14)] Dictionary Cookies([Optional] object Url);
 
         [DispId(1000), PropertyLet("Auth")] void LetAuth(object Value);
         [DispId(1001), PropertyLet("Timeout")] void LetTimeout(object Value);
@@ -99,8 +99,8 @@ namespace SageTypes
     [ClassInterface(ClassInterfaceType.None), ComDefaultInterface(typeof(_Session))]
     public sealed class Session : _Session
     {
-        readonly DictionaryS headers = new DictionaryS();
-        readonly DictionaryS parameters = new DictionaryS();
+        readonly Dictionary headers = new Dictionary();
+        readonly Dictionary parameters = new Dictionary();
         readonly CookieContainer cookies = new CookieContainer();
         object auth;
         object timeout;
@@ -120,17 +120,17 @@ namespace SageTypes
 
         public Session() { }
 
-        public DictionaryS Headers { get { return headers; } }
-        public DictionaryS Params { get { return parameters; } }
+        public Dictionary Headers { get { return headers; } }
+        public Dictionary Params { get { return parameters; } }
         public object Auth { get { return auth; } set { LetAuth(value); } }
         public void LetAuth(object Value) { auth = Interop.IsMissing(Value) ? null : Value; }
         public object Timeout { get { return timeout; } set { LetTimeout(value); } }
         public void LetTimeout(object Value) { timeout = Interop.IsMissing(Value) ? null : Value; }
 
         // Cookies guardados (de todos os sites, ou só dos de Url)
-        public DictionaryS Cookies(object Url)
+        public Dictionary Cookies(object Url)
         {
-            DictionaryS result = new DictionaryS();
+            Dictionary result = new Dictionary();
             IEnumerable<Cookie> all;
             if (!Interop.IsMissing(Url)) all = cookies.GetCookies(new Uri(Interop.Text(Url))).Cast<Cookie>();
             else
@@ -275,14 +275,14 @@ namespace SageTypes
             }
         }
 
-        // DictionaryS, Scripting.Dictionary ou Array(k1, v1, ...); valor lista repete a chave (a=1&a=2)
+        // Dictionary, Scripting.Dictionary ou Array(k1, v1, ...); valor lista repete a chave (a=1&a=2)
         static IEnumerable<KeyValuePair<string, string>> Pairs(object source)
         {
             if (Missing(source)) yield break;
             foreach (KeyValuePair<object, object> pair in Interop.PairsOf(source))
             {
                 object value = pair.Value;
-                if (value is ListS || value is Array)
+                if (value is List || value is Array)
                 {
                     foreach (object item in Interop.Items(value)) yield return new KeyValuePair<string, string>(Interop.Text(pair.Key), Text(item));
                 }
@@ -295,8 +295,8 @@ namespace SageTypes
         {
             object v = Interop.Unwrap(value);
             if (v is bool) return (bool)v ? "True" : "False";
-            if (v is DateTime) return DatetimeS.From((DateTime)v, null).Iso8601("T", "auto");
-            DatetimeS d = v as DatetimeS;
+            if (v is DateTime) return Datetime.From((DateTime)v, null).Iso8601("T", "auto");
+            Datetime d = v as Datetime;
             if (d != null) return d.Iso8601("T", "auto");
             IFormattable f = v as IFormattable;
             if (f != null) return f.ToString(null, CultureInfo.InvariantCulture);
@@ -335,19 +335,19 @@ namespace SageTypes
     {
         [DispId(1)] int StatusCode { get; }
         [DispId(2)] bool Ok { get; }
-        [DispId(3)] StringS Reason { get; }
-        [DispId(4)] StringS Text { get; }
+        [DispId(3)] String Reason { get; }
+        [DispId(4)] String Text { get; }
         [DispId(5)] object Content { get; }
         [DispId(6)] object Json();
-        [DispId(7)] DictionaryS Headers { get; }
-        [DispId(8)] StringS Url { get; }
+        [DispId(7)] Dictionary Headers { get; }
+        [DispId(8)] String Url { get; }
         [DispId(9)] double Elapsed { get; }
-        [DispId(10)] StringS Encoding { get; }
+        [DispId(10)] String Encoding { get; }
         [DispId(11)] void RaiseForStatus();
         [DispId(12)] string ToString();
-        [DispId(13)] StringS Header(string Name);
+        [DispId(13)] String Header(string Name);
         [DispId(14)] void Save(string Path);
-        [DispId(15)] StringS JsonString([Optional] object Indent, [Optional] object SortKeys, [Optional] object EnsureAscii);
+        [DispId(15)] String JsonString([Optional] object Indent, [Optional] object SortKeys, [Optional] object EnsureAscii);
     }
 
     [ComVisible(true), Guid("B028ADB0-40B2-461C-8AD1-B4236852C17E"), ProgId("Sage.Response")]
@@ -357,7 +357,7 @@ namespace SageTypes
         readonly int status;
         readonly string reason, url, encoding, method;
         readonly byte[] content;
-        readonly DictionaryS headers = new DictionaryS();
+        readonly Dictionary headers = new Dictionary();
         readonly double elapsed;
         string text;
 
@@ -384,9 +384,9 @@ namespace SageTypes
 
         public int StatusCode { get { return status; } }
         public bool Ok { get { return status > 0 && status < 400; } }
-        public StringS Reason { get { return Wrap(reason ?? ""); } }
+        public String Reason { get { return Wrap(reason ?? ""); } }
 
-        public StringS Text
+        public String Text
         {
             get
             {
@@ -416,7 +416,7 @@ namespace SageTypes
 
         // O JSON da resposta como texto: uma linha (padrão) ou formatado (Indent:=2), como
         // Json.Dumps(r.Json(), ...); r.Text é o texto exatamente como a API mandou
-        public StringS JsonString(object Indent, object SortKeys, object EnsureAscii)
+        public String JsonString(object Indent, object SortKeys, object EnsureAscii)
         {
             object value;
             try { value = SageTypes.Json.Parse(Text.Value); }
@@ -427,19 +427,19 @@ namespace SageTypes
             return Wrap(SageTypes.Json.Serialize(value, Indent, SortKeys, EnsureAscii));
         }
 
-        public DictionaryS Headers { get { return headers; } }
+        public Dictionary Headers { get { return headers; } }
 
         // Um cabeçalho pelo nome, sem diferenciar maiúsculas (como r.headers["content-type"]); "" se não houver
-        public StringS Header(string Name)
+        public String Header(string Name)
         {
             foreach (KeyValuePair<object, object> pair in headers.Pairs())
                 if (string.Equals(pair.Key as string, Name, StringComparison.OrdinalIgnoreCase)) return Wrap(Interop.Text(pair.Value));
             return Wrap("");
         }
 
-        public StringS Url { get { return Wrap(url ?? ""); } }
+        public String Url { get { return Wrap(url ?? ""); } }
         public double Elapsed { get { return elapsed; } }
-        public StringS Encoding { get { return Wrap(encoding ?? ""); } }
+        public String Encoding { get { return Wrap(encoding ?? ""); } }
 
         // HTTPError do requests: "404 Client Error: Not Found for url: ..."
         public void RaiseForStatus()
@@ -454,6 +454,6 @@ namespace SageTypes
 
         public override string ToString() { return "<Response [" + status + "]>"; }
 
-        static StringS Wrap(string s) { return (StringS)Interop.Wrap(s); }
+        static String Wrap(string s) { return (String)Interop.Wrap(s); }
     }
 }

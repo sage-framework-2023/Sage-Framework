@@ -8,7 +8,7 @@ using Microsoft.Win32;
 namespace SageEditor
 {
     // Pastas de trabalho novas (Ctrl+N, Arquivo > Novo, a pasta em branco ao abrir o Excel) já
-    // vêm com a referência à biblioteca do Sage Framework (Sage.StringS...) em Ferramentas >
+    // vêm com a referência à biblioteca do Sage Framework (Sage.String...) em Ferramentas >
     // Referências. No VBA as referências ficam em cada pasta; não há como marcar uma biblioteca
     // para todas.
     //

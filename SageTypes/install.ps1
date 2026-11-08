@@ -1,4 +1,4 @@
-﻿# Instala os tipos do Sage para o VBA (StringS...) só para o usuário atual, sem admin.
+﻿# Instala os tipos do Sage para o VBA (String...) só para o usuário atual, sem admin.
 #   powershell -ExecutionPolicy Bypass -File install.ps1              compila, copia e registra
 #   powershell -ExecutionPolicy Bypass -File install.ps1 -Uninstall   remove
 #   powershell -ExecutionPolicy Bypass -File install.ps1 -ExportTo <pasta>
@@ -66,7 +66,7 @@ public static class SageTypeLib
     static extern int UnRegisterTypeLibForUser(ref Guid libId, short major, short minor, int lcid, int syskind);
 
     // .tlb de 64 bits (o Excel instalado é de 64 bits). O nome da biblioteca, que o VBA
-    // usa para qualificar (Sage.StringS), é "Sage", e não o nome do assembly.
+    // usa para qualificar (Sage.String), é "Sage", e não o nome do assembly.
     public static void Export(string dll, string tlb, string libraryName)
     {
         Assembly assembly = Assembly.LoadFrom(dll);
@@ -345,20 +345,21 @@ public static class SageTypeLib
 '@
 
 $LibId = [Guid]'3F8E2A61-7C4B-4E9D-A215-6B0C9D8E7F14'   # = [assembly: Guid] em AssemblyInfo.cs
-$LibraryName = 'Sage'   # Dim s As Sage.StringS
+$LibraryName = 'Sage'   # Dim s As Sage.String
 $Classes = @(
     # Classe .NET, CLSID (= [Guid] da classe), ProgId (= [ProgId] da classe)
-    @{ Class = 'SageTypes.StringS'; Clsid = '{9A4C1E7B-2D58-4F3A-B6C9-0E1F2A3B4C5D}'; ProgId = 'Sage.StringS' }
-    @{ Class = 'SageTypes.DictionaryS'; Clsid = '{4B8E6D21-9F3C-4A57-B1D0-E5C27A8F6B39}'; ProgId = 'Sage.DictionaryS' }
-    @{ Class = 'SageTypes.ListS'; Clsid = '{E7A42C19-6D3B-4E85-8F1A-0C9B5D2E7A64}'; ProgId = 'Sage.ListS' }
+    @{ Class = 'SageTypes.String'; Clsid = '{9A4C1E7B-2D58-4F3A-B6C9-0E1F2A3B4C5D}'; ProgId = 'Sage.String' }
+    @{ Class = 'SageTypes.Dictionary'; Clsid = '{4B8E6D21-9F3C-4A57-B1D0-E5C27A8F6B39}'; ProgId = 'Sage.Dictionary' }
+    @{ Class = 'SageTypes.List'; Clsid = '{E7A42C19-6D3B-4E85-8F1A-0C9B5D2E7A64}'; ProgId = 'Sage.List' }
     @{ Class = 'SageTypes.DataFrame'; Clsid = '{2F9C6E14-8B3A-4D71-A5E2-7C0D9B4F3A68}'; ProgId = 'Sage.DataFrame' }
-    @{ Class = 'SageTypes.DatetimeS'; Clsid = '{992489F3-7D1F-4D2F-B13A-05AB53F1A745}'; ProgId = 'Sage.DatetimeS' }
+    @{ Class = 'SageTypes.Datetime'; Clsid = '{992489F3-7D1F-4D2F-B13A-05AB53F1A745}'; ProgId = 'Sage.Datetime' }
     @{ Class = 'SageTypes.Json'; Clsid = '{F255D235-A52E-4362-9484-F344705B9DE7}'; ProgId = 'Sage.Json' }
     @{ Class = 'SageTypes.Requests'; Clsid = '{18A710C0-DD90-407E-92A8-56E2E1FBB35C}'; ProgId = 'Sage.Requests' }
     @{ Class = 'SageTypes.Session'; Clsid = '{FCB13B55-C345-4703-89B6-F4635B7C5A9A}'; ProgId = 'Sage.Session' }
     @{ Class = 'SageTypes.Response'; Clsid = '{B028ADB0-40B2-461C-8AD1-B4236852C17E}'; ProgId = 'Sage.Response' }
     @{ Class = 'SageTypes.SqlEngine'; Clsid = '{6795C777-D195-4CBE-9E32-3DADA65AE733}'; ProgId = 'Sage.SqlEngine' }
     @{ Class = 'SageTypes.Console'; Clsid = '{48E1D247-7261-4DBB-9B9A-FA601658FC2F}'; ProgId = 'Sage.Console' }
+    @{ Class = 'SageTypes.Path'; Clsid = '{F6B281D0-ED8D-4698-9C96-DFCCF0A7E1B1}'; ProgId = 'Sage.Path' }
     # Membros globais (Json, Requests): o VBA cria esta classe sozinho
     @{ Class = 'SageTypes.Globals'; Clsid = '{3129D3A3-5535-4294-8923-083DAA4A6F75}'; ProgId = 'Sage.Globals' }
     # Controles para UserForms (Caixa de ferramentas > Controles adicionais)
@@ -449,8 +450,10 @@ function Remove-Registration {
             if (Test-Path $key) { Remove-Item $key -Recurse }
         }
     }
-    # Primeira versão, com ProgId SageTypes.StringS
-    if (Test-Path 'HKCU:\Software\Classes\SageTypes.StringS') { Remove-Item 'HKCU:\Software\Classes\SageTypes.StringS' -Recurse }
+    # ProgIds de versões anteriores: SageTypes.StringS (a primeira) e os tipos com S no fim (até a 1.4)
+    foreach ($legacy in 'SageTypes.StringS', 'Sage.StringS', 'Sage.ListS', 'Sage.DictionaryS', 'Sage.DatetimeS') {
+        if (Test-Path "HKCU:\Software\Classes\$legacy") { Remove-Item "HKCU:\Software\Classes\$legacy" -Recurse }
+    }
 }
 
 if ($ExportTo) {
@@ -528,4 +531,4 @@ foreach ($c in $Classes) {
 }
 
 "Instalado em $Dll"
-"No VBA: Ferramentas > Referências > Sage. Depois: Dim s As Sage.StringS: Set s = New Sage.StringS"
+"No VBA: Ferramentas > Referências > Sage. Depois: Dim s As Sage.String: Set s = New Sage.String"

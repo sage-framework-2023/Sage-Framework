@@ -10,7 +10,8 @@ namespace SageTypes
     //
     //   Set d = Json.Loads(texto)            ' ou Sage.Json.Loads(texto)
     //   Set r = Requests.Get(url)
-    //   Console.PrintF "%d linhas\n", n      ' na aba Terminal do Painel (Console.cs)
+    //   Console.PrintF "%d linhas", n        ' na aba Terminal do Painel (Console.cs)
+    //   Set p = PathOf("dados.csv")          ' um caminho, sem pasta: o da pasta de trabalho (Path.cs)
     //   Debug.Print GetUser()               ' getpass.getuser(): o usuário logado no Windows
     //   Sleep 1.5                            ' time.sleep(1.5), sem congelar a tela do Excel
     //   Resizable Me, Anchors:=Array("gridDados", "Fill")   ' UserForm redimensionável (FormResize.cs)
@@ -19,18 +20,19 @@ namespace SageTypes
     // O install.ps1 marca a classe como "app object" no .tlb ([AppObject]): o VBA cria uma
     // instância por projeto na primeira vez que um membro é usado.
     //
-    // Interface dual: acrescente membros só no fim, com o próximo DispId (ver StringS).
+    // Interface dual: acrescente membros só no fim, com o próximo DispId (ver String).
     [ComVisible(true), Guid("B35FF712-35A6-4A4B-A8BE-D58FC7A3D471"), InterfaceType(ComInterfaceType.InterfaceIsDual)]
     public interface _Globals
     {
         [DispId(1)] Json Json { get; }
         [DispId(2)] Requests Requests { get; }
-        [DispId(3)] StringS GetUser([Optional] object Domain);
+        [DispId(3)] String GetUser([Optional] object Domain);
         [DispId(4)] void Sleep(double Seconds);
-        [DispId(6)] StringS OfficeTheme();
+        [DispId(6)] String OfficeTheme();
         [DispId(5)] void Resizable(object Form, [Optional] object Anchors, [Optional] object MinWidth, [Optional] object MinHeight,
             [Optional] object MaxButton, [Optional] object MinButton);
         [DispId(7)] Console Console { get; }
+        [DispId(8)] Path PathOf(object Value);
     }
 
     [ComVisible(true), Guid("3129D3A3-5535-4294-8923-083DAA4A6F75"), ProgId("Sage.Globals"), AppObject]
@@ -47,16 +49,24 @@ namespace SageTypes
         public Requests Requests { get { return requests; } }
         public Console Console { get { return console; } }
 
+        // Um Path numa linha: PathOf("dados.csv"), PathOf(sgDesktop).Join("relatório.xlsx").
+        // Sem pasta, a partir da pasta da pasta de trabalho ativa (Path.cs). O nome não é Path
+        // porque, sozinho, Path já é o Application.Path do Excel.
+        public Path PathOf(object Value)
+        {
+            return Path.Of(Value);
+        }
+
         // O usuário logado no Windows (pela API, como o GetUserName; não lê a variável
         // USERNAME, que pode ser alterada). Domain:=True devolve também o domínio:
         // "EMPRESA\rodrigo" (num computador fora de domínio, o nome do computador).
-        public StringS GetUser(object Domain)
+        public String GetUser(object Domain)
         {
             bool withDomain = !Interop.IsMissing(Domain) && Domain != null &&
                 Convert.ToBoolean(Interop.Unwrap(Domain), CultureInfo.InvariantCulture);
             string user = Environment.UserName;
             if (withDomain) user = Environment.UserDomainName + "\\" + user;
-            return (StringS)Interop.Wrap(user);
+            return (String)Interop.Wrap(user);
         }
 
         // Espera, em segundos (aceita frações: 0.5). Enquanto espera, o Excel continua
@@ -83,7 +93,7 @@ namespace SageTypes
         // comparar no código sem depender do idioma: "Colorful", "Dark Gray", "Black" ou "White". Com
         // "Usar configuração do sistema", o tema que o Office aplica: "White" com o Windows no modo
         // claro e "Black" no escuro. Lido do registro (HKCU\Software\Microsoft\Office\16.0\Common, "UI Theme").
-        public StringS OfficeTheme()
+        public String OfficeTheme()
         {
             int theme = -1;
             try
@@ -104,7 +114,7 @@ namespace SageTypes
                 case 5: name = "White"; break;
                 default: name = WindowsDark() ? "Black" : "White"; break; // 6, ou sem o valor: o padrão do Microsoft 365
             }
-            return (StringS)Interop.Wrap(name);
+            return (String)Interop.Wrap(name);
         }
 
         // O modo dos aplicativos do Windows (Configurações > Personalização > Cores)

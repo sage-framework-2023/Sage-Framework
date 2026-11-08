@@ -28,9 +28,9 @@ namespace SageTypes
     // Cursor, como no Sage.xlam: MoveFirst/EOF/MoveNext e df("Coluna") lendo e gravando a
     // linha atual (as linhas são lidas em blocos e as alterações gravadas em lote). Fora
     // de uma linha (antes do MoveFirst ou depois do EOF), df("Coluna") é a coluna inteira:
-    // lê como ListS e grava um valor (ou um array/ListS do mesmo tamanho) em todas as linhas.
+    // lê como List e grava um valor (ou um array/List do mesmo tamanho) em todas as linhas.
     //
-    // Interface dual: acrescente membros só no fim, com o próximo DispId (ver StringS).
+    // Interface dual: acrescente membros só no fim, com o próximo DispId (ver String).
     // [PropertyGet("X")]/[PropertyLet("X")] viram a propriedade X com parâmetros na
     // geração do .tlb (install.ps1).
     [ComVisible(true), Guid("B5E1D8A3-6C47-4F29-9A0E-3D7C2B8F1E56"), InterfaceType(ComInterfaceType.InterfaceIsDual)]
@@ -58,9 +58,9 @@ namespace SageTypes
 
         // Informações
         [DispId(20)] long Count { get; }
-        [DispId(21)] ListS Columns { get; }
-        [DispId(22)] DictionaryS DTypes { get; }
-        [DispId(23)] ListS Shape { get; }
+        [DispId(21)] List Columns { get; }
+        [DispId(22)] Dictionary DTypes { get; }
+        [DispId(23)] List Shape { get; }
         [DispId(24)] string Info();
         [DispId(25)] DataFrame Describe();
         [DispId(26)] DataFrame Head([Optional] object Rows);
@@ -72,8 +72,8 @@ namespace SageTypes
         [DispId(32)] DataFrame Drop(object Columns);
         [DispId(33)] DataFrame Slice([Optional] object Start, [Optional] object Stop);
         [DispId(34)] DataFrame Sample(long Rows);
-        [DispId(35)] ListS Col(object Column);
-        [DispId(36)] ListS Unique(object Column);
+        [DispId(35)] List Col(object Column);
+        [DispId(36)] List Unique(object Column);
 
         // Transformar
         [DispId(40)] object Eval(string Expression);
@@ -110,7 +110,7 @@ namespace SageTypes
 
         // At(linha, coluna) e Loc(linha): propriedades com parâmetros
         [DispId(80), PropertyGet("At")] object GetAt(long Row, object Column);
-        [DispId(81), PropertyGet("Loc")] DictionaryS GetLoc(long Row);
+        [DispId(81), PropertyGet("Loc")] Dictionary GetLoc(long Row);
         [DispId(-4)] IEnumerator GetEnumerator();
 
         // Viram Property Let na geração do .tlb (install.ps1). Ficam sempre por último.
@@ -243,7 +243,7 @@ namespace SageTypes
             return this;
         }
 
-        // Lista de dicionários (DictionaryS ou Scripting.Dictionary), um por linha
+        // Lista de dicionários (Dictionary ou Scripting.Dictionary), um por linha
         public DataFrame FromRecords(object Records)
         {
             List<List<KeyValuePair<object, object>>> rows = Interop.Items(Records).Select(r => Interop.PairsOf(r).ToList()).ToList();
@@ -282,7 +282,7 @@ namespace SageTypes
             return new DataFrame("SELECT * FROM (" + text + ")", used);
         }
 
-        // Array 2D (ou ListS de linhas) -> tabela, com o tipo de cada coluna deduzido
+        // Array 2D (ou List de linhas) -> tabela, com o tipo de cada coluna deduzido
         void Load(object data, bool header)
         {
             object[,] grid = Grid(data);
@@ -309,13 +309,13 @@ namespace SageTypes
             return value is int && ExcelErrors.Contains((int)value) ? null : value;
         }
 
-        // Base 0, 2 dimensões; aceita array 1D (uma coluna) e ListS de linhas
+        // Base 0, 2 dimensões; aceita array 1D (uma coluna) e List de linhas
         static object[,] Grid(object data)
         {
             Array array = Interop.Unwrap(data) as Array;
-            ListS list = data as ListS;
+            List list = data as List;
             if (list != null) array = (Array)list.ToArray();
-            if (array == null) throw Interop.Error(13, "Esperado um array 2D, um Range.Value ou uma ListS de linhas.");
+            if (array == null) throw Interop.Error(13, "Esperado um array 2D, um Range.Value ou uma List de linhas.");
             if (array.Rank == 2)
             {
                 int r0 = array.GetLowerBound(0), c0 = array.GetLowerBound(1);
@@ -324,8 +324,8 @@ namespace SageTypes
                     for (int c = 0; c < grid.GetLength(1); c++) grid[r, c] = Clean(array.GetValue(r0 + r, c0 + c));
                 return grid;
             }
-            // 1D: array de linhas (arrays/ListS) ou uma coluna só
-            List<object[]> rows = array.Cast<object>().Select(r => (r is Array || r is ListS) ? Interop.Items(r).ToArray() : new[] { r }).ToList();
+            // 1D: array de linhas (arrays/List) ou uma coluna só
+            List<object[]> rows = array.Cast<object>().Select(r => (r is Array || r is List) ? Interop.Items(r).ToArray() : new[] { r }).ToList();
             int width = rows.Count == 0 ? 0 : rows.Max(r => r.Length);
             object[,] result = new object[rows.Count, width];
             for (int r = 0; r < rows.Count; r++)
@@ -575,24 +575,24 @@ namespace SageTypes
             }
         }
 
-        public ListS Columns { get { return ListS.From(Schema().Select(c => (object)c.Name)); } }
+        public List Columns { get { return List.From(Schema().Select(c => (object)c.Name)); } }
 
-        public DictionaryS DTypes
+        public Dictionary DTypes
         {
             get
             {
-                DictionaryS d = new DictionaryS();
+                Dictionary d = new Dictionary();
                 foreach (Column c in Schema()) d.LetValue(c.Name, c.Type);
                 return d;
             }
         }
 
         // (linhas, colunas), como df.shape
-        public ListS Shape
+        public List Shape
         {
             get
             {
-                ListS shape = ListS.From(new object[] { Count, (long)Schema().Count });
+                List shape = List.From(new object[] { Count, (long)Schema().Count });
                 shape.ArrayType = sgArrayTypes.sgTuple;
                 return shape;
             }
@@ -645,7 +645,7 @@ namespace SageTypes
             return Derive("SELECT * FROM (" + Need() + ") WHERE " + Expressions.Translate(Condition));
         }
 
-        // Colunas ("A, B" ou Array/ListS); também aceita "Novo = expressão"
+        // Colunas ("A, B" ou Array/List); também aceita "Novo = expressão"
         public DataFrame Select(object Columns)
         {
             List<string> items = new List<string>();
@@ -682,20 +682,20 @@ namespace SageTypes
         }
 
         // Coluna inteira, como df["col"]
-        public ListS Col(object Column)
+        public List Col(object Column)
         {
             string name = Resolve(Column);
             using (Engine.QueryResult r = Engine.Query(ReadableOf("SELECT " + Engine.Quote(name) + " FROM (" + Need() + ")")))
-                return ListS.From(r.ReadAll(long.MaxValue).Select(row => row[0]));
+                return List.From(r.ReadAll(long.MaxValue).Select(row => row[0]));
         }
 
         // Valores distintos, na ordem em que aparecem
-        public ListS Unique(object Column)
+        public List Unique(object Column)
         {
             string c = Engine.Quote(Resolve(Column));
             string inner = "SELECT " + c + ", row_number() OVER () AS __n FROM (" + Need() + ")";
             using (Engine.QueryResult r = Engine.Query(ReadableOf("SELECT " + c + " FROM (" + inner + ") GROUP BY " + c + " ORDER BY min(__n)")))
-                return ListS.From(r.ReadAll(long.MaxValue).Select(row => row[0]));
+                return List.From(r.ReadAll(long.MaxValue).Select(row => row[0]));
         }
 
         // ------------------------------------------------------------------
@@ -703,7 +703,7 @@ namespace SageTypes
         // ------------------------------------------------------------------
 
         // "Col = expressão" cria ou substitui a coluna (várias separadas por ";" ou linhas);
-        // sem "=", devolve o resultado da expressão como ListS, como df.eval("a + b")
+        // sem "=", devolve o resultado da expressão como List, como df.eval("a + b")
         public object Eval(string Expression)
         {
             Need();
@@ -714,7 +714,7 @@ namespace SageTypes
                 if (!Expressions.Assignment(statements[0], out single, out expr))
                 {
                     using (Engine.QueryResult r = Engine.Query(ReadableOf("SELECT (" + Expressions.Translate(statements[0]) + ") AS value FROM (" + sql + ")")))
-                        return ListS.From(r.ReadAll(long.MaxValue).Select(row => row[0]));
+                        return List.From(r.ReadAll(long.MaxValue).Select(row => row[0]));
                 }
             }
             foreach (string statement in statements)
@@ -740,7 +740,7 @@ namespace SageTypes
         {
             List<string> keys = Names(By);
             List<bool> ascending = Interop.IsMissing(Ascending) ? keys.Select(k => true).ToList()
-                : Interop.Unwrap(Ascending) is Array || Ascending is ListS ? Interop.Items(Ascending).Select(a => Convert.ToBoolean(a, CultureInfo.InvariantCulture)).ToList()
+                : Interop.Unwrap(Ascending) is Array || Ascending is List ? Interop.Items(Ascending).Select(a => Convert.ToBoolean(a, CultureInfo.InvariantCulture)).ToList()
                 : keys.Select(k => Flag(Ascending, true)).ToList();
             string order = string.Join(", ", keys.Select((k, i) => Identifier(k) + (i < ascending.Count && !ascending[i] ? " DESC" : " ASC") + " NULLS LAST"));
             return Derive("SELECT * FROM (" + Need() + ") ORDER BY " + order);
@@ -802,7 +802,7 @@ namespace SageTypes
         // Combinar e resumir
         // ------------------------------------------------------------------
 
-        // Keys: "A, B"; Aggregations: "Total = sum(Valor), N = count(*)", ou um DictionaryS
+        // Keys: "A, B"; Aggregations: "Total = sum(Valor), N = count(*)", ou um Dictionary
         // {coluna: função}; sem agregações, conta as linhas de cada grupo (como size())
         public DataFrame GroupBy(object Keys, object Aggregations)
         {
@@ -966,12 +966,12 @@ namespace SageTypes
             SetCell(Row, Interop.Text(Column).Trim(), Value);
         }
 
-        // Linha como DictionaryS {coluna: valor}
-        public DictionaryS GetLoc(long Row)
+        // Linha como Dictionary {coluna: valor}
+        public Dictionary GetLoc(long Row)
         {
             EnsureTable();
             CheckRow(Row, false);
-            DictionaryS d = new DictionaryS();
+            Dictionary d = new Dictionary();
             foreach (Column c in Schema()) d.LetValue(c.Name, Cell(Row, c.Name));
             return d;
         }
@@ -1001,7 +1001,7 @@ namespace SageTypes
                 throw Interop.Error(9, "IndexError: linha " + row.ToString(CultureInfo.InvariantCulture) + " fora do intervalo.");
         }
 
-        // For Each linha In df: cada linha como DictionaryS
+        // For Each linha In df: cada linha como Dictionary
         public IEnumerator GetEnumerator()
         {
             List<Column> cols = Schema();
@@ -1009,7 +1009,7 @@ namespace SageTypes
             using (Engine.QueryResult r = Engine.Query(Readable()))
                 foreach (object[] row in r.ReadAll(long.MaxValue))
                 {
-                    DictionaryS d = new DictionaryS();
+                    Dictionary d = new Dictionary();
                     for (int c = 0; c < cols.Count; c++) d.LetValue(cols[c].Name, row[c]);
                     rows.Add(d);
                 }
@@ -1052,7 +1052,7 @@ namespace SageTypes
         void SetCell(long row, string column, object value)
         {
             value = Interop.Unwrap(value);
-            if (value is ListS || value is DictionaryS || value is Array) throw Interop.Error(13, "Uma célula guarda um valor só (texto, número, data...).");
+            if (value is List || value is Dictionary || value is Array) throw Interop.Error(13, "Uma célula guarda um valor só (texto, número, data...).");
             EnsureTable();
             if (!Schema().Any(c => string.Equals(c.Name, column, StringComparison.OrdinalIgnoreCase)))
             {
@@ -1115,12 +1115,12 @@ namespace SageTypes
 
         void InvalidateBlock() { block = null; blockStart = -1; blockRows = 0; }
 
-        // Fora do cursor: a coluna inteira recebe um valor, ou um array/ListS com um valor por linha
+        // Fora do cursor: a coluna inteira recebe um valor, ou um array/List com um valor por linha
         void SetColumn(string name, object value)
         {
             Need();
             object raw = Interop.Unwrap(value);
-            if (raw is Array || value is ListS)
+            if (raw is Array || value is List)
             {
                 List<object> values = (raw is Array && ((Array)raw).Rank == 2) ? ((Array)raw).Cast<object>().ToList() : Interop.Items(value).ToList();
                 if (values.Count != Count)
@@ -1267,7 +1267,7 @@ namespace SageTypes
             return found != null ? Engine.Quote(found.Name) : Expressions.Translate(text);
         }
 
-        // "A, B", Array ou ListS -> nomes
+        // "A, B", Array ou List -> nomes
         static List<string> Names(object value)
         {
             object raw = Interop.Unwrap(value);

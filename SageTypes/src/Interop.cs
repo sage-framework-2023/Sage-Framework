@@ -40,45 +40,45 @@ namespace SageTypes
             return new COMException(message, unchecked((int)0x800A0000) | vbaNumber);
         }
 
-        // StringS vira o texto dele (para comparar e guardar como chave)
+        // String vira o texto dele (para comparar e guardar como chave)
         public static object Unwrap(object value)
         {
-            StringS s = value as StringS;
+            String s = value as String;
             return s != null ? s.Value : value;
         }
 
         // ------------------------------------------------------------------
-        // Valores dentro de ListS e DictionaryS
+        // Valores dentro de List e Dictionary
         // ------------------------------------------------------------------
 
-        // Ao guardar: array vira ListS (2D: lista de linhas), com os de dentro também,
-        // para "lista(2).Append x" alterar a lista guardada, como no Python; StringS vira
+        // Ao guardar: array vira List (2D: lista de linhas), com os de dentro também,
+        // para "lista(2).Append x" alterar a lista guardada, como no Python; String vira
         // texto (é imutável, como str). O resto (números, datas, objetos) fica como está.
         public static object Store(object value)
         {
-            StringS s = value as StringS;
+            String s = value as String;
             if (s != null) return s.Value;
             Array array = value as Array;
-            if (array != null) return ListS.From(Items(array));
+            if (array != null) return List.From(Items(array));
             return value;
         }
 
-        // Ao ler: texto volta como StringS, para "lista(0).Upper" funcionar; o VBA usa o
+        // Ao ler: texto volta como String, para "lista(0).Upper" funcionar; o VBA usa o
         // Value dele onde espera texto (Debug.Print, x = lista(0), comparações).
         public static object Wrap(object value)
         {
             string s = value as string;
             if (s == null) return value;
-            StringS result = new StringS();
+            String result = new String();
             result.SetRaw(s);
             return result;
         }
 
-        // Para devolver ao VBA "puro" (Value sem índice, ToArray): ListS vira array do
+        // Para devolver ao VBA "puro" (Value sem índice, ToArray): List vira array do
         // VBA, inclusive os de dentro; texto fica String
         public static object Plain(object value)
         {
-            ListS list = value as ListS;
+            List list = value as List;
             if (list == null) return value;
             object[] result = new object[list.Items.Count];
             for (int i = 0; i < result.Length; i++) result[i] = Plain(list.Items[i]);
@@ -91,7 +91,7 @@ namespace SageTypes
             if (value == null || value is DBNull || IsMissing(value)) return "";
             string s = value as string;
             if (s != null) return s;
-            StringS str = value as StringS;
+            String str = value as String;
             if (str != null) return str.Value;
             if (value is bool)
             {
@@ -123,14 +123,14 @@ namespace SageTypes
         }
 
         // Elementos de algo "iterável", como no Python: array (2D: as linhas, como arrays),
-        // ListS, DictionaryS (as chaves), texto (os caracteres) ou objeto COM com For Each
+        // List, Dictionary (as chaves), texto (os caracteres) ou objeto COM com For Each
         // (Collection, Range...)
         public static IEnumerable<object> Items(object source)
         {
             if (source == null || IsMissing(source)) throw Error(13, "TypeError: 'Empty' object is not iterable");
-            ListS list = source as ListS;
+            List list = source as List;
             if (list != null) return new List<object>(list.Items);
-            DictionaryS dict = source as DictionaryS;
+            Dictionary dict = source as Dictionary;
             if (dict != null) return new List<object>((object[])dict.KeysArray());
             object text = Unwrap(source);
             if (text is string) return ((string)text).Select(c => (object)c.ToString()).ToList();
@@ -158,7 +158,7 @@ namespace SageTypes
             if (value is DBNull) { sb.Append("Null"); return; }
             string s = value as string;
             if (s != null) { Quote(s, sb); return; }
-            StringS str = value as StringS;
+            String str = value as String;
             if (str != null) { Quote(str.Value, sb); return; }
             if (value is bool) { sb.Append((bool)value ? "True" : "False"); return; }
             if (value is DateTime)
@@ -178,9 +178,9 @@ namespace SageTypes
             }
             if (value.GetType().IsPrimitive || value is decimal) { sb.Append(((IFormattable)value).ToString(null, CultureInfo.InvariantCulture)); return; }
 
-            DictionaryS dict = value as DictionaryS;
+            Dictionary dict = value as Dictionary;
             Array array = value as Array;
-            ListS list = value as ListS;
+            List list = value as List;
             if (dict != null || array != null || list != null)
             {
                 // Estrutura que contém a si mesma, como o Python: {...} / [...]
@@ -253,15 +253,15 @@ namespace SageTypes
         // Pares chave/valor
         // ------------------------------------------------------------------
 
-        // DictionaryS, Scripting.Dictionary, Array/ListS (k1, v1, k2, v2...) ou de pares
+        // Dictionary, Scripting.Dictionary, Array/List (k1, v1, k2, v2...) ou de pares
         // (Array(k1, v1), Array(k2, v2)), como dict() do Python
         public static IEnumerable<KeyValuePair<object, object>> PairsOf(object source)
         {
-            DictionaryS dict = source as DictionaryS;
+            Dictionary dict = source as Dictionary;
             if (dict != null) return new List<KeyValuePair<object, object>>(dict.Pairs());
 
             List<KeyValuePair<object, object>> result = new List<KeyValuePair<object, object>>();
-            ListS sourceList = source as ListS;
+            List sourceList = source as List;
             Array array = source as Array;
             if (array != null || sourceList != null)
             {
@@ -301,7 +301,7 @@ namespace SageTypes
                 }
             }
 
-            throw Error(13, "TypeError: esperado DictionaryS, Scripting.Dictionary ou Array(chave1, valor1...)");
+            throw Error(13, "TypeError: esperado Dictionary, Scripting.Dictionary ou Array(chave1, valor1...)");
         }
 
         // Linhas de um array 2D (como o Range.Value: base 1), cada uma um array
@@ -318,12 +318,12 @@ namespace SageTypes
             return rows;
         }
 
-        // Tamanho de um par candidato (Array ou ListS); -1 se não for um
+        // Tamanho de um par candidato (Array ou List); -1 se não for um
         static int PairCount(object item)
         {
             Array a = item as Array;
             if (a != null) return a.Length;
-            ListS l = item as ListS;
+            List l = item as List;
             if (l != null) return l.Items.Count;
             return -1;
         }

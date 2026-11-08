@@ -73,9 +73,9 @@ namespace SageSetup
         public static string Title { get { return "Sage Framework " + BuildInfo.Version; } }
         public static string Description { get { return T(
             "Ferramentas para o editor do VBA no Excel: temas de cores, números de linha, abas, vários cursores, " +
-            "atalhos de teclado e tipos no estilo do Python (StringS, ListS, DictionaryS, DataFrame, DatetimeS, Json, Requests e SqlEngine).",
+            "atalhos de teclado e tipos no estilo do Python (String, List, Dictionary, DataFrame, Datetime, Json, Requests, SqlEngine e Path).",
             "Tools for the Excel VBA editor: color themes, line numbers, tabs, multiple cursors, keyboard shortcuts " +
-            "and Python-style types (StringS, ListS, DictionaryS, DataFrame, DatetimeS, Json, Requests and SqlEngine)."); } }
+            "and Python-style types (String, List, Dictionary, DataFrame, Datetime, Json, Requests, SqlEngine and Path)."); } }
         public static string Folder { get { return T("Pasta de instalação:", "Install folder:"); } }
         public static string Requirements { get { return T("Requer o Excel de 64 bits e o .NET Framework 4.8 (já vem no Windows 10 e 11).",
             "Requires 64-bit Excel and .NET Framework 4.8 (included in Windows 10 and 11)."); } }
@@ -408,6 +408,8 @@ namespace SageSetup
         public const string UserKey = @"Software\SageFramework"; // de cada usuário: o que a desinstalação volta
         public const string AddinKey = @"Software\Microsoft\VBA\VBE\6.0\Addins64\";
         public const string EditorProgId = "Sage.Editor";
+        // ProgIds de versões anteriores: os tipos com S no fim (até a 1.4) e o da primeira versão
+        public static readonly string[] LegacyProgIds = { "Sage.StringS", "Sage.ListS", "Sage.DictionaryS", "Sage.DatetimeS", "SageTypes.StringS" };
     }
 
     static class Common
@@ -494,7 +496,8 @@ namespace SageSetup
                     DeleteKey(user, @"Software\Classes\CLSID\" + c.Clsid);
                     DeleteKey(user, @"Software\Classes\" + c.ProgId);
                 }
-                foreach (string legacy in new[] { "Sage.VBE", "SageTypes.StringS" }) DeleteKey(user, @"Software\Classes\" + legacy);
+                DeleteKey(user, @"Software\Classes\Sage.VBE");
+                foreach (string legacy in Paths.LegacyProgIds) DeleteKey(user, @"Software\Classes\" + legacy);
                 foreach (string addin in new[] { Paths.EditorProgId, "Sage.VBE" }) DeleteKey(user, Paths.AddinKey + addin);
             }
             TypeLibs.UnregisterUser(Path.Combine(Paths.InstallDir, @"Types\SageTypes.tlb"));
@@ -791,6 +794,7 @@ namespace SageSetup
             using (RegistryKey machine = Common.Machine)
             {
                 foreach (ComClass c in classes) RegisterClass(machine, c);
+                foreach (string legacy in Paths.LegacyProgIds) Common.DeleteKey(machine, @"Software\Classes\" + legacy);
                 // Versões anteriores do instalador registravam o suplemento aqui (o VBE ignora)
                 Common.DeleteKey(machine, Paths.AddinKey + Paths.EditorProgId);
             }
@@ -1039,6 +1043,7 @@ namespace SageSetup
                     Common.DeleteKey(machine, @"Software\Classes\CLSID\" + c.Clsid);
                     Common.DeleteKey(machine, @"Software\Classes\" + c.ProgId);
                 }
+                foreach (string legacy in Paths.LegacyProgIds) Common.DeleteKey(machine, @"Software\Classes\" + legacy);
                 Common.DeleteKey(machine, Paths.AddinKey + Paths.EditorProgId);
                 Common.DeleteKey(machine, Paths.UninstallKey);
             }

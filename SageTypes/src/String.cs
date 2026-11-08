@@ -8,66 +8,66 @@ using System.Text;
 
 namespace SageTypes
 {
-    // StringS: texto com métodos, no lugar da classe StringS do Sage.xlam (mesma API).
+    // String: texto com métodos, no lugar da classe String do Sage.xlam (mesma API).
     //
-    //   Dim s As Sage.StringS: Set s = New Sage.StringS   ' só StringS seria o módulo VBA.Strings
+    //   Dim s As Sage.String: Set s = New Sage.String   ' só String seria o String do próprio VBA
     //   s = "  Olá\tmundo  "            ' membro padrão (Value); \n e \t viram quebra e tabulação
     //   Debug.Print s.Upper.Replace("MUNDO", "VBA")
     //
     // A interface é dual: o VBA chama pela vtable. Nunca reordene nem remova membros
-    // de _StringS (o código VBA compilado contra a versão anterior quebraria);
+    // de _String (o código VBA compilado contra a versão anterior quebraria);
     // acrescente novos sempre no fim, com o próximo DispId.
     [ComVisible(true), Guid("6E2B8F3A-41C7-4D5E-9A1B-3C8D7E6F5A21"), InterfaceType(ComInterfaceType.InterfaceIsDual)]
-    public interface _StringS
+    public interface _String
     {
         // String (e não object): com object o .NET exporta Property Set, e "s = texto" não compila
         [DispId(0)] string Value { get; set; }
-        [DispId(1)] StringS Upper();
-        [DispId(2)] StringS Lower();
-        [DispId(3)] StringS Proper();
-        [DispId(4)] StringS Trim([Optional] object RemoveText);
-        [DispId(5)] StringS Replace(object OldValue, object NewValue);
-        [DispId(6)] StringS Right(object Length);
-        [DispId(7)] StringS Left(object Length);
+        [DispId(1)] String Upper();
+        [DispId(2)] String Lower();
+        [DispId(3)] String Proper();
+        [DispId(4)] String Trim([Optional] object RemoveText);
+        [DispId(5)] String Replace(object OldValue, object NewValue);
+        [DispId(6)] String Right(object Length);
+        [DispId(7)] String Left(object Length);
         // ParamArray do VBA é um array por referência; o "params" do C# sai por valor e o
         // VBA recusa ("tipo de automação não suportado"). Por isso: até 30 opcionais.
-        [DispId(8)] StringS FString([Optional] object A1, [Optional] object A2, [Optional] object A3, [Optional] object A4, [Optional] object A5,
+        [DispId(8)] String FString([Optional] object A1, [Optional] object A2, [Optional] object A3, [Optional] object A4, [Optional] object A5,
             [Optional] object A6, [Optional] object A7, [Optional] object A8, [Optional] object A9, [Optional] object A10,
             [Optional] object A11, [Optional] object A12, [Optional] object A13, [Optional] object A14, [Optional] object A15,
             [Optional] object A16, [Optional] object A17, [Optional] object A18, [Optional] object A19, [Optional] object A20,
             [Optional] object A21, [Optional] object A22, [Optional] object A23, [Optional] object A24, [Optional] object A25,
             [Optional] object A26, [Optional] object A27, [Optional] object A28, [Optional] object A29, [Optional] object A30);
-        [DispId(9)] ListS Split(object Delimiter);
-        [DispId(10)] StringS Reverse();
+        [DispId(9)] List Split(object Delimiter);
+        [DispId(10)] String Reverse();
         [DispId(11)] int Length();
         [DispId(12)] bool IsNone();
-        [DispId(13)] StringS FixUtf8();
-        [DispId(14)] StringS Join([Optional] object A1, [Optional] object A2, [Optional] object A3, [Optional] object A4, [Optional] object A5,
+        [DispId(13)] String FixUtf8();
+        [DispId(14)] String Join([Optional] object A1, [Optional] object A2, [Optional] object A3, [Optional] object A4, [Optional] object A5,
             [Optional] object A6, [Optional] object A7, [Optional] object A8, [Optional] object A9, [Optional] object A10,
             [Optional] object A11, [Optional] object A12, [Optional] object A13, [Optional] object A14, [Optional] object A15,
             [Optional] object A16, [Optional] object A17, [Optional] object A18, [Optional] object A19, [Optional] object A20,
             [Optional] object A21, [Optional] object A22, [Optional] object A23, [Optional] object A24, [Optional] object A25,
             [Optional] object A26, [Optional] object A27, [Optional] object A28, [Optional] object A29, [Optional] object A30);
         [DispId(15)] int Count(object ArgChar);
-        [DispId(16)] StringS NormalizeAccent();
-        [DispId(17)] StringS Mid(int Start, [Optional] object Length);
+        [DispId(16)] String NormalizeAccent();
+        [DispId(17)] String Mid(int Start, [Optional] object Length);
         [DispId(18)] bool IsTextual();
         [DispId(19)] bool IsDigit();
         [DispId(20)] bool IsAlpha();
         [DispId(21)] bool IsNumeric();
     }
 
-    [ComVisible(true), Guid("9A4C1E7B-2D58-4F3A-B6C9-0E1F2A3B4C5D"), ProgId("Sage.StringS")]
-    [ClassInterface(ClassInterfaceType.None), ComDefaultInterface(typeof(_StringS))]
-    public sealed class StringS : _StringS
+    [ComVisible(true), Guid("9A4C1E7B-2D58-4F3A-B6C9-0E1F2A3B4C5D"), ProgId("Sage.String")]
+    [ClassInterface(ClassInterfaceType.None), ComDefaultInterface(typeof(_String))]
+    public sealed class String : _String
     {
         string text = "";
 
-        public StringS() { }
+        public String() { }
 
-        static StringS From(string value)
+        static String From(string value)
         {
-            StringS s = new StringS();
+            String s = new String();
             s.text = value;
             return s;
         }
@@ -106,11 +106,11 @@ namespace SageTypes
         // Texto
         // ------------------------------------------------------------------
 
-        public StringS Upper() { return From(text.ToUpper(CultureInfo.CurrentCulture)); }
-        public StringS Lower() { return From(text.ToLower(CultureInfo.CurrentCulture)); }
+        public String Upper() { return From(text.ToUpper(CultureInfo.CurrentCulture)); }
+        public String Lower() { return From(text.ToLower(CultureInfo.CurrentCulture)); }
 
         // Como PROPER do Excel: maiúscula depois de qualquer caractere que não é letra
-        public StringS Proper()
+        public String Proper()
         {
             StringBuilder sb = new StringBuilder(text.Length);
             bool afterLetter = false;
@@ -124,7 +124,7 @@ namespace SageTypes
 
         // Sem argumento: espaços e quebras de linha das pontas. Com RemoveText: tira
         // também esse texto das pontas, repetidamente ("--a--".Trim("-") = "a").
-        public StringS Trim(object RemoveText)
+        public String Trim(object RemoveText)
         {
             string result = TrimEnter(text);
             string remove = Escapes(Optional(RemoveText, ""));
@@ -143,7 +143,7 @@ namespace SageTypes
         }
 
         // Texto por texto, ou listas (arrays) de antigos e novos, aos pares
-        public StringS Replace(object OldValue, object NewValue)
+        public String Replace(object OldValue, object NewValue)
         {
             string result = text;
             List<object> olds = Flatten(OldValue), news = Flatten(NewValue);
@@ -163,7 +163,7 @@ namespace SageTypes
         }
 
         // Positivo: os últimos N caracteres. Negativo: tudo menos os primeiros N.
-        public StringS Right(object Length)
+        public String Right(object Length)
         {
             int n;
             if (!Number(Length, out n)) return From(text);
@@ -173,7 +173,7 @@ namespace SageTypes
         }
 
         // Positivo: os primeiros N caracteres. Negativo: tudo menos os últimos N.
-        public StringS Left(object Length)
+        public String Left(object Length)
         {
             int n;
             if (!Number(Length, out n)) return From(text);
@@ -183,7 +183,7 @@ namespace SageTypes
         }
 
         // Junta os argumentos (não usa o próprio texto)
-        public StringS FString(object A1, object A2, object A3, object A4, object A5, object A6, object A7, object A8, object A9, object A10,
+        public String FString(object A1, object A2, object A3, object A4, object A5, object A6, object A7, object A8, object A9, object A10,
             object A11, object A12, object A13, object A14, object A15, object A16, object A17, object A18, object A19, object A20,
             object A21, object A22, object A23, object A24, object A25, object A26, object A27, object A28, object A29, object A30)
         {
@@ -194,18 +194,18 @@ namespace SageTypes
             return From(sb.ToString());
         }
 
-        // ListS, como no Sage.xlam: .Split(".")(-1) é o último pedaço
-        public ListS Split(object Delimiter)
+        // List, como no Sage.xlam: .Split(".")(-1) é o último pedaço
+        public List Split(object Delimiter)
         {
             string delimiter = Text(Delimiter);
             string[] parts = delimiter.Length == 0 ? new string[] { text } : text.Split(new string[] { delimiter }, StringSplitOptions.None);
-            return ListS.From(parts);
+            return List.From(parts);
         }
 
-        // Texto sem as conversões de Value (\n, \t, corte das pontas): ListS.Join
+        // Texto sem as conversões de Value (\n, \t, corte das pontas): List.Join
         internal void SetRaw(string value) { text = value ?? ""; }
 
-        public StringS Reverse()
+        public String Reverse()
         {
             char[] chars = text.ToCharArray();
             Array.Reverse(chars);
@@ -217,16 +217,16 @@ namespace SageTypes
         public bool IsNone() { return text.Length == 0 || text == "\0"; }
 
         // Texto UTF-8 lido como ISO-8859-1 ("Ã§" -> "ç")
-        public StringS FixUtf8()
+        public String FixUtf8()
         {
             string result = text;
             for (int i = 0; i < Utf8Wrong.Length; i++) result = result.Replace(Utf8Wrong[i], Utf8Right[i]);
             return From(result);
         }
 
-        // O próprio texto é o separador: StringS(", ").Join("a", "b") = "a, b".
+        // O próprio texto é o separador: String(", ").Join("a", "b") = "a, b".
         // Um único array também serve: .Join(lista).
-        public StringS Join(object A1, object A2, object A3, object A4, object A5, object A6, object A7, object A8, object A9, object A10,
+        public String Join(object A1, object A2, object A3, object A4, object A5, object A6, object A7, object A8, object A9, object A10,
             object A11, object A12, object A13, object A14, object A15, object A16, object A17, object A18, object A19, object A20,
             object A21, object A22, object A23, object A24, object A25, object A26, object A27, object A28, object A29, object A30)
         {
@@ -248,10 +248,10 @@ namespace SageTypes
             return count;
         }
 
-        public StringS NormalizeAccent() { return From(RemoveAccents(text)); }
+        public String NormalizeAccent() { return From(RemoveAccents(text)); }
 
         // Como Mid do VBA (início em 1). Sem Length (ou "End"/"Max"): até o fim.
-        public StringS Mid(int Start, object Length)
+        public String Mid(int Start, object Length)
         {
             if (Start < 1) throw new COMException("Start deve ser maior ou igual a 1.", unchecked((int)0x800A0005));
             if (Start > text.Length) return From("");
@@ -332,23 +332,23 @@ namespace SageTypes
         }
 
         // Argumentos opcionais passados (os omitidos chegam como Missing); um único
-        // array ou ListS é expandido
+        // array ou List é expandido
         static IEnumerable Items(object[] args)
         {
             List<object> given = new List<object>();
             foreach (object arg in args)
                 if (!(arg is System.Reflection.Missing)) given.Add(arg);
-            if (given.Count == 1 && (given[0] is Array || given[0] is ListS)) return Flatten(given[0]);
+            if (given.Count == 1 && (given[0] is Array || given[0] is List)) return Flatten(given[0]);
             return given;
         }
 
-        // Array do VBA (todas as células, mesmo 2D, como no Sage.xlam) ou ListS -> lista;
+        // Array do VBA (todas as células, mesmo 2D, como no Sage.xlam) ou List -> lista;
         // outro valor: null
         static List<object> Flatten(object value)
         {
             Array array = value as Array;
             if (array != null) return array.Cast<object>().ToList();
-            ListS list = value as ListS;
+            List list = value as List;
             return list != null ? new List<object>(list.Items) : null;
         }
 

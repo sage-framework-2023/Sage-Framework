@@ -5,7 +5,7 @@ O que entrou em cada versão e o que está planejado. A versão segue `maior.men
 ## Planejado
 
 ### Controles para UserForms
-- **TreeView**: mostra um JSON (ou um `DictionaryS`/`ListS`) como árvore, para navegar por dados hierárquicos.
+- **TreeView**: mostra um JSON (ou um `Dictionary`/`List`) como árvore, para navegar por dados hierárquicos.
 - **ComboBox**: a caixa de seleção do Sage, no mesmo estilo do TextBox e do DateBox.
 
 ## Ideias: o que é antigo no VBA e pode ser modernizado
@@ -46,7 +46,11 @@ Ainda sem versão. Coisas que os UserForms não têm, ou têm de um jeito antigo
 - A biblioteca aparece em *Ferramentas > Referências* como **Sage Framework 1.5**.
 
 ### SageTypes
-- **Console.PrintF**: escreve na aba Terminal do Painel, com os marcadores do `printf` do C (`%d`, `%s`, `%.2f`, `%x`...).
+- **Console.PrintF**: escreve na aba Terminal do Painel, com os marcadores do `printf` do C (`%d`, `%s`, `%.2f`, `%x`...). Cada chamada termina a linha, como um print (sem linha em branco se o texto já terminar com `\n`).
+- **Path**: arquivos e pastas sem a biblioteca Scripting (`FileSystemObject`). Ler e gravar texto (`ReadText`, `ReadLines`, `WriteText`, `WriteLines`, `AppendText`, com UTF-8 e detecção de BOM/ANSI), partes do caminho (`Name`, `Stem`, `Extension`, `Parent`, `Join`, `WithName`, `WithExtension`), informações (`Exists`, `IsFile`, `IsFolder`, `Size`, `Modified`, `Created`), listagem (`Files`, `Folders`, `Glob` com `**`), `Mkdir`, `CopyTo`, `MoveTo` e `Delete`. Um caminho sem pasta é procurado na pasta da pasta de trabalho ativa, como no `DataFrame`.
+- Global **PathOf**: um `Path` numa linha, de um texto ou de uma pasta do Windows (`sgDesktop`, `sgDocuments`, `sgDownloads`, `sgTemp`...).
+- **Datetime.StrFTime** aceita os códigos do `Format` do VBA (`"dd/mm/yyyy hh:nn"`), pelo mesmo motor e com o mesmo resultado, mais `f` para as frações de segundo (`"hh:mm:ss.fff"`). Com `%` no formato, continuam os códigos do strftime (`"%d/%m/%Y"`).
+- **Nomes novos**: `StringS`, `ListS`, `DictionaryS` e `DatetimeS` passam a se chamar **`String`**, **`List`**, **`Dictionary`** e **`Datetime`** (`Sage.String`, `CreateObject("Sage.List")`...). No código antigo, troque os nomes com *Editar > Substituir* do VBE, em *Projeto atual*.
 
 ## 1.4.0
 

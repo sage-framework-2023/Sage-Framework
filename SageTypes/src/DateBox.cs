@@ -28,7 +28,7 @@ namespace SageTypes
     // setas, Page Up/Down e Enter funcionam nele enquanto está aberto; o clique no título passa
     // para meses e anos.
     //
-    // Interface dual: acrescente membros só no fim, com o próximo DispId (ver StringS). As
+    // Interface dual: acrescente membros só no fim, com o próximo DispId (ver String). As
     // propriedades gravadas no arquivo usam os nomes de SaveProperties: não os mude.
     [ComVisible(true), Guid("6E1F0B7C-3A52-4C8D-9E46-2B7D5A1C8F93"), InterfaceType(ComInterfaceType.InterfaceIsDual)]
     public interface _DateBox

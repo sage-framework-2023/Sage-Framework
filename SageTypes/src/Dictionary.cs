@@ -9,10 +9,10 @@ using System.Text;
 
 namespace SageTypes
 {
-    // DictionaryS: dicionário como o do Python, no lugar do DictionaryS do Sage.xlam
+    // Dictionary: dicionário como o do Python, no lugar do Dictionary do Sage.xlam
     // (mesma API, mais os métodos do Python).
     //
-    //   Dim d As New Sage.DictionaryS
+    //   Dim d As New Sage.Dictionary
     //   d("nome") = "Ana": d(1) = 10: Set d("lista") = outroDicionario
     //   For Each k In d: Debug.Print k, d(k): Next   ' chaves, na ordem de inserção
     //   Debug.Print d.ToString                       ' {'nome': 'Ana', 1: 10, ...}
@@ -20,9 +20,9 @@ namespace SageTypes
     // Como no Python: chave inexistente gera erro (KeyError, erro 9); chaves de qualquer
     // tipo imutável, com 1, 1.0 e CLng(1) iguais e "1" diferente; arrays não são chave.
     //
-    // Interface dual: acrescente membros só no fim, com o próximo DispId (ver StringS).
+    // Interface dual: acrescente membros só no fim, com o próximo DispId (ver String).
     [ComVisible(true), Guid("C2D7A9E4-5B13-4F68-8E0A-7D4B1C9F3E62"), InterfaceType(ComInterfaceType.InterfaceIsDual)]
-    public interface _DictionaryS
+    public interface _Dictionary
     {
         // d(chave) lê; Set d(chave) = objeto grava. d(chave) = valor (Property Let) é o
         // LetValue abaixo. Sem chave: lê um Scripting.Dictionary com tudo (como no
@@ -32,22 +32,22 @@ namespace SageTypes
         [DispId(2)] object Key(object Key);
         [DispId(3)] object GetItem(object Key, [Optional] object DefaultValue);
         [DispId(4)] bool Exists(object Key);
-        [DispId(5)] ListS Keys();
-        [DispId(6)] ListS Itens();
+        [DispId(5)] List Keys();
+        [DispId(6)] List Itens();
         [DispId(7)] int Length();
-        [DispId(8)] DictionaryS Copy();
+        [DispId(8)] Dictionary Copy();
         [DispId(9)] void Clear();
         [DispId(10)] void Remove(object Key);
         [DispId(11)] void Append([Optional] object Value);
         [DispId(12)] int Count { get; }
         [DispId(13)] bool Contains(object Key);
-        [DispId(14)] ListS Values();
-        [DispId(15)] ListS Items();
+        [DispId(14)] List Values();
+        [DispId(15)] List Items();
         [DispId(16)] object Pop(object Key, [Optional] object DefaultValue);
         [DispId(17)] object PopItem();
         [DispId(18)] object SetDefault(object Key, [Optional] object DefaultValue);
         [DispId(19)] void Update(object Other);
-        [DispId(20)] DictionaryS FromKeys(object Keys, [Optional] object Value);
+        [DispId(20)] Dictionary FromKeys(object Keys, [Optional] object Value);
         [DispId(21)] string ToString();
         [DispId(-4)] IEnumerator GetEnumerator();
 
@@ -59,16 +59,16 @@ namespace SageTypes
         [DispId(22)] void Add(object Key, object Item);
         [DispId(23)] void RemoveAll();
         // d | outro do Python 3.9: dicionário novo com os dois (o de outro vence nas chaves repetidas)
-        [DispId(24)] DictionaryS Union(object Other);
+        [DispId(24)] Dictionary Union(object Other);
     }
 
-    [ComVisible(true), Guid("4B8E6D21-9F3C-4A57-B1D0-E5C27A8F6B39"), ProgId("Sage.DictionaryS")]
-    [ClassInterface(ClassInterfaceType.None), ComDefaultInterface(typeof(_DictionaryS))]
-    public sealed class DictionaryS : _DictionaryS, IEnumerable
+    [ComVisible(true), Guid("4B8E6D21-9F3C-4A57-B1D0-E5C27A8F6B39"), ProgId("Sage.Dictionary")]
+    [ClassInterface(ClassInterfaceType.None), ComDefaultInterface(typeof(_Dictionary))]
+    public sealed class Dictionary : _Dictionary, IEnumerable
     {
         readonly OrderedDictionary entries = new OrderedDictionary(KeyComparer.Instance);
 
-        public DictionaryS() { }
+        public Dictionary() { }
 
         // ------------------------------------------------------------------
         // Valor (membro padrão)
@@ -98,7 +98,7 @@ namespace SageTypes
             entries[KeyOf(key)] = Interop.Store(value);
         }
 
-        // Texto volta como StringS (d("nome").Upper), como na ListS
+        // Texto volta como String (d("nome").Upper), como na List
         object Get(object key)
         {
             object k = KeyOf(key);
@@ -131,7 +131,7 @@ namespace SageTypes
 
         public bool Exists(object Key) { return Contains(Key); }
 
-        public ListS Keys() { return ListS.From((object[])KeysArray()); }
+        public List Keys() { return List.From((object[])KeysArray()); }
 
         // Chaves como o VBA as vê (a chave Empty volta como Empty)
         internal object KeysArray()
@@ -144,14 +144,14 @@ namespace SageTypes
 
         static object PlainKey(object key) { return key == KeyComparer.Empty ? null : key; }
 
-        public ListS Itens() { return Values(); }
+        public List Itens() { return Values(); }
 
         public int Length() { return entries.Count; }
 
         // Cópia rasa (os objetos guardados são os mesmos), como copy() do Python
-        public DictionaryS Copy()
+        public Dictionary Copy()
         {
-            DictionaryS copy = new DictionaryS();
+            Dictionary copy = new Dictionary();
             foreach (DictionaryEntry e in entries) copy.entries.Add(e.Key, e.Value);
             return copy;
         }
@@ -169,9 +169,9 @@ namespace SageTypes
 
         public void RemoveAll() { Clear(); }
 
-        public DictionaryS Union(object Other)
+        public Dictionary Union(object Other)
         {
-            DictionaryS result = Copy();
+            Dictionary result = Copy();
             result.Update(Other);
             return result;
         }
@@ -194,19 +194,19 @@ namespace SageTypes
 
         public bool Contains(object Key) { return entries.Contains(KeyOf(Key)); }
 
-        public ListS Values()
+        public List Values()
         {
             object[] result = new object[entries.Count];
             entries.Values.CopyTo(result, 0);
-            return ListS.From(result);
+            return List.From(result);
         }
 
-        // Pares (chave, valor), cada um uma ListS, como items() do Python
-        public ListS Items()
+        // Pares (chave, valor), cada um uma List, como items() do Python
+        public List Items()
         {
             List<object> result = new List<object>(entries.Count);
-            foreach (DictionaryEntry e in entries) result.Add(ListS.From(new object[] { PlainKey(e.Key), e.Value }));
-            return ListS.From(result);
+            foreach (DictionaryEntry e in entries) result.Add(List.From(new object[] { PlainKey(e.Key), e.Value }));
+            return List.From(result);
         }
 
         public object Pop(object Key, object DefaultValue)
@@ -222,14 +222,14 @@ namespace SageTypes
             return Interop.Wrap(value);
         }
 
-        // Tira e devolve o último par inserido, ListS (chave, valor)
+        // Tira e devolve o último par inserido, List (chave, valor)
         public object PopItem()
         {
             if (entries.Count == 0) throw Interop.Error(9, "KeyError: 'popitem(): dictionary is empty'");
             int last = entries.Count - 1;
             object[] keys = new object[entries.Count];
             entries.Keys.CopyTo(keys, 0);
-            ListS pair = ListS.From(new object[] { PlainKey(keys[last]), entries[last] });
+            List pair = List.From(new object[] { PlainKey(keys[last]), entries[last] });
             entries.RemoveAt(last);
             return pair;
         }
@@ -244,9 +244,9 @@ namespace SageTypes
         // Como update() do Python: acrescenta e substitui
         public void Update(object Other) { Load(Other, true); }
 
-        public DictionaryS FromKeys(object Keys, object Value)
+        public Dictionary FromKeys(object Keys, object Value)
         {
-            DictionaryS result = new DictionaryS();
+            Dictionary result = new Dictionary();
             object value = Interop.IsMissing(Value) ? null : Interop.Store(Value);
             foreach (object k in Interop.Items(Keys)) result.entries[result.KeyOf(k)] = value;
             return result;
@@ -263,7 +263,7 @@ namespace SageTypes
             foreach (DictionaryEntry e in entries) yield return new KeyValuePair<object, object>(e.Key, e.Value);
         }
 
-        // For Each percorre uma cópia das chaves (o dicionário pode mudar no laço); texto vem como StringS
+        // For Each percorre uma cópia das chaves (o dicionário pode mudar no laço); texto vem como String
         public IEnumerator GetEnumerator()
         {
             object[] keys = (object[])KeysArray();
@@ -273,16 +273,16 @@ namespace SageTypes
 
         // ------------------------------------------------------------------
 
-        // Chave guardada: StringS vira o texto dele (chaves são imutáveis, como no Python)
+        // Chave guardada: String vira o texto dele (chaves são imutáveis, como no Python)
         object KeyOf(object key)
         {
             if (key is Array) throw Interop.Error(13, "TypeError: unhashable type: 'Array'");
-            StringS s = key as StringS;
+            String s = key as String;
             if (s != null) return s.Value;
             return key ?? KeyComparer.Empty;
         }
 
-        // Array (k1, v1, k2, v2...), DictionaryS ou Scripting.Dictionary
+        // Array (k1, v1, k2, v2...), Dictionary ou Scripting.Dictionary
         void Load(object source, bool replace)
         {
             foreach (KeyValuePair<object, object> pair in Interop.PairsOf(source))
@@ -312,7 +312,7 @@ namespace SageTypes
 
         static bool IsNumber(object o) { return PyOrder.IsNumber(o); }
 
-        // Também compara elementos de ListS (Contains, Index, CountOf): StringS vale o texto
+        // Também compara elementos de List (Contains, Index, CountOf): String vale o texto
         public new bool Equals(object a, object b)
         {
             a = Interop.Unwrap(a);

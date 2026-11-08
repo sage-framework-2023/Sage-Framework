@@ -9,15 +9,17 @@ namespace SageTypes
 {
     // Console: escreve na aba Terminal da janela do Painel (Ctrl+J). Global (sem Dim):
     //
-    //   Console.PrintF "Linha %d de %d: %s\n", i, total, nome
-    //   Console.PrintF "Total: %.2f (%5.1f%%)\n", soma, taxa
+    //   Console.PrintF "Linha %d de %d: %s", i, total, nome
+    //   Console.PrintF "Total: %.2f (%5.1f%%)", soma, taxa
     //
-    // Como o printf do C, a quebra de linha só vem com o \n. Marcadores: %d %i %u (inteiro),
+    // Cada PrintF termina a linha, como um print: a quebra entra sozinha no fim (só não entra se
+    // o texto já terminar com \n, para o estilo do C não sair com linhas em branco); \n no meio
+    // quebra a linha ali. Marcadores: %d %i %u (inteiro),
     // %f %e %g (decimal), %s (qualquer valor, como o CStr do VBA), %c (caractere ou código),
     // %x %X %o (hexadecimal, octal) e %%, com as opções %-5d, %05d, %+d, %.2f. Os números saem
     // sempre com ponto decimal, em qualquer idioma; %s segue o Windows, como o CStr.
     //
-    // Acrescente membros só no fim, com o próximo DispId (ver StringS). Não é dual, ao contrário
+    // Acrescente membros só no fim, com o próximo DispId (ver String). Não é dual, ao contrário
     // das outras: uma dual responderia ao Dim o As Object com o IDispatch dela, que não sabe
     // juntar o ParamArray (ver ConsoleLateBound). Acrescente cada membro novo lá também.
     [ComVisible(true), Guid("AD3E917D-B6FF-4B86-85D9-89845062DB7D"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
@@ -74,6 +76,7 @@ namespace SageTypes
                 foreach (object arg in Args)
                     if (!Interop.IsMissing(arg)) args.Add(DefaultValue(arg));
             string text = Render(Interop.Text(DefaultValue(Format)), args);
+            if (!text.EndsWith("\n")) text += "\n";
             Func<string, bool> print = AppDomain.CurrentDomain.GetData(EditorSlot) as Func<string, bool>;
             if (print != null) print(text);
         }

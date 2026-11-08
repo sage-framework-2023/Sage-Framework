@@ -11,21 +11,21 @@ namespace SageTypes
 {
     // Json: o módulo json do Python. Global, como no Python (sem Dim):
     //
-    //   Dim d As Sage.DictionaryS
+    //   Dim d As Sage.Dictionary
     //   Set d = Json.Loads("{""nome"": ""Ana"", ""itens"": [1, 2.5, null]}")
     //   Debug.Print d("itens")(1)                     ' 2.5
     //   Debug.Print Json.Dumps(d, Indent:=2)
     //
-    // Objeto -> DictionaryS, lista -> ListS, texto -> StringS, número -> Long/LongLong/Double,
+    // Objeto -> Dictionary, lista -> List, texto -> String, número -> Long/LongLong/Double,
     // true/false -> Boolean, null -> Empty (None). Na volta (Dumps), também Scripting.Dictionary,
-    // arrays (2D: lista de linhas), Collection, Date/DatetimeS (texto ISO) e DataFrame (lista de linhas).
+    // arrays (2D: lista de linhas), Collection, Date/Datetime (texto ISO) e DataFrame (lista de linhas).
     //
-    // Interface dual: acrescente membros só no fim, com o próximo DispId (ver StringS).
+    // Interface dual: acrescente membros só no fim, com o próximo DispId (ver String).
     [ComVisible(true), Guid("F9E2F586-295B-4A25-86CB-745578464E70"), InterfaceType(ComInterfaceType.InterfaceIsDual)]
     public interface _Json
     {
         [DispId(1)] object Loads(object Text);
-        [DispId(2)] StringS Dumps(object Value, [Optional] object Indent, [Optional] object SortKeys, [Optional] object EnsureAscii);
+        [DispId(2)] String Dumps(object Value, [Optional] object Indent, [Optional] object SortKeys, [Optional] object EnsureAscii);
         [DispId(3)] object Load(string Path, [Optional] object Encoding);
         [DispId(4)] void Dump(object Value, string Path, [Optional] object Indent, [Optional] object SortKeys, [Optional] object EnsureAscii);
     }
@@ -38,9 +38,9 @@ namespace SageTypes
 
         public object Loads(object Text) { return Interop.Wrap(Parse(Interop.Text(Text))); }
 
-        public StringS Dumps(object Value, object Indent, object SortKeys, object EnsureAscii)
+        public String Dumps(object Value, object Indent, object SortKeys, object EnsureAscii)
         {
-            return (StringS)Interop.Wrap(Serialize(Value, Indent, SortKeys, EnsureAscii));
+            return (String)Interop.Wrap(Serialize(Value, Indent, SortKeys, EnsureAscii));
         }
 
         // Arquivo em UTF-8 (padrão), com ou sem BOM
@@ -127,9 +127,9 @@ namespace SageTypes
                 return true;
             }
 
-            DictionaryS Object(int depth)
+            Dictionary Object(int depth)
             {
-                DictionaryS result = new DictionaryS();
+                Dictionary result = new Dictionary();
                 Position++; // {
                 SkipSpace();
                 if (Position < Text.Length && Text[Position] == '}') { Position++; return result; }
@@ -150,19 +150,19 @@ namespace SageTypes
                 }
             }
 
-            ListS Array(int depth)
+            List Array(int depth)
             {
                 List<object> items = new List<object>();
                 Position++; // [
                 SkipSpace();
-                if (Position < Text.Length && Text[Position] == ']') { Position++; return ListS.From(items); }
+                if (Position < Text.Length && Text[Position] == ']') { Position++; return List.From(items); }
                 while (true)
                 {
                     SkipSpace();
                     items.Add(Value(depth + 1));
                     SkipSpace();
                     if (Position < Text.Length && Text[Position] == ',') { Position++; continue; }
-                    if (Position < Text.Length && Text[Position] == ']') { Position++; return ListS.From(items); }
+                    if (Position < Text.Length && Text[Position] == ']') { Position++; return List.From(items); }
                     throw Fail("Expecting ',' delimiter");
                 }
             }
@@ -275,23 +275,23 @@ namespace SageTypes
             {
                 if (depth > 1000) throw Interop.Error(5, "ValueError: estrutura aninhada demais.");
                 if (value == null || value is DBNull || Interop.IsMissing(value) || value == KeyComparer.Empty) { Output.Append("null"); return; }
-                StringS s = value as StringS;
+                String s = value as String;
                 if (s != null) { Quote(s.Value); return; }
                 string text = value as string;
                 if (text != null) { Quote(text); return; }
                 if (value is bool) { Output.Append((bool)value ? "true" : "false"); return; }
                 if (value is double || value is float) { Output.Append(Float(Convert.ToDouble(value, CultureInfo.InvariantCulture))); return; }
                 if (value is decimal || (value.GetType().IsPrimitive && !(value is char))) { Output.Append(((IFormattable)value).ToString(null, CultureInfo.InvariantCulture)); return; }
-                if (value is DateTime) { Quote(DatetimeS.From((DateTime)value, null).Iso8601("T", "auto")); return; }
-                DatetimeS date = value as DatetimeS;
+                if (value is DateTime) { Quote(Datetime.From((DateTime)value, null).Iso8601("T", "auto")); return; }
+                Datetime date = value as Datetime;
                 if (date != null) { Quote(date.Iso8601("T", "auto")); return; }
 
                 if (!open.Add(value)) throw Interop.Error(5, "ValueError: Circular reference detected");
                 try
                 {
-                    DictionaryS dict = value as DictionaryS;
+                    Dictionary dict = value as Dictionary;
                     if (dict != null) { WriteObject(dict.Pairs(), depth); return; }
-                    ListS list = value as ListS;
+                    List list = value as List;
                     if (list != null) { WriteArray(list.Items, depth); return; }
                     Array array = value as Array;
                     if (array != null) { WriteArray(Interop.Items(array), depth); return; }
@@ -363,7 +363,7 @@ namespace SageTypes
                 if (key is bool) return (bool)key ? "true" : "false";
                 if (key is double || key is float) return Float(Convert.ToDouble(key, CultureInfo.InvariantCulture));
                 if (key is decimal || key.GetType().IsPrimitive) return ((IFormattable)key).ToString(null, CultureInfo.InvariantCulture);
-                if (key is DateTime) return DatetimeS.From((DateTime)key, null).Iso8601("T", "auto");
+                if (key is DateTime) return Datetime.From((DateTime)key, null).Iso8601("T", "auto");
                 throw Interop.Error(13, "TypeError: keys must be str, int, float, bool or None, not " + Interop.TypeLabel(key));
             }
 

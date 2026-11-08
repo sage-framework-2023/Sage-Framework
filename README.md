@@ -23,10 +23,11 @@ Configurable in a text file: `Ctrl+K, Ctrl+C` to comment, `Alt+Arrow` to move li
 ### SageTypes: the **Sage** library
 | Type | What for |
 |---|---|
-| `StringS`, `ListS`, `DictionaryS` | Text, lists and dictionaries with chainable methods, negative indexes, slices and clear errors (`KeyError`, `IndexError`) |
-| `DatetimeS` | Date and time with time zones, business days, start and end of period |
+| `String`, `List`, `Dictionary` | Text, lists and dictionaries with chainable methods, negative indexes, slices and clear errors (`KeyError`, `IndexError`) |
+| `Datetime` | Date and time with time zones, business days, start and end of period |
 | `DataFrame` | Tables backed by DuckDB, for millions of rows |
 | `Json`, `Requests`, `SqlEngine` | Read and write JSON, call APIs and connect to PostgreSQL, MySQL, SQLite, SQL Server, Access and ODBC |
+| `Path` | Files and folders: read and write text, list, search (`**\*.csv`), copy, move and delete, instead of the Scripting `FileSystemObject`. Paths without a folder are relative to the workbook |
 | `Console` | `Console.PrintF` writes formatted text to the Terminal tab of the Panel, printf style |
 | `Resizable`, `OfficeTheme` | Resizable UserForms and the current Office theme |
 
