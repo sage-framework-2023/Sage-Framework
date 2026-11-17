@@ -43,7 +43,7 @@ namespace SageEditor
         public static string TerminalTitle, TerminalImmediate, TerminalLocals, TerminalWatch, TerminalConsole, TerminalResults;
         public static string KillTerminal, ClearResults, Save, SaveFailed, SaveTooManyRows, SaveNothing;
         public static string ResultsEmpty, ResultsRow, ResultsRows, ResultsColumn, ResultsColumns, NullCell;
-        public static string ConsoleWarning, ConsoleNoWorkbook;
+        public static string ConsoleWarning, ConsoleNoWorkbook, ConsoleCopy, ConsoleCopyAll, ConsolePaste, ConsoleSelectAll;
 
         public static void Load()
         {
@@ -184,6 +184,10 @@ namespace SageEditor
             ResultsColumns = "{0:N0} colunas";
             NullCell = "Vazio";
             ConsoleWarning = "AVISO: ";
+            ConsoleCopy = "Copiar";
+            ConsoleCopyAll = "Copiar Tudo";
+            ConsolePaste = "Colar";
+            ConsoleSelectAll = "Selecionar Tudo";
             ConsoleNoWorkbook = "Nenhuma pasta de trabalho aberta no Excel.";
         }
 
@@ -289,6 +293,10 @@ namespace SageEditor
             ResultsColumns = "{0:N0} columns";
             NullCell = "Empty";
             ConsoleWarning = "WARNING: ";
+            ConsoleCopy = "Copy";
+            ConsoleCopyAll = "Copy All";
+            ConsolePaste = "Paste";
+            ConsoleSelectAll = "Select All";
             ConsoleNoWorkbook = "No workbook is open in Excel.";
         }
     }

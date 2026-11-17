@@ -26,6 +26,18 @@ Uma lista de avisos sobre o código, agrupada por módulo, com `Módulo:linha`; 
 - a aba pode ficar fechada: quem não quiser, não a vê;
 - o que pode ter outra explicação (procedimento "nunca chamado", que pode ser chamado por um botão da planilha ou por `Application.Run`) entra como Informação, e não como Aviso.
 
+## Ideias para o SageTypes
+
+Ainda sem versão.
+
+### Funções de planilha
+Funções novas para usar direto nas células, como `=ENTRE(A1; 1; 10)` (VERDADEIRO se o valor está entre os dois limites).
+
+- **Como:** um suplemento de automação COM, em C#, no mesmo pipeline de registro do SageTypes; o instalador o ativa para cada usuário. Uma XLL (com o Excel-DNA) só se um dia precisarmos de descrição dos argumentos no assistente de função ou de mais velocidade.
+- **Nomes nos dois idiomas:** o Excel traduz sozinho só as funções nativas (o arquivo as guarda em inglês, e cada Excel mostra no seu idioma de exibição). Uma função personalizada fica com o nome digitado. Por isso cada função existe com os dois nomes, `ENTRE` e `BETWEEN`, e uma planilha funciona em qualquer Excel com o Sage. Não registrar só o nome do idioma do Office (a planilha de um colega de outro idioma abriria com `#NOME?`) nem reescrever as fórmulas ao abrir o arquivo.
+- **ENTRE:** inclui as pontas (como o `BETWEEN` do SQL) e aceita os limites em qualquer ordem; um quarto argumento opcional exclui as pontas.
+- **Sem o Sage:** a planilha mostra `#NOME?`, como com qualquer suplemento.
+
 ## Ideias: o que é antigo no VBA e pode ser modernizado
 
 Ainda sem versão. Coisas que os UserForms não têm, ou têm de um jeito antigo.
@@ -57,6 +69,8 @@ Ainda sem versão. Coisas que os UserForms não têm, ou têm de um jeito antigo
 - Menu **Sage > Exibir**: abre e fecha o Explorador (Ctrl+R) e o Painel (Ctrl+J). O que está à vista fica marcado.
 - Vários cursores: **Ctrl+V** (ou Shift+Insert) cola em todos os cursores, no lugar da seleção de cada um (antes, só no principal). Com uma linha na área de transferência para cada cursor, cada um recebe a sua; senão, todos recebem o texto inteiro.
 - O tema *Dark+* passa a se chamar **Dark** (quem já usa continua nele).
+- Aba Terminal: a tela é uma caixa só, como num terminal comum, com o prompt e a linha de comando na última linha. Dá para selecionar e copiar qualquer trecho, inclusive da saída até a linha de comando; só a linha de comando pode ser editada. O clique direito tem *Copiar*, *Copiar Tudo*, *Colar* e *Selecionar Tudo*, e o Ctrl+A seleciona tudo.
+- Aba Terminal: o prompt sai na cor do texto do tema, e não mais na cor de destaque (azul).
 - O Painel (Ctrl+J, *Sage > Exibir > Painel*) abre sempre na aba **Terminal**.
 - Correção: a aba Terminal às vezes abria sem o prompt e sem a linha de comando, e só aparecia depois de trocar de aba e voltar.
 - A biblioteca aparece em *Ferramentas > Referências* como **Sage Framework 1.6**.

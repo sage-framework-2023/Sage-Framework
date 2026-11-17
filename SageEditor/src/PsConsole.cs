@@ -21,168 +21,89 @@ namespace SageEditor
     //   exit                              fecha a janela e recomeça a sessão, com a tela limpa
     // Enter executa, Seta para cima/baixo navega no histórico, Tab completa, Esc apaga a linha
     // e Ctrl+C interrompe o comando (ou copia, com texto selecionado).
+    //
+    // A tela é uma caixa só, como num terminal comum: a saída e, na última linha, o prompt e a
+    // linha de comando. Tudo pode ser selecionado e copiado (inclusive da saída até a linha de
+    // comando), mas só o que vem depois do prompt pode ser editado: digitar com o cursor na saída
+    // leva o cursor para a linha de comando, e Backspace, Recortar e Colar não alcançam o resto.
+    // promptStart: onde começa o prompt atual (-1: sem prompt, com um comando rodando ou o
+    // PowerShell iniciando); inputStart: onde começa a linha de comando, logo depois do prompt.
     sealed class PsConsole : UserControl
     {
-        readonly RichTextBox output = new RichTextBox();
-        readonly PromptBox prompt = new PromptBox();
-        readonly InputBox input = new InputBox();
-        readonly Panel inputRow = new Panel();
+        readonly TerminalBox box = new TerminalBox();
         readonly List<string> history = new List<string>();
         int historyIndex;
         Runspace runspace;
         PowerShell running;
         bool starting;
-        bool promptShown; // o prompt deve aparecer (prompt.Visible é falso enquanto o Painel não está na tela)
+        int promptStart = -1, inputStart;
+        bool endsWithNewLine = true; // a tela termina numa quebra de linha (ou está vazia)
+        bool writing, coloring, dark = true;
         string location = "";
         Theme theme;
-        Color errorColor, warningColor;
+        Color errorColor, warningColor, promptColor;
 
         const int MaxLength = 2000000; // caracteres guardados na tela
+        const int WM_SETREDRAW = 0x000B, EM_GETTEXTRANGE = 0x044B, EM_SETUNDOLIMIT = 0x0452;
 
         public PsConsole()
         {
-            Font font = new Font("Consolas", 10f);
-            output.ReadOnly = true;
-            output.BorderStyle = BorderStyle.None;
-            output.Font = font;
-            output.DetectUrls = false;
-            output.HideSelection = false;
-            output.WordWrap = true; // as linhas já vêm na largura da tela (Out-String -Width)
-            output.ScrollBars = RichTextBoxScrollBars.Vertical;
-            output.Visible = false;
-
-            // O prompt também é um RichTextBox: o mesmo desenho de texto do histórico e da linha de
-            // digitação (um Label sairia com outra largura de letra e outras margens)
-            prompt.Font = font;
-            prompt.Visible = false; // aparece quando o PowerShell estiver pronto
-            prompt.Clicked += delegate { input.Focus(); };
-            input.BorderStyle = BorderStyle.None;
-            input.Font = font;
-            input.KeyDown += InputKeyDown;
-            inputRow.Height = font.Height + 6;
-            inputRow.Controls.Add(input);
-            inputRow.Controls.Add(prompt);
-
-            Controls.Add(output);
-            Controls.Add(inputRow);
-            // As posições dependem das janelas das caixas: refaz quando elas são criadas
-            output.HandleCreated += delegate { Arrange(); };
-            prompt.HandleCreated += delegate { Arrange(); };
-            input.HandleCreated += delegate { Arrange(); };
-            output.Click += delegate { if (output.SelectionLength == 0) input.Focus(); };
-            MouseDown += delegate { input.Focus(); };
-            inputRow.MouseDown += delegate { input.Focus(); };
-            UpdatePrompt();
-        }
-
-        // Como num terminal comum: a saída cresce de cima para baixo e a linha de comando fica
-        // logo depois dela; quando a tela enche, a saída rola e a linha de comando fica embaixo
-        protected override void OnLayout(LayoutEventArgs e)
-        {
-            base.OnLayout(e);
-            Arrange();
-        }
-
-        void Arrange()
-        {
-            int width = ClientSize.Width, rowHeight = inputRow.Height;
-            int room = Math.Max(0, ClientSize.Height - rowHeight);
-            int height = Math.Min(room, ContentHeight());
-            output.Visible = height > 0;
-            output.SetBounds(0, 0, width, Math.Max(1, height));
-            inputRow.SetBounds(0, height, width, rowHeight);
-            if (height >= room && output.TextLength > 0)
-            {
-                output.SelectionStart = output.TextLength;
-                output.ScrollToCaret();
-            }
-            PlaceInput(height);
-        }
-
-        // A linha de digitação como a próxima linha do histórico: o texto do prompt na mesma margem
-        // e na mesma altura em que o histórico desenharia a linha seguinte, e a caixa de digitação
-        // logo depois do último caractere do prompt
-        void PlaceInput(int rowTop)
-        {
-            if (!input.IsHandleCreated || !prompt.IsHandleCreated) return;
-            Point inputOrigin = input.GetPositionFromCharIndex(0), promptOrigin = prompt.GetPositionFromCharIndex(0);
-            int x = inputOrigin.X, y = inputOrigin.Y;
-            if (output.TextLength > 0 && output.Visible && output.IsHandleCreated)
-            {
-                x = output.GetPositionFromCharIndex(0).X;
-                int line = output.GetLineFromCharIndex(output.TextLength);
-                int last = output.GetPositionFromCharIndex(output.GetFirstCharIndexFromLine(line)).Y;
-                char end = output.Text[output.TextLength - 1];
-                int next = end == '\n' || end == '\r' ? last : last + LineHeight();
-                y = Math.Max(-2, Math.Min(inputRow.Height - 4, output.Top + next - rowTop)); // pode subir um pouco: a área começa 2 px depois do histórico
-            }
-            int left = x;
-            // A altura de uma linha: com mais, o RichTextBox de uma linha centraliza o texto e ele desce
-            int height = LineHeight() + 1;
-            if (promptShown && prompt.TextLength > 0)
-            {
-                prompt.SetBounds(x - promptOrigin.X, y - promptOrigin.Y, prompt.TextEnd + promptOrigin.X + 2, height);
-                left = x + prompt.TextEnd - promptOrigin.X;
-            }
-            input.SetBounds(left - inputOrigin.X, y - inputOrigin.Y, Math.Max(20, inputRow.Width - (left - inputOrigin.X) - 4), height);
-        }
-
-        // A distância entre as linhas do histórico (a da fonte, sem duas linhas para medir)
-        int LineHeight()
-        {
-            int lines = output.GetLineFromCharIndex(output.TextLength) + 1;
-            if (lines >= 2)
-            {
-                int first = output.GetPositionFromCharIndex(0).Y;
-                int last = output.GetPositionFromCharIndex(output.GetFirstCharIndexFromLine(lines - 1)).Y;
-                if (last > first) return (last - first) / (lines - 1);
-            }
-            return output.Font.Height;
-        }
-
-        // Altura do texto da saída (a última linha é a vazia depois da quebra final)
-        int ContentHeight()
-        {
-            if (output.TextLength == 0) return 0;
-            int lines = output.GetLineFromCharIndex(output.TextLength) + 1;
-            return lines * LineHeight() + 2;
+            box.BorderStyle = BorderStyle.None;
+            box.Font = new Font("Consolas", 10f);
+            box.DetectUrls = false;
+            box.HideSelection = false;
+            box.WordWrap = true; // as linhas já vêm na largura da tela (Out-String -Width)
+            box.ScrollBars = RichTextBoxScrollBars.Vertical;
+            box.Dock = DockStyle.Fill;
+            box.KeyDown += BoxKeyDown;
+            box.KeyPress += BoxKeyPress;
+            box.TextChanged += delegate { if (!writing && !coloring) RecolorInput(); };
+            box.MouseUp += delegate(object s, MouseEventArgs e) { if (e.Button == MouseButtons.Right) ShowMenu(e.Location); };
+            // Sem Desfazer: ele traria de volta a saída e o prompt, que não são editáveis
+            box.HandleCreated += delegate { SendMessage(box.Handle, EM_SETUNDOLIMIT, IntPtr.Zero, IntPtr.Zero); };
+            Controls.Add(box);
+            MouseDown += delegate { FocusInput(); };
         }
 
         public void FocusInput()
         {
-            input.Focus();
+            box.Focus();
+            if (promptStart >= 0 && box.SelectionLength == 0 && box.SelectionStart < inputStart)
+            {
+                box.Select(box.TextLength, 0);
+                box.ScrollToCaret();
+            }
         }
 
         public void ApplyTheme(Theme t)
         {
             theme = t;
-            bool dark = t.Background.GetBrightness() < 0.5f;
+            dark = t.Background.GetBrightness() < 0.5f;
             errorColor = dark ? Color.FromArgb(0xF4, 0x87, 0x71) : Color.FromArgb(0xC5, 0x22, 0x22);
             warningColor = dark ? Color.FromArgb(0xCC, 0xA7, 0x00) : Color.FromArgb(0x9A, 0x6A, 0x00);
+            promptColor = t.Foreground; // o prompt na cor do texto, como num terminal comum
             BackColor = t.Background;
-            output.BackColor = t.Background;
-            output.ForeColor = t.Foreground;
-            inputRow.BackColor = t.Background;
-            input.BackColor = t.Background;
-            input.ForeColor = t.Foreground;
-            input.Dark = dark;
-            input.Recolor();
-            prompt.BackColor = t.Background;
-            prompt.ForeColor = t.Accent;
+            box.BackColor = t.Background;
+            box.ForeColor = t.Foreground;
+            RecolorInput();
             // Barra de rolagem escura no tema escuro (Windows 10 e 11)
-            if (output.IsHandleCreated) SetWindowTheme(output.Handle, dark ? "DarkMode_Explorer" : "Explorer", null);
-            else output.HandleCreated += delegate { SetWindowTheme(output.Handle, dark ? "DarkMode_Explorer" : "Explorer", null); };
+            bool d = dark;
+            if (box.IsHandleCreated) SetWindowTheme(box.Handle, d ? "DarkMode_Explorer" : "Explorer", null);
+            else box.HandleCreated += delegate { SetWindowTheme(box.Handle, d ? "DarkMode_Explorer" : "Explorer", null); };
         }
 
         [DllImport("uxtheme.dll", CharSet = CharSet.Unicode)]
         static extern int SetWindowTheme(IntPtr hwnd, string appName, string idList);
+        [DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam);
+        [DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr hwnd, int msg, IntPtr wParam, ref TEXTRANGE range);
+
+        [StructLayout(LayoutKind.Sequential)]
+        struct TEXTRANGE { public int cpMin, cpMax; public IntPtr text; }
 
         protected override void OnVisibleChanged(EventArgs e)
         {
             base.OnVisibleChanged(e);
-            if (!Visible) return;
-            EnsureRunspace();
-            Arrange(); // a aba pode ter aberto antes de as caixas terem o tamanho final
+            if (Visible) EnsureRunspace();
         }
 
         // ------------------------------------------------------------------
@@ -193,7 +114,6 @@ namespace SageEditor
         {
             if (runspace != null || starting) return;
             starting = true;
-            input.Enabled = false;
             object excel = null;
             try { excel = ExcelBridge.Application(); }
             catch (Exception ex) { Log.Error(ex); }
@@ -222,13 +142,11 @@ namespace SageEditor
                 UI(delegate
                 {
                     starting = false;
-                    input.Enabled = true;
-                    if (error != null) { Write(error + Environment.NewLine, errorColor); return; }
+                    if (error != null) { WriteLine(error, errorColor); return; }
                     runspace = rs;
                     location = CurrentLocation();
-                    ShowPrompt(true); // antes do UpdatePrompt, que posiciona a linha de comando pelo prompt
-                    UpdatePrompt();
-                    if (input.ContainsFocus || ContainsFocus || Visible) input.Focus();
+                    NewPrompt();
+                    if (ContainsFocus || Visible) FocusInput();
                 });
             });
         }
@@ -297,16 +215,15 @@ Remove-Variable start, SageStartFolders
 
         void Execute(string line)
         {
-            WriteCommand(line, "");
-            if (line.Trim().Length == 0) return;
+            if (line.Trim().Length == 0) { NewPrompt(); return; }
             if (history.Count == 0 || history[history.Count - 1] != line) history.Add(line);
             historyIndex = history.Count;
             string trimmed = line.Trim().ToLowerInvariant();
-            if (trimmed == "cls" || trimmed == "clear" || trimmed == "clear-host") { ClearScreen(); return; }
+            if (trimmed == "cls" || trimmed == "clear" || trimmed == "clear-host") { ClearScreen(); NewPrompt(); return; }
             if (trimmed == "exit") { Exit(); return; }
-            if (runspace == null) return;
+            if (runspace == null) { NewPrompt(); return; }
 
-            int columns = Math.Max(40, output.ClientSize.Width / Math.Max(1, TextRenderer.MeasureText("M", output.Font).Width) - 2);
+            int columns = Math.Max(40, box.ClientSize.Width / Math.Max(1, TextRenderer.MeasureText("M", box.Font).Width) - 2);
             PowerShell ps = PowerShell.Create();
             ps.Runspace = runspace;
             // ". { }" roda no escopo do terminal (as variáveis ficam); os tipos Sage aparecem
@@ -324,7 +241,6 @@ Remove-Variable start, SageStartFolders
             };
 
             running = ps;
-            SetBusy(true);
             try
             {
                 ps.BeginInvoke<PSObject, PSObject>(null, results, null, delegate(IAsyncResult ar)
@@ -338,7 +254,8 @@ Remove-Variable start, SageStartFolders
                         running = null;
                         ps.Dispose();
                         if (where.Length > 0) location = where;
-                        SetBusy(false);
+                        NewPrompt();
+                        FocusInput();
                     });
                 }, null);
             }
@@ -347,7 +264,7 @@ Remove-Variable start, SageStartFolders
                 running = null;
                 ps.Dispose();
                 WriteLine(ex.Message, errorColor);
-                SetBusy(false);
+                NewPrompt();
             }
         }
 
@@ -380,23 +297,118 @@ Remove-Variable start, SageStartFolders
 
         string PromptText { get { return "PS " + location + "> "; } }
 
-        void UpdatePrompt()
+        // ------------------------------------------------------------------
+        // Prompt e linha de comando
+        // ------------------------------------------------------------------
+
+        // Prompt novo, numa linha própria no fim da tela
+        void NewPrompt()
         {
-            prompt.Text = PromptText;
-            Arrange();
+            if (promptStart >= 0) return;
+            writing = true;
+            if (!endsWithNewLine) AppendAtEnd("\n", null);
+            promptStart = box.TextLength;
+            AppendAtEnd(PromptText, promptColor);
+            inputStart = box.TextLength;
+            box.Select(box.TextLength, 0);
+            box.SelectionColor = box.ForeColor;
+            writing = false;
+            box.ScrollToCaret();
         }
 
-        void ShowPrompt(bool show)
+        // Fim da linha de comando (Enter, Ctrl+C): o que foi digitado fica na tela como está
+        void EndPrompt(string suffix)
         {
-            promptShown = show;
-            prompt.Visible = show;
+            if (promptStart < 0) return;
+            writing = true;
+            if (!string.IsNullOrEmpty(suffix)) AppendAtEnd(suffix, theme != null ? theme.Muted : box.ForeColor);
+            AppendAtEnd("\n", null);
+            promptStart = -1;
+            box.Select(box.TextLength, 0);
+            writing = false;
+            box.ScrollToCaret();
         }
 
-        void SetBusy(bool busy)
+        void AppendAtEnd(string text, Color? color)
         {
-            ShowPrompt(!busy);
-            input.ReadOnly = busy;
-            if (!busy) { UpdatePrompt(); input.Focus(); }
+            if (text.Length == 0) return;
+            box.Select(box.TextLength, 0);
+            box.SelectionColor = color ?? box.ForeColor;
+            box.SelectedText = text;
+            endsWithNewLine = text.EndsWith("\n");
+        }
+
+        // O que está digitado na linha de comando (atribuir troca o texto todo)
+        string InputText
+        {
+            get { return promptStart < 0 ? "" : TextRange(inputStart, box.TextLength); }
+            set
+            {
+                if (promptStart < 0) return;
+                box.Select(inputStart, box.TextLength - inputStart);
+                box.SelectionColor = box.ForeColor;
+                box.SelectedText = value ?? ""; // o TextChanged recolore
+            }
+        }
+
+        // Posição do cursor dentro da linha de comando
+        int Caret { get { return Math.Max(0, box.SelectionStart - inputStart); } }
+
+        string TextRange(int start, int end)
+        {
+            if (end <= start) return "";
+            if (!box.IsHandleCreated) return box.Text.Substring(start, end - start);
+            IntPtr buffer = Marshal.AllocHGlobal((end - start + 1) * 2);
+            try
+            {
+                TEXTRANGE range = new TEXTRANGE { cpMin = start, cpMax = end, text = buffer };
+                SendMessage(box.Handle, EM_GETTEXTRANGE, IntPtr.Zero, ref range);
+                return Marshal.PtrToStringUni(buffer);
+            }
+            finally { Marshal.FreeHGlobal(buffer); }
+        }
+
+        // As cores do PowerShell (PsColors) na linha de comando, enquanto se digita
+        void RecolorInput()
+        {
+            if (promptStart < 0 || coloring || !box.IsHandleCreated) return;
+            coloring = true;
+            int start = box.SelectionStart, length = box.SelectionLength;
+            SendMessage(box.Handle, WM_SETREDRAW, IntPtr.Zero, IntPtr.Zero);
+            try
+            {
+                string text = InputText;
+                Color?[] map = PsColors.Map(text, dark);
+                int i = 0;
+                while (i < text.Length)
+                {
+                    int j = i;
+                    while (j < text.Length && map[j] == map[i]) j++;
+                    box.Select(inputStart + i, j - i);
+                    box.SelectionColor = map[i] ?? box.ForeColor;
+                    i = j;
+                }
+                box.Select(start, length);
+            }
+            finally
+            {
+                SendMessage(box.Handle, WM_SETREDRAW, (IntPtr)1, IntPtr.Zero);
+                box.Invalidate();
+                coloring = false;
+            }
+        }
+
+        // Antes de uma edição: a seleção (ou o cursor) só dentro da linha de comando. Fora dela,
+        // o cursor vai para o fim; uma seleção que começa antes fica só com a parte de dentro.
+        // false: não há linha de comando (um comando rodando)
+        bool PrepareEdit()
+        {
+            if (promptStart < 0) return false;
+            int s = box.SelectionStart, e = s + box.SelectionLength;
+            if (s >= inputStart) return true;
+            if (e <= inputStart) box.Select(box.TextLength, 0);
+            else box.Select(inputStart, e - inputStart);
+            return true;
         }
 
         void Stop()
@@ -411,8 +423,8 @@ Remove-Variable start, SageStartFolders
         void Complete()
         {
             if (runspace == null || running != null || runspace.RunspaceAvailability != RunspaceAvailability.Available) return;
-            string text = input.Text;
-            int caret = input.SelectionStart;
+            string text = InputText;
+            int caret = Caret;
             try
             {
                 using (PowerShell ps = PowerShell.Create())
@@ -425,12 +437,13 @@ Remove-Variable start, SageStartFolders
                     string replaced = text.Substring(0, c.ReplacementIndex) + c.CompletionMatches[completionIndex].CompletionText +
                         text.Substring(c.ReplacementIndex + c.ReplacementLength);
                     // Tab de novo: a próxima opção, a partir do texto original
-                    input.Text = replaced;
-                    input.SelectionStart = c.ReplacementIndex + c.CompletionMatches[completionIndex].CompletionText.Length;
+                    InputText = replaced;
+                    int newCaret = c.ReplacementIndex + c.CompletionMatches[completionIndex].CompletionText.Length;
+                    box.Select(inputStart + newCaret, 0);
                     completionBase = text;
                     completionBaseCaret = caret;
-                    completionText = input.Text;
-                    completionCaret = input.SelectionStart;
+                    completionText = replaced;
+                    completionCaret = newCaret;
                 }
             }
             catch (Exception ex) { Log.Error(ex); }
@@ -439,61 +452,134 @@ Remove-Variable start, SageStartFolders
         string completionText, completionBase;
         int completionCaret, completionBaseCaret, completionIndex = -1;
 
-        void InputKeyDown(object sender, KeyEventArgs e)
+        void BoxKeyDown(object sender, KeyEventArgs e)
         {
+            bool ctrl = e.Control, shift = e.Shift, alt = e.Alt;
             switch (e.KeyCode)
             {
                 case Keys.Enter:
-                    e.SuppressKeyPress = true;
-                    if (running != null) return;
-                    string line = input.Text;
-                    input.Clear();
-                    completionIndex = -1;
-                    Execute(line);
-                    break;
+                    Suppress(e);
+                    if (running != null || promptStart < 0) return;
+                    {
+                        string line = InputText;
+                        completionIndex = -1;
+                        EndPrompt(null);
+                        Execute(line);
+                    }
+                    return;
                 case Keys.Tab:
-                    e.SuppressKeyPress = true;
-                    if (completionIndex >= 0 && input.Text == completionText && input.SelectionStart == completionCaret)
+                    Suppress(e);
+                    if (!PrepareEdit()) return;
+                    if (completionIndex >= 0 && InputText == completionText && Caret == completionCaret)
                     {
                         // ciclo: volta ao texto original e pede a próxima opção
-                        input.Text = completionBase;
-                        input.SelectionStart = completionBaseCaret;
+                        InputText = completionBase;
+                        box.Select(inputStart + completionBaseCaret, 0);
                         completionText = completionBase;
                         completionCaret = completionBaseCaret;
                     }
                     else completionIndex = -1;
                     Complete();
-                    break;
+                    return;
                 case Keys.Up:
                 case Keys.Down:
-                    e.SuppressKeyPress = true;
-                    if (history.Count == 0) return;
+                    if (shift || ctrl || alt) return; // seleção pelo teclado, como sempre
+                    Suppress(e);
+                    if (promptStart < 0 || history.Count == 0) return;
                     historyIndex = Math.Max(0, Math.Min(history.Count, historyIndex + (e.KeyCode == Keys.Up ? -1 : 1)));
-                    input.Text = historyIndex < history.Count ? history[historyIndex] : "";
-                    input.SelectionStart = input.Text.Length;
-                    break;
+                    InputText = historyIndex < history.Count ? history[historyIndex] : "";
+                    box.Select(box.TextLength, 0);
+                    box.ScrollToCaret();
+                    return;
                 case Keys.Escape:
-                    e.SuppressKeyPress = true;
-                    input.Clear();
-                    break;
+                    Suppress(e);
+                    if (promptStart < 0) return;
+                    InputText = "";
+                    box.Select(box.TextLength, 0);
+                    return;
+                case Keys.Home:
+                    // Na linha de comando, o começo é logo depois do prompt
+                    if (ctrl || alt || promptStart < 0 || box.SelectionStart < inputStart) return;
+                    Suppress(e);
+                    if (shift) box.Select(inputStart, box.SelectionStart + box.SelectionLength - inputStart);
+                    else box.Select(inputStart, 0);
+                    return;
+                case Keys.Left:
+                    if (!shift && !ctrl && !alt && promptStart >= 0 && box.SelectionLength == 0 && box.SelectionStart == inputStart) Suppress(e);
+                    return;
+                case Keys.Back:
+                    if (alt) { Suppress(e); return; }
+                    if (!PrepareEdit()) { Suppress(e); return; }
+                    if (box.SelectionLength > 0) return; // apaga a seleção, já só dentro da linha de comando
+                    if (box.SelectionStart <= inputStart) { Suppress(e); return; }
+                    if (ctrl) { Suppress(e); DeleteWordBack(); }
+                    return;
+                case Keys.Delete:
+                    if (shift && !ctrl && !alt) { Suppress(e); Cut(); return; }
+                    if (!PrepareEdit()) Suppress(e);
+                    return;
                 case Keys.C:
-                    if (e.Control && !e.Shift && !e.Alt && input.SelectionLength == 0)
-                    {
-                        e.SuppressKeyPress = true;
-                        if (running != null) Stop();
-                        else { WriteCommand(input.Text, "^C"); input.Clear(); }
-                    }
+                    if (!ctrl || alt || shift) break;
+                    Suppress(e);
+                    if (box.SelectionLength > 0) { CopyText(box.SelectedText); return; }
+                    if (running != null) Stop();
+                    else if (promptStart >= 0) { completionIndex = -1; EndPrompt("^C"); NewPrompt(); }
+                    return;
+                case Keys.Insert:
+                    if (ctrl && !shift && !alt) { Suppress(e); if (box.SelectionLength > 0) CopyText(box.SelectedText); return; }
+                    if (shift && !ctrl && !alt) { Suppress(e); PastePlain(); return; }
                     break;
-                case Keys.L:
-                    if (e.Control && !e.Shift && !e.Alt) { e.SuppressKeyPress = true; ClearScreen(); }
+                case Keys.X:
+                    if (ctrl && !alt && !shift) { Suppress(e); Cut(); return; }
                     break;
                 case Keys.V:
-                    if (e.Control && !e.Alt) { e.SuppressKeyPress = true; input.PastePlain(); }
+                    if (ctrl && !alt) { Suppress(e); PastePlain(); return; }
                     break;
-                case Keys.Insert:
-                    if (e.Shift && !e.Control && !e.Alt) { e.SuppressKeyPress = true; input.PastePlain(); }
+                case Keys.A:
+                    if (ctrl && !alt && !shift) { Suppress(e); box.SelectAll(); return; }
+                    break;
+                case Keys.L:
+                    if (ctrl && !alt && !shift) { Suppress(e); ClearScreen(); return; }
                     break;
             }
+            // Os outros atalhos com Ctrl da caixa (Desfazer, alinhamento, espaçamento, maiúsculas...)
+            // mudariam o texto ou a formatação: só a navegação passa (Ctrl+setas, Ctrl+Home/End)
+            if (ctrl && !alt && !IsNavigation(e.KeyCode)) Suppress(e);
+        }
+
+        static bool IsNavigation(Keys key)
+        {
+            return key == Keys.Left || key == Keys.Right || key == Keys.Up || key == Keys.Down || key == Keys.Home ||
+                key == Keys.End || key == Keys.PageUp || key == Keys.PageDown || key == Keys.ControlKey || key == Keys.ShiftKey;
+        }
+
+        static void Suppress(KeyEventArgs e)
+        {
+            e.Handled = true;
+            e.SuppressKeyPress = true;
+        }
+
+        // Caracteres digitados: só na linha de comando
+        void BoxKeyPress(object sender, KeyPressEventArgs e)
+        {
+            if (e.KeyChar == '\b')
+            {
+                // Backspace (também Ctrl+H): nunca antes do começo da linha de comando
+                if (!PrepareEdit() || (box.SelectionLength == 0 && box.SelectionStart <= inputStart)) e.Handled = true;
+                return;
+            }
+            if (e.KeyChar < ' ' || e.KeyChar == (char)127) { e.Handled = true; return; } // Ctrl+M, Ctrl+Backspace...: tratados no KeyDown
+            if (!PrepareEdit()) e.Handled = true;
+        }
+
+        void DeleteWordBack()
+        {
+            string text = InputText;
+            int caret = Math.Min(Caret, text.Length), i = caret;
+            while (i > 0 && text[i - 1] == ' ') i--;
+            while (i > 0 && text[i - 1] != ' ') i--;
+            box.Select(inputStart + i, caret - i);
+            box.SelectedText = "";
         }
 
         // ------------------------------------------------------------------
@@ -502,31 +588,57 @@ Remove-Variable start, SageStartFolders
 
         void WriteLine(string text, Color? color)
         {
-            Write((text ?? "") + Environment.NewLine, color);
+            Write((text ?? "") + "\n", color);
         }
 
         // De qualquer thread
         void Write(string text, Color? color)
         {
-            UI(delegate
-            {
-                if (output.TextLength > MaxLength)
-                {
-                    output.Select(0, output.TextLength - MaxLength / 2);
-                    output.SelectedText = "";
-                }
-                // A quebra de linha do fim fica para a próxima escrita: sem uma linha vazia no
-                // fim, a caixa tem a altura exata do texto (sem barra de rolagem nem espaço)
-                if (pendingNewLine && text.Length > 0) { Append("\n", null); pendingNewLine = false; }
-                if (text.EndsWith("\n")) { text = text.Substring(0, text.Length - 1); pendingNewLine = true; }
-                if (text.EndsWith("\r")) text = text.Substring(0, text.Length - 1);
-                Append(text, color);
-                Arrange();
-                output.ScrollToCaret();
-            });
+            UI(delegate { WriteNow(text, color); });
         }
 
-        bool pendingNewLine;
+        void WriteNow(string text, Color? color)
+        {
+            if (string.IsNullOrEmpty(text)) return;
+            text = text.Replace("\r\n", "\n").Replace('\r', '\n'); // o RichEdit guarda cada quebra como um caractere
+            writing = true;
+            int start = box.SelectionStart, length = box.SelectionLength;
+            // Com o cursor no fim (ou na linha de comando), a tela acompanha o texto novo; com uma
+            // seleção ou o cursor no meio da saída, fica onde está (para copiar com calma)
+            bool follow = length == 0 && start >= (promptStart >= 0 ? inputStart : box.TextLength);
+            int at;
+            if (promptStart >= 0)
+            {
+                // Com o prompt na tela (o Console.PrintF com o terminal parado): o texto entra antes dele
+                at = promptStart;
+                if (!text.EndsWith("\n")) text += "\n";
+            }
+            else at = box.TextLength;
+            box.Select(at, 0);
+            box.SelectionColor = color ?? box.ForeColor;
+            box.SelectedText = text;
+            if (promptStart >= 0) { promptStart += text.Length; inputStart += text.Length; }
+            else endsWithNewLine = text.EndsWith("\n");
+            if (start >= at) start += text.Length;
+            start = Trim(start);
+            if (follow && promptStart < 0) box.Select(box.TextLength, 0);
+            else box.Select(Math.Min(start, box.TextLength), length);
+            writing = false;
+            if (follow) box.ScrollToCaret();
+        }
+
+        // Tela cheia demais: apaga o começo (nunca o prompt)
+        int Trim(int start)
+        {
+            if (box.TextLength <= MaxLength) return start;
+            int cut = box.TextLength - MaxLength / 2;
+            if (promptStart >= 0) cut = Math.Min(cut, promptStart);
+            if (cut <= 0) return start;
+            box.Select(0, cut);
+            box.SelectedText = "";
+            if (promptStart >= 0) { promptStart -= cut; inputStart -= cut; }
+            return Math.Max(0, start - cut);
+        }
 
         // Console.PrintF do VBA. A macro ocupa a thread da janela, então a tela é pintada aqui
         // mesmo; num laço rápido, os textos se juntam e saem de tempos em tempos: 50 ms, ou mais
@@ -567,30 +679,67 @@ Remove-Variable start, SageStartFolders
             sincePrint.Restart();
         }
 
-        // O comando executado fica na tela com as mesmas cores da linha de comando
-        void WriteCommand(string line, string suffix)
+        // ------------------------------------------------------------------
+        // Copiar e colar
+        // ------------------------------------------------------------------
+
+        void ShowMenu(Point at)
         {
-            Write(PromptText, prompt.ForeColor);
-            Color?[] map = PsColors.Map(line, input.Dark);
-            int i = 0;
-            while (i < line.Length)
-            {
-                int j = i;
-                while (j < line.Length && map[j] == map[i]) j++;
-                Write(line.Substring(i, j - i), map[i]);
-                i = j;
-            }
-            Write(suffix + Environment.NewLine, theme != null ? theme.Muted : ForeColor);
+            Theme t = theme ?? Theme.Find(Settings.ColorTheme);
+            ContextMenuStrip menu = new ContextMenuStrip();
+            menu.Renderer = new ToolStripProfessionalRenderer(new EditorTabs.MenuColors(t));
+            menu.BackColor = t.Sidebar;
+            menu.ForeColor = t.Foreground;
+            menu.ShowImageMargin = false;
+            menu.ShowCheckMargin = false;
+            menu.Padding = new Padding(2);
+            bool canPaste = false;
+            try { canPaste = promptStart >= 0 && Clipboard.ContainsText(); }
+            catch (ExternalException) { } // área de transferência presa por outro programa
+            AddMenuItem(menu, t, Strings.ConsoleCopy, "Ctrl+C", box.SelectionLength > 0, delegate { CopyText(box.SelectedText); });
+            AddMenuItem(menu, t, Strings.ConsoleCopyAll, null, box.TextLength > 0, delegate { CopyText(box.Text); });
+            menu.Items.Add(new ToolStripSeparator());
+            AddMenuItem(menu, t, Strings.ConsolePaste, "Ctrl+V", canPaste, delegate { box.Focus(); PastePlain(); });
+            AddMenuItem(menu, t, Strings.ConsoleSelectAll, "Ctrl+A", box.TextLength > 0, delegate { box.Focus(); box.SelectAll(); });
+            menu.Closed += delegate { BeginInvoke((MethodInvoker)menu.Dispose); };
+            menu.Show(box, at);
         }
 
-        void Append(string text, Color? color)
+        static void AddMenuItem(ContextMenuStrip menu, Theme t, string text, string shortcut, bool enabled, EventHandler click)
         {
-            if (text.Length == 0) return;
-            output.SelectionStart = output.TextLength;
-            output.SelectionLength = 0;
-            output.SelectionColor = color ?? output.ForeColor;
-            output.AppendText(text);
-            output.SelectionStart = output.TextLength;
+            ToolStripMenuItem item = new ToolStripMenuItem(text);
+            item.ForeColor = enabled ? t.Foreground : t.Muted;
+            item.Padding = new Padding(0, 1, 0, 1);
+            item.Enabled = enabled;
+            if (shortcut != null) item.ShortcutKeyDisplayString = shortcut;
+            item.Click += click;
+            menu.Items.Add(item);
+        }
+
+        static void CopyText(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return;
+            text = text.Replace("\r\n", "\n").Replace('\r', '\n').Replace("\n", "\r\n");
+            try { Clipboard.SetText(text); }
+            catch (ExternalException ex) { Log.Error(ex); }
+        }
+
+        // Recortar: copia; apaga só se a seleção estiver dentro da linha de comando
+        void Cut()
+        {
+            if (box.SelectionLength == 0) return;
+            CopyText(box.SelectedText);
+            if (promptStart >= 0 && box.SelectionStart >= inputStart) box.SelectedText = "";
+        }
+
+        // Colar: só o texto, numa linha (as quebras viram "; "), na linha de comando
+        void PastePlain()
+        {
+            string text = null;
+            try { if (Clipboard.ContainsText()) text = Clipboard.GetText(); }
+            catch (ExternalException) { return; }
+            if (string.IsNullOrEmpty(text) || !PrepareEdit()) return;
+            box.SelectedText = text.Replace("\r\n", "\n").Replace('\r', '\n').Trim('\n').Replace("\n", "; ");
         }
 
         // exit: como fechar um terminal. A sessão do PowerShell acaba (variáveis, pasta atual), a tela
@@ -604,16 +753,30 @@ Remove-Variable start, SageStartFolders
             Shutdown();
             history.Clear();
             historyIndex = 0;
-            ClearScreen();
+            ClearAll();
             TerminalWindow.Hide();
             EnsureRunspace();
         }
 
+        // cls, clear, Ctrl+L: limpa a tela; com o prompt na tela, ele volta com o que estava digitado
         void ClearScreen()
         {
-            output.Clear();
-            pendingNewLine = false;
-            Arrange();
+            bool hadPrompt = promptStart >= 0;
+            string typed = InputText;
+            ClearAll();
+            if (!hadPrompt) return;
+            NewPrompt();
+            InputText = typed;
+            box.Select(box.TextLength, 0);
+        }
+
+        void ClearAll()
+        {
+            writing = true;
+            box.Clear();
+            writing = false;
+            promptStart = -1;
+            endsWithNewLine = true;
         }
 
         void UI(MethodInvoker action)
@@ -665,117 +828,9 @@ Remove-Variable start, SageStartFolders
             ExcelBridge.Release();
         }
 
-        // Linha de comando: uma linha só, colorida enquanto se digita (PsColors), que fica com
-        // Enter, Tab e as setas (o VBE e o WinForms as usariam para navegar)
-        // O prompt: um RichTextBox de uma linha, só para mostrar (o clique vai para a linha de digitação)
-        sealed class PromptBox : RichTextBox
+        // A caixa da tela: fica com Enter, Tab, Esc e as setas (o VBE e o WinForms as usariam para navegar)
+        sealed class TerminalBox : RichTextBox
         {
-            public event EventHandler Clicked;
-
-            public PromptBox()
-            {
-                Multiline = false;
-                ReadOnly = true;
-                TabStop = false;
-                DetectUrls = false;
-                BorderStyle = BorderStyle.None;
-                ScrollBars = RichTextBoxScrollBars.None;
-                Cursor = Cursors.IBeam;
-            }
-
-            // Onde termina o texto (a coluna depois do último caractere), pela largura de um caractere
-            public int TextEnd
-            {
-                get
-                {
-                    int n = TextLength;
-                    if (n == 0) return GetPositionFromCharIndex(0).X;
-                    int last = GetPositionFromCharIndex(n - 1).X;
-                    int pitch = n >= 2 ? (last - GetPositionFromCharIndex(0).X) / (n - 1) : TextRenderer.MeasureText("M", Font, Size.Empty, TextFormatFlags.NoPadding).Width;
-                    return last + pitch;
-                }
-            }
-
-            protected override void OnTextChanged(EventArgs e)
-            {
-                base.OnTextChanged(e);
-                SelectAll();
-                SelectionColor = ForeColor;
-                Select(0, 0);
-            }
-
-            protected override void OnForeColorChanged(EventArgs e)
-            {
-                base.OnForeColorChanged(e);
-                OnTextChanged(e);
-            }
-
-            // Sem cursor nem seleção: o foco vai para a linha de digitação
-            protected override void OnGotFocus(EventArgs e)
-            {
-                base.OnGotFocus(e);
-                if (Clicked != null) Clicked(this, EventArgs.Empty);
-            }
-        }
-
-        sealed class InputBox : RichTextBox
-        {
-            public bool Dark = true;
-            bool coloring;
-
-            public InputBox()
-            {
-                Multiline = false;
-                DetectUrls = false;
-                ScrollBars = RichTextBoxScrollBars.None;
-            }
-
-            protected override void OnTextChanged(EventArgs e)
-            {
-                base.OnTextChanged(e);
-                Recolor();
-            }
-
-            public void Recolor()
-            {
-                if (coloring || !IsHandleCreated) return;
-                coloring = true;
-                int start = SelectionStart, length = SelectionLength;
-                SendMessage(Handle, WM_SETREDRAW, IntPtr.Zero, IntPtr.Zero);
-                try
-                {
-                    string text = Text;
-                    Color?[] map = PsColors.Map(text, Dark);
-                    int i = 0;
-                    while (i < text.Length)
-                    {
-                        int j = i;
-                        while (j < text.Length && map[j] == map[i]) j++;
-                        Select(i, j - i);
-                        SelectionColor = map[i] ?? ForeColor;
-                        i = j;
-                    }
-                    Select(start, length);
-                }
-                finally
-                {
-                    SendMessage(Handle, WM_SETREDRAW, (IntPtr)1, IntPtr.Zero);
-                    Invalidate();
-                    coloring = false;
-                }
-            }
-
-            // Colar: só o texto, numa linha (as quebras viram "; ")
-            public void PastePlain()
-            {
-                if (ReadOnly || !Clipboard.ContainsText()) return;
-                string text = Clipboard.GetText().Replace("\r\n", "\n").Trim('\n').Replace("\n", "; ");
-                SelectedText = text;
-            }
-
-            const int WM_SETREDRAW = 0x000B;
-            [DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam);
-
             protected override bool IsInputKey(Keys keyData)
             {
                 Keys key = keyData & Keys.KeyCode;
