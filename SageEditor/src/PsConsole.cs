@@ -32,6 +32,7 @@ namespace SageEditor
         Runspace runspace;
         PowerShell running;
         bool starting;
+        bool promptShown; // o prompt deve aparecer (prompt.Visible é falso enquanto o Painel não está na tela)
         string location = "";
         Theme theme;
         Color errorColor, warningColor;
@@ -64,6 +65,10 @@ namespace SageEditor
 
             Controls.Add(output);
             Controls.Add(inputRow);
+            // As posições dependem das janelas das caixas: refaz quando elas são criadas
+            output.HandleCreated += delegate { Arrange(); };
+            prompt.HandleCreated += delegate { Arrange(); };
+            input.HandleCreated += delegate { Arrange(); };
             output.Click += delegate { if (output.SelectionLength == 0) input.Focus(); };
             MouseDown += delegate { input.Focus(); };
             inputRow.MouseDown += delegate { input.Focus(); };
@@ -114,7 +119,7 @@ namespace SageEditor
             int left = x;
             // A altura de uma linha: com mais, o RichTextBox de uma linha centraliza o texto e ele desce
             int height = LineHeight() + 1;
-            if (prompt.Visible && prompt.TextLength > 0)
+            if (promptShown && prompt.TextLength > 0)
             {
                 prompt.SetBounds(x - promptOrigin.X, y - promptOrigin.Y, prompt.TextEnd + promptOrigin.X + 2, height);
                 left = x + prompt.TextEnd - promptOrigin.X;
@@ -175,7 +180,9 @@ namespace SageEditor
         protected override void OnVisibleChanged(EventArgs e)
         {
             base.OnVisibleChanged(e);
-            if (Visible) EnsureRunspace();
+            if (!Visible) return;
+            EnsureRunspace();
+            Arrange(); // a aba pode ter aberto antes de as caixas terem o tamanho final
         }
 
         // ------------------------------------------------------------------
@@ -219,8 +226,8 @@ namespace SageEditor
                     if (error != null) { Write(error + Environment.NewLine, errorColor); return; }
                     runspace = rs;
                     location = CurrentLocation();
+                    ShowPrompt(true); // antes do UpdatePrompt, que posiciona a linha de comando pelo prompt
                     UpdatePrompt();
-                    prompt.Visible = true;
                     if (input.ContainsFocus || ContainsFocus || Visible) input.Focus();
                 });
             });
@@ -379,9 +386,15 @@ Remove-Variable start, SageStartFolders
             Arrange();
         }
 
+        void ShowPrompt(bool show)
+        {
+            promptShown = show;
+            prompt.Visible = show;
+        }
+
         void SetBusy(bool busy)
         {
-            prompt.Visible = !busy;
+            ShowPrompt(!busy);
             input.ReadOnly = busy;
             if (!busy) { UpdatePrompt(); input.Focus(); }
         }

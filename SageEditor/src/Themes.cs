@@ -69,7 +69,7 @@ namespace SageEditor
 
         public const string DefaultName = "Padrão do VBE";
 
-        // Em ordem alfabÃ©tica, como aparecem nas ConfiguraÃ§Ãµes
+        // Em ordem alfabética, como aparecem nas Configurações
         public static readonly Theme[] All = new Theme[]
         {
             WithSyntax(Create("Azure (Dark)", true,
@@ -82,16 +82,16 @@ namespace SageEditor
                 border: "#B7D7F0", selection: "#BBDEFB", selectionText: "#000000",
                 input: "#FFFFFF", accent: "#0078D4", hover: "#CCE4F7",
                 palette: AzureLightPalette(), backPalette: LightBackPalette("#FFFFFF")), SyntaxColors.Create("#7A5C00", "#0B4F8A", "#A3361B", "#0A7A5A", "#00788A", "#7A2FB5")),
+            WithSyntax(Create("Dark", true,
+                editor: "#1E1E1E", sidebar: "#252526", text: "#D4D4D4", muted: "#9D9D9D",
+                border: "#3C3C3C", selection: "#264F78", selectionText: "#FFFFFF",
+                input: "#3C3C3C", accent: "#007ACC", hover: "#2A2D2E",
+                palette: DarkPalette(), backPalette: DarkBackPalette("#1E1E1E")), SyntaxColors.Create("#DCDCAA", "#9CDCFE", "#CE9178", "#B5CEA8", "#4EC9B0", "#C586C0")),
             WithSyntax(Create("Dark Modern", true,
                 editor: "#1F1F1F", sidebar: "#181818", text: "#CCCCCC", muted: "#9D9D9D",
                 border: "#2B2B2B", selection: "#264F78", selectionText: "#FFFFFF",
                 input: "#313131", accent: "#0078D4", hover: "#2A2D2E",
                 palette: DarkPalette(), backPalette: DarkBackPalette("#1F1F1F")), SyntaxColors.Create("#DCDCAA", "#9CDCFE", "#CE9178", "#B5CEA8", "#4EC9B0", "#C586C0")),
-            WithSyntax(Create("Dark+", true,
-                editor: "#1E1E1E", sidebar: "#252526", text: "#D4D4D4", muted: "#9D9D9D",
-                border: "#3C3C3C", selection: "#264F78", selectionText: "#FFFFFF",
-                input: "#3C3C3C", accent: "#007ACC", hover: "#2A2D2E",
-                palette: DarkPalette(), backPalette: DarkBackPalette("#1E1E1E")), SyntaxColors.Create("#DCDCAA", "#9CDCFE", "#CE9178", "#B5CEA8", "#4EC9B0", "#C586C0")),
             CreateDefault(),
             WithSyntax(Create("Light Modern", false,
                 editor: "#FFFFFF", sidebar: "#F8F8F8", text: "#3B3B3B", muted: "#717171",
@@ -110,10 +110,13 @@ namespace SageEditor
                 palette: SageLightPalette(), backPalette: LightBackPalette("#FAFCF8")), SyntaxColors.Create("#7A5C1E", "#2F5D62", "#A4542E", "#3E7A4A", "#2F7F6F", "#7A4C8C")),
         };
 
-        // Nomes antigos no settings.json: o "Sage" virou "Sage (Dark)" na 1.4.0
+        // Nomes antigos no settings.json: o "Sage" virou "Sage (Dark)" na 1.4.0, e o "Dark+"
+        // virou "Dark" na 1.6.0
         static string CurrentName(string name)
         {
-            return string.Equals(name, "Sage", StringComparison.OrdinalIgnoreCase) ? "Sage (Dark)" : name;
+            if (string.Equals(name, "Sage", StringComparison.OrdinalIgnoreCase)) return "Sage (Dark)";
+            if (string.Equals(name, "Dark+", StringComparison.OrdinalIgnoreCase)) return "Dark";
+            return name;
         }
 
         static Theme WithSyntax(Theme t, SyntaxColors syntax)
@@ -294,7 +297,7 @@ namespace SageEditor
             };
         }
 
-        // Cor do texto no tema Azure (Dark): como o Dark+, com as palavras-chave no azul do Azure
+        // Cor do texto no tema Azure (Dark): como o Dark, com as palavras-chave no azul do Azure
         static int[] AzureDarkPalette()
         {
             int[] p = DarkPalette();

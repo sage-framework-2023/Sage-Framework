@@ -15,7 +15,9 @@ namespace SageEditor
     //                               no cursor), uma seleção por ocorrência
     //   Esc                         volta a um cursor
     // Com mais de um cursor, digitar, Backspace, Delete, Tab, setas, Ctrl+Seta (de palavra
-    // em palavra), Home e End valem para todos, e com Shift selecionam na linha. Outras
+    // em palavra), Home e End valem para todos, e com Shift selecionam na linha. Colar
+    // (Ctrl+V, Shift+Insert) cola em todos: uma linha por cursor, se a área de transferência
+    // tiver uma linha para cada; senão, o texto inteiro em cada um. Outras
     // teclas (Enter, Ctrl+...) e cliques sem Alt voltam a um cursor e seguem para o VBE.
     //
     // As edições são feitas pelo CodeModule (ReplaceLine; sem Desfazer). O VBE reformata a
@@ -113,6 +115,12 @@ namespace SageEditor
                         if (((long)lParam & 0x80000000L) == 0) SelectOccurrences(focus); // ao pressionar
                         return (IntPtr)1; // o VBE não vê a tecla (nem ao soltar)
                     }
+                }
+                // Colar (Ctrl+V, Shift+Insert) também é atalho do VBE: com vários cursores, cola em todos
+                if (code == HC_ACTION && Active && GetFocus() == window && IsPasteKey((int)wParam))
+                {
+                    if (((long)lParam & 0x80000000L) == 0) Paste(Vbe.ActiveCodePane);
+                    return (IntPtr)1;
                 }
             }
             catch (Exception ex) { Log.Error(ex); }
@@ -431,6 +439,7 @@ namespace SageEditor
                 Refresh(pane);
                 return true;
             }
+            if (IsPasteKey(key)) { Paste(pane); return true; } // se chegar aqui sem passar pelo hook
             if (ctrl || alt) return false;
             switch (key)
             {
@@ -598,6 +607,84 @@ namespace SageEditor
                     done.Add(c);
                 }
                 if (s != original) Write(module, group.Key, s, group.ToList());
+            }
+            Dedupe();
+            Refresh(pane);
+        }
+
+        // Ctrl+V ou Shift+Insert, sem outros modificadores
+        const int VK_INSERT = 0x2D, VK_V = 0x56;
+
+        static bool IsPasteKey(int key)
+        {
+            bool ctrl = IsDown(VK_CONTROL), alt = IsDown(VK_MENU), shift = IsDown(VK_SHIFT);
+            return !alt && ((key == VK_V && ctrl && !shift) || (key == VK_INSERT && shift && !ctrl));
+        }
+
+        // Cola em todos os cursores, no lugar da seleção de cada um. Se a área de transferência
+        // tem uma linha por cursor (como depois de copiar várias seleções), cada cursor recebe a
+        // sua, na ordem do código; senão, todos recebem o texto inteiro, que pode ter várias linhas.
+        static void Paste(dynamic pane)
+        {
+            string text;
+            try { text = System.Windows.Forms.Clipboard.ContainsText() ? System.Windows.Forms.Clipboard.GetText() : null; }
+            catch (ExternalException) { return; } // área de transferência presa por outro programa
+            if (!string.IsNullOrEmpty(text)) PasteText(pane, text);
+        }
+
+        static void PasteText(dynamic pane, string text)
+        {
+            text = text.Replace("\r\n", "\n").Replace('\r', '\n');
+
+            List<Caret> ordered = carets.OrderBy(c => c.Line).ThenBy(c => c.Start).ToList();
+            string[] lines = (text.EndsWith("\n") ? text.Substring(0, text.Length - 1) : text).Split('\n');
+            bool onePerCaret = lines.Length > 1 && lines.Length == ordered.Count;
+            Dictionary<Caret, string> pieces = new Dictionary<Caret, string>();
+            for (int i = 0; i < ordered.Count; i++) pieces[ordered[i]] = onePerCaret ? lines[i] : text;
+
+            dynamic module = pane.CodeModule;
+            // De baixo para cima: as linhas novas de um trecho só deslocam os cursores já tratados
+            foreach (IGrouping<int, Caret> group in carets.GroupBy(c => c.Line).OrderByDescending(g => g.Key).ToList())
+            {
+                int line = group.Key;
+                string s = LineText(module, line);
+                Dictionary<Caret, int> offset = new Dictionary<Caret, int>(); // posição (base 0) no texto da linha
+                List<Caret> done = new List<Caret>();
+                // Da direita para a esquerda, como no Edit
+                foreach (Caret c in group.OrderByDescending(c => c.End))
+                {
+                    int start = Clamp(c.Start, 1, s.Length + 1) - 1, end = Clamp(c.End, 1, s.Length + 1) - 1;
+                    string inserted = pieces[c];
+                    s = s.Substring(0, start) + inserted + s.Substring(end);
+                    int delta = inserted.Length - (end - start);
+                    foreach (Caret d in done) offset[d] += delta;
+                    offset[c] = start + inserted.Length;
+                    done.Add(c);
+                }
+
+                string[] parts = s.Split('\n');
+                if (parts.Length == 1)
+                {
+                    foreach (Caret c in done) c.Col = c.Anchor = offset[c] + 1;
+                    Write(module, line, s, done);
+                    continue;
+                }
+
+                // O trecho ganhou linhas: os cursores de baixo (já tratados) descem junto
+                int added = parts.Length - 1;
+                foreach (Caret d in carets) if (d.Line > line && !done.Contains(d)) d.Line += added;
+                // Linha e coluna de cada cursor dentro do trecho
+                foreach (Caret c in done)
+                {
+                    int rest = offset[c], k = 0;
+                    while (k < parts.Length - 1 && rest > parts[k].Length) { rest -= parts[k].Length + 1; k++; }
+                    c.Line = line + k;
+                    c.Col = c.Anchor = rest + 1;
+                }
+                var keys = done.Select(c => Tuple.Create(c, Key(parts[c.Line - line], c.Col))).ToList();
+                module.ReplaceLine(line, parts[0]);
+                module.InsertLines(line + 1, string.Join("\r\n", parts.Skip(1)));
+                foreach (var k in keys) k.Item1.Col = k.Item1.Anchor = Locate(LineText(module, k.Item1.Line), k.Item2);
             }
             Dedupe();
             Refresh(pane);

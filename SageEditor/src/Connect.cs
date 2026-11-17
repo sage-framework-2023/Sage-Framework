@@ -123,6 +123,8 @@ namespace SageEditor
                 catch (Exception ex) { Log.Error(ex); }
                 try { AutoReference.Poll(vbe); ImmediateCommands.Poll(); }
                 catch (Exception) { } // VBE ocupado; tenta no próximo ciclo
+                try { if (menu != null) menu.Poll(); }
+                catch (Exception) { } // idem
             };
             lineTimer.Start();
             Log.Info("Iniciado. Tema: " + Settings.ColorTheme + ". Idioma: " + Strings.Language);

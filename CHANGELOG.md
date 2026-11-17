@@ -8,6 +8,24 @@ O que entrou em cada versão e o que está planejado. A versão segue `maior.men
 - **TreeView**: mostra um JSON (ou um `Dictionary`/`List`) como árvore, para navegar por dados hierárquicos.
 - **ComboBox**: a caixa de seleção do Sage, no mesmo estilo do TextBox e do DateBox.
 
+## Ideias para o SageEditor
+
+Ainda sem versão.
+
+### Aba Problemas, no Painel
+Uma lista de avisos sobre o código, agrupada por módulo, com `Módulo:linha`; o clique leva até a linha. Um contador ao lado do nome da aba (*Problemas 3*).
+
+- **Erro:** o primeiro erro do compilador do próprio VBE (*Depurar > Compilar*), capturado quando o usuário pede (botão na aba ou atalho), e não sozinho, porque compilar muda o estado do projeto.
+- **Aviso** (o código roda, mas provavelmente está errado): módulo sem `Option Explicit`; `Dim a, b As Long` (só o `b` é `Long`); variável ou parâmetro nunca usado; procedimento privado nunca chamado; `On Error Resume Next` sem `On Error GoTo 0`; nomes de antes da 1.5 (`Sage.StringS`...).
+- **Informação:** `TODO`/`FIXME`; `Dim x` ou `Function F()` sem tipo; parâmetro sem `ByVal`/`ByRef`; `Scripting.FileSystemObject` e `Scripting.Dictionary`, com a sugestão do `Sage.Path` e do `Sage.Dictionary`.
+
+**Regra principal: não engessar o código.** A aba só informa; nada bloqueia, obriga ou muda o jeito de escrever:
+- nada é sublinhado nem pisca enquanto se digita; os avisos ficam só na aba, atualizados alguns instantes depois de parar de digitar, e só no módulo que mudou;
+- nenhum aviso impede rodar, compilar ou salvar, e nenhum muda o código sozinho;
+- cada regra pode ser desligada nas Configurações, e uma linha pode ser ignorada com o comentário `'@Ignore`;
+- a aba pode ficar fechada: quem não quiser, não a vê;
+- o que pode ter outra explicação (procedimento "nunca chamado", que pode ser chamado por um botão da planilha ou por `Application.Run`) entra como Informação, e não como Aviso.
+
 ## Ideias: o que é antigo no VBA e pode ser modernizado
 
 Ainda sem versão. Coisas que os UserForms não têm, ou têm de um jeito antigo.
@@ -32,6 +50,16 @@ Ainda sem versão. Coisas que os UserForms não têm, ou têm de um jeito antigo
 - **Expander**: seção que recolhe e abre, para forms longos.
 - **Tabs**: abas no visual atual (o MultiPage do VBA tem visual antigo).
 - **Validação**: ícone de erro com a mensagem ao lado do controle inválido.
+
+## 1.6.0
+
+### SageEditor
+- Menu **Sage > Exibir**: abre e fecha o Explorador (Ctrl+R) e o Painel (Ctrl+J). O que está à vista fica marcado.
+- Vários cursores: **Ctrl+V** (ou Shift+Insert) cola em todos os cursores, no lugar da seleção de cada um (antes, só no principal). Com uma linha na área de transferência para cada cursor, cada um recebe a sua; senão, todos recebem o texto inteiro.
+- O tema *Dark+* passa a se chamar **Dark** (quem já usa continua nele).
+- O Painel (Ctrl+J, *Sage > Exibir > Painel*) abre sempre na aba **Terminal**.
+- Correção: a aba Terminal às vezes abria sem o prompt e sem a linha de comando, e só aparecia depois de trocar de aba e voltar.
+- A biblioteca aparece em *Ferramentas > Referências* como **Sage Framework 1.6**.
 
 ## 1.5.0
 

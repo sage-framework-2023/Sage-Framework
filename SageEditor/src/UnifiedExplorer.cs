@@ -130,6 +130,15 @@ namespace SageEditor
             }
         }
 
+        // A janela Projeto (o Explorador) está à vista? Para a marca do menu Sage > Exibir
+        public static bool IsOpen()
+        {
+            foreach (dynamic w in Vbe.Windows)
+                if ((int)w.Type == vbext_wt_ProjectWindow)
+                    return (bool)w.Visible && (project == IntPtr.Zero || Native.IsWindowVisible(project));
+            return false;
+        }
+
         // Exibir > Janela Propriedades: abre a seção e põe o foco nela
         public static void ShowProperties()
         {

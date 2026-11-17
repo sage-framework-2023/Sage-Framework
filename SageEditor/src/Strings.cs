@@ -15,7 +15,7 @@ namespace SageEditor
         public static string Language; // "pt" ou "en"
 
         // Menu Sage
-        public static string MenuSettings;
+        public static string MenuSettings, MenuView, MenuExplorer, MenuPanel;
 
         // Configurações
         public static string SettingsTitle, SearchCue, UserTab, NoResults;
@@ -85,6 +85,9 @@ namespace SageEditor
         static void Portuguese()
         {
             MenuSettings = "&Configurações...";
+            MenuView = "&Exibir";
+            MenuExplorer = "E&xplorador";
+            MenuPanel = "&Painel";
 
             SettingsTitle = "Configurações - Sage";
             SearchCue = "Pesquisar configurações";
@@ -187,6 +190,9 @@ namespace SageEditor
         static void English()
         {
             MenuSettings = "&Settings...";
+            MenuView = "&View";
+            MenuExplorer = "E&xplorer";
+            MenuPanel = "&Panel";
 
             SettingsTitle = "Settings - Sage";
             SearchCue = "Search settings";

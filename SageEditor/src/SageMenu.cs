@@ -1,20 +1,36 @@
 using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.ComTypes;
 
 namespace SageEditor
 {
-    // Menu "Sage" na barra de menus do VBE, entre "Janela" e "Ajuda".
+    // Menu "Sage" na barra de menus do VBE, entre "Janela" e "Ajuda":
+    //   Exibir > Explorador e Painel (marcados quando estão à vista; o clique abre ou fecha,
+    //            como o Ctrl+R e o Ctrl+J)
+    //   Configurações...
     sealed class SageMenu : IDisposable
     {
         const int msoBarTypeMenuBar = 1;
         const int msoControlButton = 1;
         const int msoControlPopup = 10;
+        const int msoButtonUp = 0, msoButtonDown = -1;
         const int HelpMenuId = 30010;
         const string Tag = "Sage.Menu";
+        const int RefreshInterval = 500; // ms entre as conferências das marcas
 
         dynamic popup;
         ButtonClick settingsClick;
+        readonly List<ButtonClick> clicks = new List<ButtonClick>();
+        readonly List<ViewItem> viewItems = new List<ViewItem>();
+        int lastRefresh = Environment.TickCount;
+
+        sealed class ViewItem
+        {
+            public dynamic Button;
+            public Func<bool> IsOn;
+            public bool? Shown; // a marca que está no menu (null: ainda não conferida)
+        }
 
         public SageMenu(dynamic vbe, Action openSettings)
         {
@@ -33,12 +49,48 @@ namespace SageEditor
             popup.Caption = "Sa&ge";
             popup.Tag = Tag;
 
+            dynamic viewMenu = popup.Controls.Add(msoControlPopup, Type.Missing, Type.Missing, Type.Missing, true);
+            viewMenu.Caption = Strings.MenuView;
+            viewMenu.Tag = "Sage.View";
+            object view = viewMenu; // object, para as chamadas abaixo não virarem dinâmicas (com lambdas)
+            AddView(view, Strings.MenuExplorer, "Ctrl+R", UnifiedExplorer.Toggle, UnifiedExplorer.IsOpen);
+            AddView(view, Strings.MenuPanel, "Ctrl+J", TerminalWindow.Toggle, () => TerminalWindow.IsOpen);
+
             dynamic settings = popup.Controls.Add(msoControlButton, Type.Missing, Type.Missing, Type.Missing, true);
             settings.Caption = Strings.MenuSettings;
             settings.Tag = "Sage.Settings";
             settings.Style = 3; // msoButtonIconAndCaption
             settings.FaceId = 548;
+            settings.BeginGroup = true;
             settingsClick = new ButtonClick(settings, openSettings);
+        }
+
+        void AddView(object view, string caption, string shortcut, Action toggle, Func<bool> isOn)
+        {
+            dynamic button = ((dynamic)view).Controls.Add(msoControlButton, Type.Missing, Type.Missing, Type.Missing, true);
+            button.Caption = caption;
+            button.Style = 2; // msoButtonCaption: a marca aparece no lugar do ícone
+            button.ShortcutText = shortcut;
+            clicks.Add(new ButtonClick((object)button, delegate { toggle(); lastRefresh = Environment.TickCount - RefreshInterval; }));
+            viewItems.Add(new ViewItem { Button = button, IsOn = isOn });
+        }
+
+        // Pelo timer do Connect: acerta as marcas do Exibir quando uma janela abre ou fecha
+        // (pelo menu, pelos atalhos ou pelo próprio VBE). Só escreve no menu o que mudou.
+        public void Poll()
+        {
+            int now = Environment.TickCount;
+            if (unchecked(now - lastRefresh) < RefreshInterval) return;
+            lastRefresh = now;
+            foreach (ViewItem item in viewItems)
+            {
+                bool on;
+                try { on = item.IsOn(); }
+                catch (Exception) { continue; } // VBE ocupado; confere na próxima vez
+                if (item.Shown == on) continue;
+                item.Button.State = on ? msoButtonDown : msoButtonUp;
+                item.Shown = on;
+            }
         }
 
         static void RemoveLeftovers(dynamic vbe)
@@ -54,6 +106,9 @@ namespace SageEditor
         public void Dispose()
         {
             if (settingsClick != null) { settingsClick.Dispose(); settingsClick = null; }
+            foreach (ButtonClick c in clicks) c.Dispose();
+            clicks.Clear();
+            viewItems.Clear();
             if (popup != null)
             {
                 try { popup.Delete(); } catch (COMException) { }

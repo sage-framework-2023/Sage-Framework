@@ -9,7 +9,7 @@
 ## What's included
 
 ### SageEditor: a renewed VBA editor
-- **Themes** for the whole editor: *Azure (Dark)*, *Azure (Light)*, *Dark Modern*, *Dark+*, *Light (VBA Default)*, *Light Modern*, *Sage (Dark)* and *Sage (Light)*.
+- **Themes** for the whole editor: *Azure (Dark)*, *Azure (Light)*, *Dark*, *Dark Modern*, *Light (VBA Default)*, *Light Modern*, *Sage (Dark)* and *Sage (Light)*.
 - Richer **syntax highlighting**, **line numbers**, **tabs** for open windows and **multiple cursors**.
 - **Color decorators**: every `RGB(...)` and `&H...&` is underlined in its own color; clicking it opens a color picker that rewrites the color in the code.
 - **Unified explorer** (Properties inside the Project window) and **icons** for each component type.
@@ -77,7 +77,7 @@ powershell -ExecutionPolicy Bypass -File SageEditor\install.ps1
 powershell -ExecutionPolicy Bypass -File SageShortcuts\install.ps1
 
 # The release installer (dist\SageFramework-Setup-<version>.exe)
-powershell -ExecutionPolicy Bypass -File build-release.ps1 -Version 1.5.0
+powershell -ExecutionPolicy Bypass -File build-release.ps1 -Version 1.6.0
 ```
 
 Close Excel before installing: it keeps the DLLs loaded. The release version must match the `AssemblyVersion` in `SageTypes\src\AssemblyInfo.cs`.

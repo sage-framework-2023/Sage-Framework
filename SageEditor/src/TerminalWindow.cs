@@ -473,11 +473,12 @@ namespace SageEditor
         // Abrir e fechar
         // ------------------------------------------------------------------
 
+        // Ctrl+J e Sage > Exibir > Painel: abre sempre na aba Terminal
         public static void Toggle()
         {
             if (!Ready) return;
             if ((bool)toolWindow.Visible) toolWindow.Visible = false;
-            else Show(-1);
+            else Show(TabConsole);
         }
 
         // Fecha se a aba já está à vista; senão abre nela
@@ -537,6 +538,9 @@ namespace SageEditor
         {
             if (Ready) toolWindow.Visible = false;
         }
+
+        // Para a marca do menu Sage > Exibir
+        public static bool IsOpen { get { return Ready && (bool)toolWindow.Visible; } }
 
         public static void ApplyTheme()
         {
