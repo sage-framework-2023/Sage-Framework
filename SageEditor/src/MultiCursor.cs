@@ -4,6 +4,7 @@ using System.Drawing;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Windows.Forms;
 
 namespace SageEditor
 {
@@ -403,6 +404,7 @@ namespace SageEditor
             IntPtr old = window;
             bool wasActive = carets.Count > 1;
             if (dragging) { dragging = false; ReleaseCapture(); }
+            StopBlink();
             carets.Clear();
             window = IntPtr.Zero;
             if (old != IntPtr.Zero && wasActive) InvalidateRect(old, IntPtr.Zero, false); // apaga os cursores desenhados
@@ -749,6 +751,7 @@ namespace SageEditor
             Caret p = carets[carets.Count - 1];
             SetReference(pane, p.Line, p.Col);
             if (p.Anchor != p.Col) pane.SetSelection(p.Line, p.Start, p.Line, p.End);
+            RestartBlink(); // o VBE acabou de mover o cursor dele, que volta a aparecer
             InvalidateRect(window, IntPtr.Zero, false);
             UpdateWindow(window);
         }
@@ -778,8 +781,12 @@ namespace SageEditor
             int line, col;
             Selection(pane, out line, out col);
             int length = LineText(module, line).Length;
+            // O primeiro GetCaretPos depois de uma seleção pode vir com a posição antiga (o VBE
+            // esconde o cursor enquanto há seleção): lê duas vezes
+            CaretAt(pane, line, col);
             POINT a = CaretAt(pane, line, col);
-            if (length > 0)
+            if (Syntax.CodeCharWidth > 0) charWidth = Syntax.CodeCharWidth; // medida com a fonte do código: exata
+            else if (length > 0)
             {
                 int other = col > 1 ? col - 1 : col + 1;
                 POINT b = CaretAt(pane, line, other);
@@ -824,17 +831,14 @@ namespace SageEditor
                 SelectClipRgn(dc, region);
                 foreach (Caret c in carets)
                 {
-                    bool selected = c.Anchor != c.Col;
-                    Point at = ToPixel(c.Line, c.Col, top);
-                    if (c != p || selected) PatBlt(dc, at.X, at.Y, 2, lineHeight, DSTINVERT);
-                    if (c != p && selected)
-                    {
-                        // sem o trecho de 2 px do cursor (inverter duas vezes o apagaria)
-                        Point left = ToPixel(c.Line, c.Start, top);
-                        int skip = c.Col == c.Start ? 2 : 0;
-                        PatBlt(dc, left.X + skip, left.Y, (c.End - c.Start) * charWidth - skip, lineHeight, PATINVERT);
-                    }
+                    if (c == p || c.Anchor == c.Col) continue;
+                    Point left = ToPixel(c.Line, c.Start, top);
+                    PatBlt(dc, left.X, left.Y, (c.End - c.Start) * charWidth, lineHeight, PATINVERT);
                 }
+                // Os cursores por cima das seleções: as duas inversões não se anulam (a do cursor
+                // inverte tudo; a da seleção, só as cores do fundo), então piscar o cursor não mexe
+                // na seleção
+                if (caretsShown) InvertCarets(dc, p, top);
             }
             finally
             {
@@ -842,6 +846,61 @@ namespace SageEditor
                 Native.ReleaseDC(hwnd, dc);
                 Native.DeleteObject(brush);
             }
+        }
+
+        // Os cursores desenhados aqui: os extras e o principal com seleção (aí o VBE esconde o dele).
+        // Na largura do cursor do Windows, a mesma do cursor do VBE (1 px no padrão)
+        static void InvertCarets(IntPtr dc, Caret p, int top)
+        {
+            int caretWidth = Math.Max(1, SystemInformation.CaretWidth);
+            foreach (Caret c in carets)
+            {
+                if (c == p && c.Anchor == c.Col) continue;
+                Point at = ToPixel(c.Line, c.Col, top);
+                PatBlt(dc, at.X, at.Y, caretWidth, lineHeight, DSTINVERT);
+            }
+        }
+
+        // Piscar dos cursores desenhados, no ritmo do cursor do Windows (o do VBE). Como o do VBE,
+        // recomeça visível a cada mudança (Refresh: digitar, mover, Alt+Clique). Com o piscar
+        // desligado no Windows, ficam fixos.
+        static bool caretsShown = true;
+        static Timer blink;
+        [DllImport("user32.dll")] static extern uint GetCaretBlinkTime();
+
+        static void RestartBlink()
+        {
+            caretsShown = true;
+            if (blink != null) blink.Stop();
+            uint ms = GetCaretBlinkTime();
+            if (ms == 0 || ms > int.MaxValue) return; // INFINITE: o cursor não pisca
+            if (blink == null)
+            {
+                blink = new Timer();
+                blink.Tick += delegate { BlinkTick(); };
+            }
+            blink.Interval = (int)ms;
+            blink.Start();
+        }
+
+        static void StopBlink()
+        {
+            if (blink != null) blink.Stop();
+            caretsShown = true;
+        }
+
+        static void BlinkTick()
+        {
+            try
+            {
+                if (window == IntPtr.Zero || (carets.Count < 2 && !dragging) || charWidth == 0 || lineHeight == 0) { StopBlink(); return; }
+                int top = Vbe.ActiveCodePane.TopLine;
+                caretsShown = !caretsShown;
+                IntPtr dc = Native.GetDC(window);
+                try { InvertCarets(dc, carets[carets.Count - 1], top); } // inverter de novo apaga
+                finally { Native.ReleaseDC(window, dc); }
+            }
+            catch (Exception) { StopBlink(); } // VBE ocupado: os cursores ficam visíveis
         }
 
         static string LineText(dynamic module, int line)

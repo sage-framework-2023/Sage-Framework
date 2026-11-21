@@ -19,12 +19,18 @@ namespace SageEditor
 
         // Configurações
         public static string SettingsTitle, SearchCue, UserTab, NoResults;
-        public static string NavCommon, NavAppearance, NavEditor;
+        public static string NavCommon, NavAppearance, NavEditor, NavFeatures;
         public static string On, Off;
         public static string AppearanceCategory, ColorTheme, ColorThemeDescription, ColorThemeKeywords;
         public static string EditorCategory, LineNumbers, LineNumbersDescription, LineNumbersKeywords;
         public static string ShowTabs, ShowTabsDescription, ShowTabsKeywords;
         public static string AutoReference, AutoReferenceDescription, AutoReferenceKeywords;
+        public static string Errors, ErrorsDescription, ErrorsKeywords, ErrorsStop, ErrorsDebug, ErrorAt, ErrorPaused;
+        public static string FolderModules, FolderClasses, FolderForms, FolderDocuments;
+        public static string Problems, ProblemsCheck, ProblemsNone, ProblemsNotChecked, ProblemsChecking, ProblemsLocation;
+        public static string LintWithout, LintBlockIf, LintBlockIfAfter, LintExpected, LintAmbiguous, LintDuplicate, LintAfterProcedures,
+            LintOutsideProcedure, LintInsideProcedure, LintNextVariable, LintExitOutside, LintExitNotAllowed, LintLabel,
+            LintEndOfStatement, LintIdentifier, LintThenOrGoTo, LintExpression;
         public static string SageReference, SageReferenceDescription, SageReferenceNone, SageReferenceKeywords;
         public static string SageReferenceNotInstalled, SageReferenceNoProject, SageReferenceLocked, SageReferenceRunning;
         public static string ToolboxControls, ToolboxControlsDescription, ToolboxControlsKeywords;
@@ -96,6 +102,7 @@ namespace SageEditor
             NavCommon = "Comumente Usado";
             NavAppearance = "Aparência";
             NavEditor = "Editor";
+            NavFeatures = "Recursos";
             On = "Ativado";
             Off = "Desativado";
 
@@ -114,6 +121,42 @@ namespace SageEditor
             ShowTabsDescription = "Mostra as janelas abertas (módulos, classes e formulários) como abas no topo da área de código. " +
                 "Clique para ativar, arraste para mudar de lugar, \"×\" ou botão do meio para fechar e botão direito para mais opções.";
             ShowTabsKeywords = "abas aba guias tabs janelas abertas módulos workbench editor show tabs";
+            Errors = "Erros no Terminal";
+            ErrorsDescription = "Um erro em tempo de execução vai para a aba Terminal, com o módulo, o procedimento e a linha, " +
+                "em vez da caixa do VBA. Mostrar e Parar encerra o código; Mostrar e Depurar deixa o código pausado na linha do erro. " +
+                "Com o editor do VBA fechado, continua a caixa de sempre.";
+            ErrorsKeywords = "erro erros terminal msgbox caixa depurar runtime tempo de execução error errors debug";
+            ErrorsStop = "Mostrar e Parar";
+            ErrorsDebug = "Mostrar e Depurar";
+            ErrorAt = "{0}, linha {1}";
+            Problems = "Problemas";
+            ProblemsCheck = "Verificar";
+            ProblemsNone = "Nenhum problema encontrado no código.";
+            ProblemsNotChecked = "Clique em Verificar (ou salve a pasta de trabalho) para procurar problemas no código.";
+            ProblemsChecking = "Verificando...";
+            ProblemsLocation = "linha {0}, coluna {1}";
+            LintWithout = "{0} sem {1}";
+            LintBlockIf = "Bloco If";
+            LintBlockIfAfter = "bloco If";
+            LintExpected = "Esperado: {0}";
+            LintAmbiguous = "Nome ambíguo detectado: {0}";
+            LintDuplicate = "Declaração duplicada no escopo atual: {0}";
+            LintAfterProcedures = "Somente comentários podem aparecer depois de End Sub, End Function ou End Property";
+            LintOutsideProcedure = "Inválido fora do procedimento";
+            LintInsideProcedure = "Inválido dentro do procedimento";
+            LintNextVariable = "Referência de variável de controle Next inválida";
+            LintExitOutside = "{0} não está dentro de {1}";
+            LintExitNotAllowed = "Exit {0} não permitido em {1}";
+            LintLabel = "Rótulo não definido: {0}";
+            LintEndOfStatement = "fim da instrução";
+            LintIdentifier = "identificador";
+            LintThenOrGoTo = "Then ou GoTo";
+            LintExpression = "expressão";
+            FolderModules = "Módulos";
+            FolderClasses = "Classes";
+            FolderForms = "Formulários";
+            FolderDocuments = "Objetos Excel";
+            ErrorPaused = "Pausado na linha do erro: F5 continua, F8 avança uma linha e Executar > Redefinir encerra.";
             AutoReference = "Referência Automática";
             AutoReferenceDescription = "Pastas de trabalho novas já vêm com a biblioteca Sage Framework (Sage.String...) " +
                 "marcada em Ferramentas > Referências. Arquivos já salvos não são alterados: para não usar o Sage num arquivo, " +
@@ -205,6 +248,7 @@ namespace SageEditor
             NavCommon = "Commonly Used";
             NavAppearance = "Appearance";
             NavEditor = "Editor";
+            NavFeatures = "Features";
             On = "On";
             Off = "Off";
 
@@ -223,6 +267,42 @@ namespace SageEditor
             ShowTabsDescription = "Shows the open windows (modules, classes and forms) as tabs at the top of the code area. " +
                 "Click to activate, drag to reorder, \"×\" or middle button to close and right button for more options.";
             ShowTabsKeywords = "tabs open windows modules workbench editor show tabs";
+            Errors = "Errors in the Terminal";
+            ErrorsDescription = "A run-time error goes to the Terminal tab, with the module, the procedure and the line, " +
+                "instead of the VBA message box. Show and Stop ends the code; Show and Debug leaves the code paused on the error line. " +
+                "With the VBA editor closed, the usual message box stays.";
+            ErrorsKeywords = "error errors terminal msgbox message box debug runtime run-time";
+            ErrorsStop = "Show and Stop";
+            ErrorsDebug = "Show and Debug";
+            ErrorAt = "{0}, line {1}";
+            Problems = "Problems";
+            ProblemsCheck = "Check";
+            ProblemsNone = "No problems have been detected in the code.";
+            ProblemsNotChecked = "Click Check (or save the workbook) to look for problems in the code.";
+            ProblemsChecking = "Checking...";
+            ProblemsLocation = "line {0}, column {1}";
+            LintWithout = "{0} without {1}";
+            LintBlockIf = "Block If";
+            LintBlockIfAfter = "block If";
+            LintExpected = "Expected: {0}";
+            LintAmbiguous = "Ambiguous name detected: {0}";
+            LintDuplicate = "Duplicate declaration in current scope: {0}";
+            LintAfterProcedures = "Only comments may appear after End Sub, End Function, or End Property";
+            LintOutsideProcedure = "Invalid outside procedure";
+            LintInsideProcedure = "Invalid inside procedure";
+            LintNextVariable = "Invalid Next control variable reference";
+            LintExitOutside = "{0} not within {1}";
+            LintExitNotAllowed = "Exit {0} not allowed in {1}";
+            LintLabel = "Label not defined: {0}";
+            LintEndOfStatement = "end of statement";
+            LintIdentifier = "identifier";
+            LintThenOrGoTo = "Then or GoTo";
+            LintExpression = "expression";
+            FolderModules = "Modules";
+            FolderClasses = "Classes";
+            FolderForms = "Forms";
+            FolderDocuments = "Excel Objects";
+            ErrorPaused = "Paused on the error line: F5 continues, F8 steps one line and Run > Reset ends.";
             AutoReference = "Automatic Reference";
             AutoReferenceDescription = "New workbooks come with the Sage Framework library (Sage.String...) " +
                 "checked in Tools > References. Saved files are not changed: to not use Sage in a file, " +

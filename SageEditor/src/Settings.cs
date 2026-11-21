@@ -22,6 +22,7 @@ namespace SageEditor
         public const string ColorDecoratorsKey = "editor.colorDecorators";
         public const string IconsKey = "sage.icons";
         public const string ExplorerKey = "sage.explorer";
+        public const string ErrorsKey = "sage.errorsInTerminal";
         public const string LocaleKey = "locale"; // opcional: força o idioma ("pt-BR", "en"); senão, o do Office
 
         static readonly object sync = new object();
@@ -80,6 +81,22 @@ namespace SageEditor
         {
             get { return !string.Equals(Get(EditorTabsKey, "multiple"), "none", StringComparison.OrdinalIgnoreCase); }
             set { Set(EditorTabsKey, value ? "multiple" : "none"); }
+        }
+
+        // Erros em tempo de execução no Terminal (ErrorToTerminal): "stop" (padrão: mostra e
+        // encerra), "debug" (mostra e deixa pausado na linha) ou "off" (a caixa do VBA)
+        public enum ErrorMode { Off, Stop, Debug }
+
+        public static ErrorMode Errors
+        {
+            get
+            {
+                string v = Get(ErrorsKey, "stop");
+                if (string.Equals(v, "off", StringComparison.OrdinalIgnoreCase)) return ErrorMode.Off;
+                if (string.Equals(v, "debug", StringComparison.OrdinalIgnoreCase)) return ErrorMode.Debug;
+                return ErrorMode.Stop;
+            }
+            set { Set(ErrorsKey, value == ErrorMode.Off ? "off" : value == ErrorMode.Debug ? "debug" : "stop"); }
         }
 
         public static string Get(string key, string fallback)

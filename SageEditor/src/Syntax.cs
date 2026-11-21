@@ -38,6 +38,8 @@ namespace SageEditor
         [DllImport("gdi32.dll")] static extern uint GetTextAlign(IntPtr hdc);
         [DllImport("gdi32.dll")] static extern int GetTextColor(IntPtr hdc);
         [DllImport("gdi32.dll")] static extern bool GetTextExtentPoint32A(IntPtr hdc, IntPtr text, int count, out Size size);
+        [DllImport("gdi32.dll", CharSet = CharSet.Unicode)] static extern bool GetTextExtentPoint32W(IntPtr hdc, string text, int count, out Size size);
+        [DllImport("gdi32.dll")] static extern IntPtr GetCurrentObject(IntPtr hdc, uint type);
         [StructLayout(LayoutKind.Sequential)] struct Size { public int Width, Height; }
         [StructLayout(LayoutKind.Sequential)] struct Point { public int X, Y; }
         [DllImport("gdi32.dll")] static extern bool GetCurrentPositionEx(IntPtr hdc, out Point point);
@@ -66,8 +68,34 @@ namespace SageEditor
         // Desenho
         // ------------------------------------------------------------------
 
+        // Largura de um caractere do código, em pixels, medida com a fonte que o VBE usa para
+        // desenhar (fonte de largura fixa). Os vários cursores a usam para pôr as seleções no lugar
+        // (MultiCursor), sem depender do cursor do VBE. 0: ainda não medida.
+        public static int CodeCharWidth { get; private set; }
+        static IntPtr measuredFont;
+        const uint OBJ_FONT = 6;
+
+        static void NoteCharWidth(IntPtr hdc)
+        {
+            try
+            {
+                IntPtr font = GetCurrentObject(hdc, OBJ_FONT);
+                if (font == IntPtr.Zero || font == measuredFont || !IsCodePane(Native.WindowFromDC(hdc))) return;
+                measuredFont = font;
+                Size size;
+                if (GetTextExtentPoint32W(hdc, "MMMMMMMMMM", 10, out size) && size.Width > 0)
+                {
+                    int width = (int)Math.Round(size.Width / 10.0);
+                    if (width != CodeCharWidth) Log.Info("Largura do caractere do código: " + width + " px");
+                    CodeCharWidth = width;
+                }
+            }
+            catch (Exception ex) { Log.Error(ex); }
+        }
+
         static bool HookTextOut(IntPtr hdc, int x, int y, IntPtr text, int count)
         {
+            NoteCharWidth(hdc);
             ColorDecorators.Pending colors = Colors(hdc, x, y, text, count, IntPtr.Zero);
             bool done = count > 0 && Draw(hdc, x, y, 0, IntPtr.Zero, text, count, IntPtr.Zero);
             if (!done) done = origTextOut(hdc, x, y, text, count);
@@ -77,6 +105,7 @@ namespace SageEditor
 
         static bool HookExtTextOut(IntPtr hdc, int x, int y, uint options, IntPtr rect, IntPtr text, uint count, IntPtr dx)
         {
+            if (count > 0) NoteCharWidth(hdc);
             bool plain = count > 0 && (options & (ETO_GLYPH_INDEX | ETO_PDY)) == 0;
             ColorDecorators.Pending colors = plain ? Colors(hdc, x, y, text, (int)count, dx) : null;
             bool done = plain && Draw(hdc, x, y, options, rect, text, (int)count, dx);

@@ -586,6 +586,13 @@ Remove-Variable start, SageStartFolders
         // Tela
         // ------------------------------------------------------------------
 
+        // Um erro do VBA (ErrorToTerminal), em vermelho, acima do prompt
+        public void PrintError(string text)
+        {
+            Color color = errorColor.IsEmpty ? Color.FromArgb(0xF4, 0x87, 0x71) : errorColor;
+            Write((text ?? "").TrimEnd('\n') + "\n", color);
+        }
+
         void WriteLine(string text, Color? color)
         {
             Write((text ?? "") + "\n", color);
@@ -878,8 +885,14 @@ Remove-Variable start, SageStartFolders
                 object[] all = new object[values.Length + 1];
                 all[0] = name;
                 Array.Copy(values, 0, all, 1, values.Length);
+                int started = Environment.TickCount;
                 try { return app.GetType().InvokeMember("Run", BindingFlags.InvokeMethod, null, app, all); }
-                catch (TargetInvocationException ex) { throw ex.InnerException ?? ex; }
+                catch (TargetInvocationException ex)
+                {
+                    // O erro já foi para o Terminal com o lugar e a linha (Erros no Terminal): sem repetir
+                    if (ErrorToTerminal.ReportedSince(started)) return null;
+                    throw ex.InnerException ?? ex;
+                }
             });
         }
 

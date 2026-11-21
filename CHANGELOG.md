@@ -12,10 +12,10 @@ O que entrou em cada versão e o que está planejado. A versão segue `maior.men
 
 Ainda sem versão.
 
-### Aba Problemas, no Painel
-Uma lista de avisos sobre o código, agrupada por módulo, com `Módulo:linha`; o clique leva até a linha. Um contador ao lado do nome da aba (*Problemas 3*).
+### Aba Problemas: próximos passos
+A aba existe desde a 1.6.0, com os erros de estrutura (encontrados lendo o texto, sem o compilador). Próximos passos, pela mesma análise própria (nada de compilar cópias):
 
-- **Erro:** o primeiro erro do compilador do próprio VBE (*Depurar > Compilar*), capturado quando o usuário pede (botão na aba ou atalho), e não sozinho, porque compilar muda o estado do projeto.
+- **Variável não definida** (com `Option Explicit`) e **Sub ou Function não definida**: lendo também os nomes das bibliotecas referenciadas (as bibliotecas de tipos delas), para não dar alarmes falsos.
 - **Aviso** (o código roda, mas provavelmente está errado): módulo sem `Option Explicit`; `Dim a, b As Long` (só o `b` é `Long`); variável ou parâmetro nunca usado; procedimento privado nunca chamado; `On Error Resume Next` sem `On Error GoTo 0`; nomes de antes da 1.5 (`Sage.StringS`...).
 - **Informação:** `TODO`/`FIXME`; `Dim x` ou `Function F()` sem tipo; parâmetro sem `ByVal`/`ByRef`; `Scripting.FileSystemObject` e `Scripting.Dictionary`, com a sugestão do `Sage.Path` e do `Sage.Dictionary`.
 
@@ -66,8 +66,12 @@ Ainda sem versão. Coisas que os UserForms não têm, ou têm de um jeito antigo
 ## 1.6.0
 
 ### SageEditor
+- Aba **Problemas** no Painel (a primeira da faixa): lista de uma vez os erros de sintaxe e de estrutura do código de todos os projetos abertos, lendo o texto, sem compilar e sem mexer no código: as linhas que o VBE marca em vermelho (sobra no cabeçalho do procedimento, como `Sub Teste 1()`, ou numa declaração, parênteses desencontrados, `If` sem `Then`, `For` sem `=` ou `To`, `x = a b`), blocos desencontrados (`If`/`End If`, `For`/`Next`, `Do`/`Loop`, `With`, `Select Case`, `Sub`/`Function`/`Property`...), `Next` com a variável de outro `For`, `Case`/`Else`/`Exit` fora do bloco, rótulo não definido, declaração duplicada, nome ambíguo e código fora de procedimento, com as mensagens do VBA e sem erros em cascata. Verifica ao abrir a aba, ao salvar e pelo botão Verificar; o clique leva ao trecho.
+- **Erros no Terminal**: um erro do código (em tempo de execução ou de compilação) não abre mais a caixa do VBA; vai para a aba Terminal: primeiro o lugar, como o caminho na janela Projeto (`Pasta1.xlsm\Módulos\Modulo1\Calcular, linha 12`), depois o código da linha e, por último, a mensagem; o cursor fica na linha do erro. *Editor: Erros no Terminal* nas Configurações: *Mostrar e Parar* (padrão), *Mostrar e Depurar* ou *Desativado*. Com o editor do VBA fechado, fica a caixa de sempre.
+- Configurações: o índice à esquerda é uma árvore, com **Editor > Aparência** (tema, números de linha, abas, ícones, decoradores de cor, Explorador) e **Editor > Recursos** (vários cursores, erros no Terminal, referências, controles da Caixa de ferramentas). O clique em *Editor* recolhe ou abre o grupo.
 - Menu **Sage > Exibir**: abre e fecha o Explorador (Ctrl+R) e o Painel (Ctrl+J). O que está à vista fica marcado.
 - Vários cursores: **Ctrl+V** (ou Shift+Insert) cola em todos os cursores, no lugar da seleção de cada um (antes, só no principal). Com uma linha na área de transferência para cada cursor, cada um recebe a sua; senão, todos recebem o texto inteiro.
+- Correção: com vários cursores (Ctrl+F2, Alt+Clique), as seleções extras às vezes apareciam deslocadas ou largas demais. A largura do caractere agora vem da fonte do código, e não do cursor do VBE. Os cursores extras ficam com a largura do cursor do Windows, a mesma do cursor do VBE (1 px no padrão, antes 2 px), e piscam junto com ele: no mesmo ritmo, recomeçando visíveis a cada movimento.
 - O tema *Dark+* passa a se chamar **Dark** (quem já usa continua nele).
 - Aba Terminal: a tela é uma caixa só, como num terminal comum, com o prompt e a linha de comando na última linha. Dá para selecionar e copiar qualquer trecho, inclusive da saída até a linha de comando; só a linha de comando pode ser editada. O clique direito tem *Copiar*, *Copiar Tudo*, *Colar* e *Selecionar Tudo*, e o Ctrl+A seleciona tudo.
 - Aba Terminal: o prompt sai na cor do texto do tema, e não mais na cor de destaque (azul).

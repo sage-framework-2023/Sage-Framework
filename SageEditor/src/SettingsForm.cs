@@ -72,14 +72,17 @@ namespace SageEditor
         readonly Panel userTabLine = new Panel();
         readonly Panel separator = new Panel();
         readonly Panel nav = new Panel();
-        readonly List<Label> navItems = new List<Label>();
+        readonly List<NavNode> navNodes = new List<NavNode>();
+        NavNode selectedNode;
         readonly Panel content = new Panel();
         readonly Label sectionTitle = new Label();
         readonly SettingItem themeItem;
-        readonly Label editorTitle = new Label();
-        readonly List<SettingItem> editorItems = new List<SettingItem>();
+        readonly Label featuresTitle = new Label();
+        // Os itens de cada seção (Editor > Aparência e Editor > Recursos), na ordem da tela
+        readonly List<SettingItem> appearanceItems = new List<SettingItem>();
+        readonly List<SettingItem> featureItems = new List<SettingItem>();
+        List<SettingItem> group; // a seção que recebe os próximos AddOnOff/AddChoice
         // Resultado da pesquisa (Control.Visible é falso enquanto a janela não aparece)
-        bool showAppearance = true;
         readonly HashSet<SettingItem> hidden = new HashSet<SettingItem>();
         readonly Label noResults = new Label();
         readonly SettingItem referenceItem;
@@ -114,13 +117,14 @@ namespace SageEditor
             Controls.Add(userTabLine);
             Controls.Add(separator);
 
-            // Índice à esquerda
-            AddNavItem(Strings.NavCommon);
-            AddNavItem(Strings.NavAppearance);
-            AddNavItem(Strings.NavEditor);
+            // Índice à esquerda, em árvore: Mais Usados; Editor > Aparência e Recursos
+            NavNode common = AddNavNode(Strings.NavCommon, null, false);
+            NavNode editor = AddNavNode(Strings.NavEditor, null, true);
+            NavNode appearance = AddNavNode(Strings.NavAppearance, editor, false);
+            NavNode features = AddNavNode(Strings.NavFeatures, editor, false);
             Controls.Add(nav);
 
-            // Conteúdo
+            // Editor > Aparência: o que muda o visual do editor
             sectionTitle.Text = Strings.NavAppearance;
             sectionTitle.Font = sectionFont;
             sectionTitle.AutoSize = true;
@@ -131,25 +135,37 @@ namespace SageEditor
             themeItem = new SettingItem(Strings.AppearanceCategory, Strings.ColorTheme, Strings.ColorThemeDescription,
                 names.ToArray(), theme.DisplayName, Strings.ColorThemeKeywords);
             themeItem.ValueChanged += OnThemeChanged;
+            appearanceItems.Add(themeItem);
             content.Controls.Add(themeItem);
 
-            editorTitle.Text = Strings.NavEditor;
-            editorTitle.Font = sectionFont;
-            editorTitle.AutoSize = true;
-            content.Controls.Add(editorTitle);
-
+            group = appearanceItems;
             AddOnOff(Strings.LineNumbers, Strings.LineNumbersDescription, Strings.LineNumbersKeywords, Settings.LineNumbers,
                 delegate(bool on) { Settings.LineNumbers = on; applyTheme(theme); }); // redesenha o VBE
             AddOnOff(Strings.ShowTabs, Strings.ShowTabsDescription, Strings.ShowTabsKeywords, Settings.EditorTabs,
                 delegate(bool on) { Settings.EditorTabs = on; applyTheme(theme); });
-            AddOnOff(Strings.MultiCursor, Strings.MultiCursorDescription, Strings.MultiCursorKeywords, Settings.MultiCursor,
-                delegate(bool on) { Settings.MultiCursor = on; });
+            AddOnOff(Strings.Icons, Strings.IconsDescription, Strings.IconsKeywords, Settings.Icons,
+                delegate(bool on) { Settings.Icons = on; applyTheme(theme); }); // redesenha as abas
             AddOnOff(Strings.ColorDecorators, Strings.ColorDecoratorsDescription, Strings.ColorDecoratorsKeywords, Settings.ColorDecorators,
                 delegate(bool on) { Settings.ColorDecorators = on; applyTheme(theme); }); // redesenha o código
             AddOnOff(Strings.Explorer, Strings.ExplorerDescription, Strings.ExplorerKeywords, Settings.UnifiedExplorer,
                 delegate(bool on) { Settings.UnifiedExplorer = on; });
-            AddOnOff(Strings.Icons, Strings.IconsDescription, Strings.IconsKeywords, Settings.Icons,
-                delegate(bool on) { Settings.Icons = on; applyTheme(theme); }); // redesenha as abas
+
+            // Editor > Recursos: o que o editor faz
+            featuresTitle.Text = Strings.NavFeatures;
+            featuresTitle.Font = sectionFont;
+            featuresTitle.AutoSize = true;
+            content.Controls.Add(featuresTitle);
+
+            group = featureItems;
+            AddOnOff(Strings.MultiCursor, Strings.MultiCursorDescription, Strings.MultiCursorKeywords, Settings.MultiCursor,
+                delegate(bool on) { Settings.MultiCursor = on; });
+            AddChoice(Strings.Errors, Strings.ErrorsDescription, Strings.ErrorsKeywords,
+                new string[] { Strings.ErrorsStop, Strings.ErrorsDebug, Strings.Off },
+                Settings.Errors == Settings.ErrorMode.Debug ? Strings.ErrorsDebug : Settings.Errors == Settings.ErrorMode.Off ? Strings.Off : Strings.ErrorsStop,
+                delegate(string selected)
+                {
+                    Settings.Errors = selected == Strings.ErrorsDebug ? Settings.ErrorMode.Debug : selected == Strings.Off ? Settings.ErrorMode.Off : Settings.ErrorMode.Stop;
+                });
             AddOnOff(Strings.AutoReference, Strings.AutoReferenceDescription, Strings.AutoReferenceKeywords, Settings.AutoReference,
                 delegate(bool on) { Settings.AutoReference = on; });
             // A referência no projeto ativo: relida quando a janela volta ao foco (o projeto ativo muda)
@@ -168,10 +184,21 @@ namespace SageEditor
             content.AutoScroll = true;
             Controls.Add(content);
 
+            common.Target = sectionTitle;
+            editor.Target = sectionTitle;
+            appearance.Target = sectionTitle;
+            features.Target = featuresTitle;
+
             Resize += delegate { DoLayout(); };
             DoLayout();
             ApplyColors();
-            SelectNav(navItems[1]);
+            SelectNav(appearance);
+        }
+
+        IEnumerable<SettingItem> AllItems()
+        {
+            foreach (SettingItem item in appearanceItems) yield return item;
+            foreach (SettingItem item in featureItems) yield return item;
         }
 
         // Item "Editor: <nome>" com Ativado/Desativado
@@ -180,7 +207,17 @@ namespace SageEditor
             SettingItem item = new SettingItem(Strings.EditorCategory, name, description,
                 new string[] { Strings.On, Strings.Off }, value ? Strings.On : Strings.Off, keywords);
             item.ValueChanged += delegate(string selected) { changed(selected == Strings.On); };
-            editorItems.Add(item);
+            group.Add(item);
+            content.Controls.Add(item);
+            return item;
+        }
+
+        // Item "Editor: <nome>" com uma lista de opções
+        SettingItem AddChoice(string name, string description, string keywords, string[] options, string value, Action<string> changed)
+        {
+            SettingItem item = new SettingItem(Strings.EditorCategory, name, description, options, value, keywords);
+            item.ValueChanged += delegate(string selected) { changed(selected); };
+            group.Add(item);
             content.Controls.Add(item);
             return item;
         }
@@ -215,30 +252,60 @@ namespace SageEditor
             RefreshReference();
         }
 
-        void AddNavItem(string text)
+        // Um item do índice: um grupo (Editor, que abre e fecha) ou uma seção (vai até o título dela)
+        sealed class NavNode
         {
-            Label item = new Label();
-            item.Text = text;
-            item.AutoSize = false;
-            item.Height = 26;
-            item.TextAlign = ContentAlignment.MiddleLeft;
-            item.Padding = new Padding(16, 0, 0, 0);
-            item.Cursor = Cursors.Hand;
-            item.Click += delegate { SelectNav(item); };
-            navItems.Add(item);
-            nav.Controls.Add(item);
+            public Label Label;
+            public string Text;
+            public NavNode Parent;
+            public bool IsGroup, Expanded = true;
+            public Control Target;
+            public bool Shown { get { return Parent == null || Parent.Expanded; } }
         }
 
-        void SelectNav(Label selected)
+        NavNode AddNavNode(string text, NavNode parent, bool isGroup)
         {
-            foreach (Label l in navItems)
+            NavNode node = new NavNode { Text = text, Parent = parent, IsGroup = isGroup };
+            Label label = new Label();
+            label.AutoSize = false;
+            label.Height = 26;
+            label.TextAlign = ContentAlignment.MiddleLeft;
+            label.Padding = new Padding(parent == null ? 4 : 28, 0, 0, 0); // os filhos recuados
+            label.Cursor = Cursors.Hand;
+            label.Click += delegate { SelectNav(node); };
+            node.Label = label;
+            navNodes.Add(node);
+            nav.Controls.Add(label);
+            NavText(node);
+            return node;
+        }
+
+        // Os grupos com a seta (aberto ou fechado); os outros alinhados ao texto do grupo
+        static void NavText(NavNode node)
+        {
+            node.Label.Text = (node.IsGroup ? (node.Expanded ? "\u25BE  " : "\u25B8  ") : node.Parent == null ? "     " : "") + node.Text;
+        }
+
+        void SelectNav(NavNode node)
+        {
+            if (node.IsGroup)
             {
-                bool on = l == selected;
-                l.Font = on ? titleFont : uiFont;
-                l.ForeColor = on ? theme.Foreground : theme.Muted;
+                node.Expanded = !node.Expanded || selectedNode == null;
+                NavText(node);
+                DoLayout();
             }
-            if (selected == navItems[2]) { content.ScrollControlIntoView(editorItems[0]); editorItems[0].Focus(); }
-            else { content.ScrollControlIntoView(sectionTitle); themeItem.Focus(); }
+            selectedNode = node;
+            SelectNavColors();
+            ScrollTo(node.Target);
+        }
+
+        // A seção no topo da área de conteúdo, com o foco no primeiro item dela
+        void ScrollTo(Control title)
+        {
+            if (title == null || !title.Visible) return;
+            content.AutoScrollPosition = new Point(0, title.Top - content.AutoScrollPosition.Y);
+            List<SettingItem> items = title == featuresTitle ? featureItems : appearanceItems;
+            foreach (SettingItem item in items) if (!hidden.Contains(item)) { item.Focus(); break; }
         }
 
         void DoLayout()
@@ -252,47 +319,53 @@ namespace SageEditor
 
             int top = separator.Bottom + 12;
             nav.SetBounds(margin, top, 200, h - top);
-            for (int i = 0; i < navItems.Count; i++)
-                navItems[i].SetBounds(0, i * 26, nav.Width, 26);
+            int navY = 0;
+            foreach (NavNode node in navNodes)
+            {
+                node.Label.Visible = node.Shown;
+                if (!node.Shown) continue;
+                node.Label.SetBounds(0, navY, nav.Width, 26);
+                navY += 26;
+            }
 
             content.SetBounds(nav.Right + 16, top, w - nav.Right - 16 - margin, h - top);
             int itemWidth = Math.Min(content.ClientSize.Width, 820);
-            int y = 0;
-            if (showAppearance)
-            {
-                sectionTitle.Location = new Point(12, y);
-                themeItem.SetBounds(0, sectionTitle.Bottom + 12, itemWidth, themeItem.PreferredHeight);
-                y = themeItem.Bottom + 24;
-            }
-            if (hidden.Count < editorItems.Count)
-            {
-                editorTitle.Location = new Point(12, y);
-                y = editorTitle.Bottom + 12;
-                foreach (SettingItem item in editorItems)
-                {
-                    if (hidden.Contains(item)) continue;
-                    item.SetBounds(0, y, itemWidth, item.PreferredHeight);
-                    y = item.Bottom + 12;
-                }
-            }
+            int y = content.AutoScrollPosition.Y; // as posições são da área visível, que pode estar rolada
+            y = LayoutSection(sectionTitle, appearanceItems, y, itemWidth);
+            y = LayoutSection(featuresTitle, featureItems, y, itemWidth);
             noResults.Location = new Point(12, 4);
+        }
+
+        // O título e os itens visíveis de uma seção; sem nenhum item (pesquisa), nem o título
+        int LayoutSection(Label title, List<SettingItem> items, int y, int itemWidth)
+        {
+            bool any = items.Exists(i => !hidden.Contains(i));
+            title.Visible = any;
+            if (!any) return y;
+            title.Location = new Point(12, y);
+            y = title.Bottom + 12;
+            foreach (SettingItem item in items)
+            {
+                if (hidden.Contains(item)) continue;
+                item.SetBounds(0, y, itemWidth, item.PreferredHeight);
+                y = item.Bottom + 12;
+            }
+            return y + 12;
         }
 
         void Filter()
         {
             string q = search.Text.Trim();
-            showAppearance = themeItem.Matches(q);
-            themeItem.Visible = sectionTitle.Visible = showAppearance;
             hidden.Clear();
-            foreach (SettingItem item in editorItems)
+            int total = 0;
+            foreach (SettingItem item in AllItems())
             {
+                total++;
                 bool match = item.Matches(q);
                 item.Visible = match;
                 if (!match) hidden.Add(item);
             }
-            bool anyEditor = hidden.Count < editorItems.Count;
-            editorTitle.Visible = anyEditor;
-            noResults.Visible = !showAppearance && !anyEditor;
+            noResults.Visible = hidden.Count == total;
             DoLayout();
         }
 
@@ -321,11 +394,10 @@ namespace SageEditor
             content.BackColor = theme.Background;
             Native.SetWindowTheme(content.Handle, theme.IsDark ? "DarkMode_Explorer" : null, null); // barras de rolagem
             sectionTitle.ForeColor = theme.Foreground;
-            editorTitle.ForeColor = theme.Foreground;
-            foreach (SettingItem item in editorItems) item.SetTheme(theme);
+            featuresTitle.ForeColor = theme.Foreground;
+            foreach (SettingItem item in AllItems()) item.SetTheme(theme);
             noResults.ForeColor = theme.Muted;
-            foreach (Label l in navItems) l.BackColor = theme.Background;
-            themeItem.SetTheme(theme);
+            foreach (NavNode node in navNodes) node.Label.BackColor = theme.Background;
             SelectNavColors();
             UseDarkTitleBar(theme.IsDark);
             searchBox.Invalidate();
@@ -333,8 +405,12 @@ namespace SageEditor
 
         void SelectNavColors()
         {
-            foreach (Label l in navItems)
-                l.ForeColor = l.Font.Bold ? theme.Foreground : theme.Muted;
+            foreach (NavNode node in navNodes)
+            {
+                bool on = node == selectedNode;
+                node.Label.Font = on ? titleFont : uiFont;
+                node.Label.ForeColor = on ? theme.Foreground : theme.Muted;
+            }
         }
 
         void PaintSearchBorder(object sender, PaintEventArgs e)

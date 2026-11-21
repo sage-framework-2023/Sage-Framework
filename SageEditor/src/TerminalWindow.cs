@@ -28,7 +28,7 @@ namespace SageEditor
     {
         public const string HostProgId = "Sage.TerminalHost";
         const string PositionGuid = "{DF6B0202-ED1E-4931-B770-80AF9A506B4D}"; // o VBE guarda a posição por ele
-        public const int TabImmediate = 0, TabLocals = 1, TabWatch = 2, TabConsole = 3, TabResults = 4;
+        public const int TabImmediate = 0, TabLocals = 1, TabWatch = 2, TabConsole = 3, TabResults = 4, TabProblems = 5;
         const int vbext_wt_Watch = 3, vbext_wt_Locals = 4, vbext_wt_Immediate = 5;
         // Exibir > Verificação imediata / Variáveis locais / Inspeção de variáveis
         const int ImmediateId = 2554, LocalsId = 2555, WatchId = 2556;
@@ -505,6 +505,7 @@ namespace SageEditor
             int active = host.Panel.ActiveTab;
             if (active == TabConsole) { host.Panel.Console.FocusInput(); return; }
             if (active == TabResults) { host.Panel.Results.FocusGrid(); return; }
+            if (active == TabProblems) { host.Panel.ProblemsList.FocusList(); return; }
             foreach (Borrowed b in borrowed)
                 if (b.Tab == active && b.Hwnd != IntPtr.Zero) SetFocus(b.Hwnd);
         }
@@ -541,6 +542,19 @@ namespace SageEditor
 
         // Para a marca do menu Sage > Exibir
         public static bool IsOpen { get { return Ready && (bool)toolWindow.Visible; } }
+
+        // Erro do VBA (ErrorToTerminal): abre o Painel na aba Terminal e escreve o erro em vermelho.
+        // false: sem o Painel (o controle não carregou)
+        public static bool ShowError(string text)
+        {
+            if (!Ready) return false;
+            host.Panel.SelectTab(TabConsole);
+            if (!(bool)toolWindow.Visible) toolWindow.Visible = true;
+            FitHost();
+            Repaint();
+            host.Panel.Console.PrintError(text);
+            return true;
+        }
 
         public static void ApplyTheme()
         {
@@ -631,10 +645,14 @@ namespace SageEditor
         public readonly Panel Content = new Panel();
         public readonly PsConsole Console = new PsConsole();
         public readonly ResultsView Results = new ResultsView();
+        public readonly ProblemsView ProblemsList = new ProblemsView();
         public event Action<int> TabChanged;
         public int ActiveTab { get; private set; }
 
-        readonly Rectangle[] tabs = new Rectangle[5];
+        readonly Rectangle[] tabs = new Rectangle[6];
+        // A ordem na faixa: Problemas primeiro, como nos editores modernos (os índices continuam os mesmos)
+        static readonly int[] Order = { TerminalWindow.TabProblems, TerminalWindow.TabImmediate, TerminalWindow.TabLocals,
+            TerminalWindow.TabWatch, TerminalWindow.TabConsole, TerminalWindow.TabResults };
         int hot = -1;
         float scale = 1;
 
@@ -648,11 +666,23 @@ namespace SageEditor
             Results.Dock = DockStyle.Fill;
             Results.Visible = false;
             Content.Controls.Add(Results);
+            ProblemsList.Dock = DockStyle.Fill;
+            ProblemsList.Visible = false;
+            Content.Controls.Add(ProblemsList);
             Controls.Add(Content);
+            Problems.Changed += delegate { if (!IsDisposed) Invalidate(); }; // o número no título da aba
             ApplyTheme();
         }
 
-        string[] Titles { get { return new string[] { Strings.TerminalImmediate, Strings.TerminalLocals, Strings.TerminalWatch, Strings.TerminalConsole, Strings.TerminalResults }; } }
+        string[] Titles
+        {
+            get
+            {
+                int count = Problems.Last.Count;
+                return new string[] { Strings.TerminalImmediate, Strings.TerminalLocals, Strings.TerminalWatch, Strings.TerminalConsole,
+                    Strings.TerminalResults, count > 0 ? Strings.Problems + " " + count : Strings.Problems };
+            }
+        }
 
         int StripHeight { get { return (int)Math.Round(26 * scale); } }
 
@@ -673,6 +703,10 @@ namespace SageEditor
             ActiveTab = tab;
             Console.Visible = tab == TerminalWindow.TabConsole;
             Results.Visible = tab == TerminalWindow.TabResults;
+            ProblemsList.Visible = tab == TerminalWindow.TabProblems;
+            // A primeira vez que a aba abre, já verifica
+            if (tab == TerminalWindow.TabProblems && !Problems.Checked && IsHandleCreated)
+                BeginInvoke((MethodInvoker)delegate { if (!Problems.Checked) ProblemsList.Check(); });
             Invalidate();
             if (TabChanged != null) TabChanged(tab);
         }
@@ -684,6 +718,7 @@ namespace SageEditor
             Content.BackColor = t.Background;
             Console.ApplyTheme(t);
             Results.ApplyTheme(t);
+            ProblemsList.ApplyTheme(t);
             Invalidate();
         }
 
@@ -708,9 +743,16 @@ namespace SageEditor
             }
         }
 
-        bool HasAction { get { return ActiveTab == TerminalWindow.TabConsole || ActiveTab == TerminalWindow.TabResults; } }
+        bool HasAction { get { return ActiveTab == TerminalWindow.TabConsole || ActiveTab == TerminalWindow.TabResults || ActiveTab == TerminalWindow.TabProblems; } }
 
-        string ActionText { get { return ActiveTab == TerminalWindow.TabConsole ? Strings.KillTerminal : Strings.ClearResults; } }
+        string ActionText
+        {
+            get
+            {
+                if (ActiveTab == TerminalWindow.TabProblems) return Strings.ProblemsCheck;
+                return ActiveTab == TerminalWindow.TabConsole ? Strings.KillTerminal : Strings.ClearResults;
+            }
+        }
 
         // No Resultado do DataFrame, à esquerda do Limpar Resultado: Salvar (CSV, Excel, JSON...),
         // mais largo que os outros para a seta da lista ao lado do disquete
@@ -739,7 +781,7 @@ namespace SageEditor
                 TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix | TextFormatFlags.NoPadding;
             string[] titles = Titles;
             int x = 0, pad = (int)Math.Round(14 * scale);
-            for (int i = 0; i < titles.Length; i++)
+            foreach (int i in Order)
             {
                 int width = TextRenderer.MeasureText(g, titles[i], Font, Size.Empty, flags).Width + 2 * pad;
                 Rectangle r = new Rectangle(x, 0, width, height);
@@ -768,7 +810,8 @@ namespace SageEditor
             {
                 Rectangle action = ActionButton;
                 if (hot == HotAction) using (SolidBrush b = new SolidBrush(t.Hover)) g.FillRectangle(b, action);
-                DrawActionIcon(g, action, ActiveTab == TerminalWindow.TabConsole, hot == HotAction ? t.Foreground : t.Muted);
+                DrawActionIcon(g, action, ActiveTab == TerminalWindow.TabConsole ? Icon.Trash : ActiveTab == TerminalWindow.TabProblems ? Icon.Refresh : Icon.ClearAll,
+                    hot == HotAction ? t.Foreground : t.Muted);
             }
             if (HasSave)
             {
@@ -801,7 +844,9 @@ namespace SageEditor
 
         // Os ícones do VS Code (codicons trash e clear-all), em linhas numa grade de 16, no
         // meio do botão e na escala da tela
-        void DrawActionIcon(Graphics g, Rectangle r, bool trash, Color color)
+        enum Icon { Trash, ClearAll, Refresh }
+
+        void DrawActionIcon(Graphics g, Rectangle r, Icon icon, Color color)
         {
             System.Drawing.Drawing2D.GraphicsState state = g.Save();
             try
@@ -811,7 +856,13 @@ namespace SageEditor
                 g.ScaleTransform(scale, scale);
                 using (Pen pen = new Pen(color, 1f))
                 {
-                    if (trash)
+                    if (icon == Icon.Refresh)
+                    {
+                        // codicon refresh: um arco quase fechado com a ponta de seta
+                        g.DrawArc(pen, 2.5f, 2.5f, 11f, 11f, -60f, 300f);
+                        g.DrawLines(pen, new[] { new PointF(10.5f, 1.5f), new PointF(11.5f, 4f), new PointF(9f, 5f) });
+                    }
+                    else if (icon == Icon.Trash)
                     {
                         g.DrawLine(pen, 6f, 1.5f, 10f, 1.5f);                 // alça
                         g.DrawLine(pen, 2.5f, 3.5f, 13.5f, 3.5f);             // tampa
@@ -837,6 +888,7 @@ namespace SageEditor
         {
             if (ActiveTab == TerminalWindow.TabConsole) Console.Kill();
             else if (ActiveTab == TerminalWindow.TabResults) Results.Clear();
+            else if (ActiveTab == TerminalWindow.TabProblems) ProblemsList.Check();
         }
 
         void ShowTip()

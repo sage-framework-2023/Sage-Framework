@@ -226,6 +226,8 @@ namespace SageEditor
                 subclassed[hwnd] = Native.ClassName(hwnd);
         }
 
+        const int HCBT_ACTIVATE = 5;
+
         static IntPtr CbtProc(int code, IntPtr wParam, IntPtr lParam)
         {
             if (code == Native.HCBT_CREATEWND)
@@ -244,6 +246,12 @@ namespace SageEditor
                         PanelLayout.Created(wParam, parent, cs);
                     }
                 }
+                catch (Exception ex) { Log.Error(ex); }
+            }
+            else if (code == HCBT_ACTIVATE)
+            {
+                // Caixa de erro do VBA: vai para o Terminal (ErrorToTerminal)
+                try { if (Native.ClassName(wParam) == "#32770") ErrorToTerminal.Activating(wParam); }
                 catch (Exception ex) { Log.Error(ex); }
             }
             return Native.CallNextHookEx(cbtHook, code, wParam, lParam);

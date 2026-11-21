@@ -106,6 +106,9 @@ namespace SageEditor
             TerminalWindow.Start(main, addIn);
             PanelLayout.Vbe = vbe;
             PanelLayout.Start(main);
+            ErrorToTerminal.Vbe = vbe;
+            Problems.Vbe = vbe;
+            ErrorToTerminal.Start(main);
 
             menu = new SageMenu((object)vbe, new Action(OpenSettings));
             try { Syntax.Scan(vbe); }
@@ -123,6 +126,10 @@ namespace SageEditor
                 catch (Exception ex) { Log.Error(ex); }
                 try { AutoReference.Poll(vbe); ImmediateCommands.Poll(); }
                 catch (Exception) { } // VBE ocupado; tenta no próximo ciclo
+                try { Problems.Poll(); }
+                catch (Exception ex) { Log.Error(ex); }
+                try { ErrorToTerminal.Poll(); }
+                catch (Exception ex) { Log.Error(ex); }
                 try { if (menu != null) menu.Poll(); }
                 catch (Exception) { } // idem
             };
